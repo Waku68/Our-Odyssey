@@ -472,7 +472,7 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 .places-top > .chips .chip.wish.on { background: var(--pink-d); }
 /* 見出し〜ボタンの行の帯：地図の上にかぶせて、地図を触れないようにする（ここをなぞるとページがスクロール） */
 .places-top > .places-shield { grid-row: 1 / 3; grid-column: 1; position: relative; z-index: 2; }
-.places-top > .places-spacer { grid-row: 3; grid-column: 1; height: min(calc(100vw - 48px), 432px); margin-top: 12px; }
+.places-top > .places-spacer { grid-row: 3; grid-column: 1; height: calc(min(calc(100vw - 48px), 432px) - 40px); margin-top: 12px; }
 .places-top > .map.big-map { grid-row: 1 / 4; grid-column: 1; aspect-ratio: auto; height: auto; margin: 0; z-index: 1; border: none; border-radius: 16px;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px));
   mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px)); }
