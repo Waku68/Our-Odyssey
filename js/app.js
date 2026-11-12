@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=18';
-import { editPhoto } from './photo-editor.js?v=18';
+import { createStore } from './store.js?v=19';
+import { editPhoto } from './photo-editor.js?v=19';
+import { ask, notice } from './ask.js?v=19';
 
 const app = document.getElementById('app');
 
@@ -104,7 +105,7 @@ async function pickPhoto(opts = {}) {
   return editPhoto(f, { maxSide: maxSide(), lang, ...opts });
 }
 async function act(fn) {
-  try { await fn(); await refresh(); } catch (e) { alert(e.message || String(e)); }
+  try { await fn(); await refresh(); } catch (e) { notice(tr('うまくいきませんでした', "Something went wrong"), { text: e.message || String(e) }); }
 }
 
 /* ---------- 読みこみと画面の切りかえ ---------- */
@@ -402,9 +403,14 @@ function showDialog(dlg) {
   dlg.addEventListener('cancel', (ev) => { ev.preventDefault(); closeDialog(dlg); });
   dlg.showModal();
 }
-function closeDialog(dlg, force = false) {
-  if (!dlg.open || dlg.classList.contains('closing')) return;
-  if (!force && dlg.guard && !dlg.guard()) return;
+async function closeDialog(dlg, force = false) {
+  if (!dlg.open || dlg.classList.contains('closing') || dlg.asking) return;
+  if (!force && dlg.guard) {
+    dlg.asking = true;
+    const ok = await dlg.guard();
+    dlg.asking = false;
+    if (!ok || !dlg.open) return;
+  }
   dlg.classList.add('closing');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   setTimeout(() => dlg.close(), reduce ? 0 : 170);
@@ -564,7 +570,7 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
       const reedit = async () => {
         let src = draft?.file, state = draft?.state;
         if (!src && v.photo) {
-          try { src = await (await fetch(await store.photoUrl(v.photo))).blob(); } catch { alert(tr('写真を読みこめませんでした。', "Couldn't load the photo.")); return; }
+          try { src = await (await fetch(await store.photoUrl(v.photo))).blob(); } catch { notice(tr('写真を読みこめませんでした', "Couldn't load the photo")); return; }
         }
         if (!src) return;
         const out = await editPhoto(src, { maxSide: maxSide(), lang, withState: true, state });
@@ -625,7 +631,8 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
 function openForm({ title, en, lead, fields, initial, onSubmit }) {
   const dlg = h('dialog', { class: 'modal', 'aria-label': title });
   const fp = formParts({ fields, initial, onSubmit, after: async () => { closeDialog(dlg, true); await refresh(); } });
-  dlg.guard = () => !fp.isDirty() || confirm(tr('書きかけの内容を捨てて閉じますか？', 'Discard what you wrote and close?'));
+  dlg.guard = async () => !fp.isDirty() || ask(tr('書きかけの内容を捨てますか？', 'Discard what you wrote?'),
+    { text: tr('閉じると、いま書いた内容と写真は消えます。', 'If you close now, your text and photo will be lost.'), ok: 'DISCARD', cancel: 'KEEP WRITING', danger: true });
   dlg.append(h('form', { class: 'sheet', novalidate: true, onsubmit: fp.handle },
     h('div', { class: 'mhead' },
       h('div', {}, en && h('div', { class: 'tag' }, en), h('h2', {}, title), lead && h('p', { class: 'lead' }, lead)),
@@ -679,8 +686,8 @@ function talk(e) {
     h('form', { onsubmit: (ev) => { ev.preventDefault(); if (input.value.trim()) act(() => store.addComment(e.id, input.value.trim())); } },
       input, h('button', { class: 'btn small', type: 'submit' }, 'SEND')));
 }
-function removeEntry(e) {
-  if (!confirm(tr('消しますか？元には戻せません。', "Delete this? This can't be undone."))) return;
+async function removeEntry(e) {
+  if (!(await ask(tr('消しますか？', 'Delete this?'), { text: tr('元には戻せません。', "This can't be undone."), ok: 'DELETE', danger: true }))) return;
   act(async () => { await store.removeEntry(e.id); await store.removePhoto(e.photo); });
 }
 function entryCard(e, key) {
@@ -1339,7 +1346,7 @@ function moodPage() {
   const paint = () => levelBtns.forEach((b, i) => { b.classList.toggle('on', v.level === i + 1); b.setAttribute('aria-pressed', String(v.level === i + 1)); });
   const note = h('textarea', { placeholder: tr('なにがあった？（なくてもいい）', 'What happened? (optional)'), oninput: (ev) => { v.note = ev.target.value; } });
   const saveBtn = h('button', { class: 'btn', type: 'submit' });
-  const del = h('button', { type: 'button', class: 'link', onclick: () => { if (confirm(tr('この日の記録を消しますか？', 'Delete the entry for this day?'))) act(() => store.removeMood(v.id)); } }, 'DELETE THIS DAY');
+  const del = h('button', { type: 'button', class: 'link', onclick: async () => { if (await ask(tr('この日の記録を消しますか？', 'Delete the entry for this day?'), { ok: 'DELETE', danger: true })) act(() => store.removeMood(v.id)); } }, 'DELETE THIS DAY');
   const loadDay = (d) => {
     const m = byDay.get(d);
     v.id = m?.id; v.level = m?.level; v.note = m?.note || '';
@@ -1415,7 +1422,7 @@ async function backup() {
     download(await zip.generateAsync({ type: 'blob' }), `our-odyssey-${stamp}.zip`);
   } catch {
     download(new Blob([json], { type: 'application/json' }), `our-odyssey-${stamp}.json`);
-    alert(tr('写真をまとめられなかったので、文章だけを保存しました。', "Couldn't bundle the photos, so only the text was saved."));
+    notice(tr('写真をまとめられなかったので、文章だけを保存しました', "Couldn't bundle the photos, so only the text was saved"));
   }
 }
 function settingsPage() {
@@ -1445,7 +1452,7 @@ function settingsPage() {
           h('p', {}, tr(`いまは「${nameOf(me())}」として見ています。`, `You're viewing as ${nameOf(me())}.`)),
           h('div', { class: 'row' },
             h('button', { class: 'btn ghost', onclick: () => { store.switchUser(); refresh(); } }, `SWITCH TO ${partner() ? nameOf(partner().id) : 'PARTNER'}`),
-            h('button', { class: 'link', onclick: () => { if (confirm(tr('お試しで書いた内容をぜんぶ消しますか？', 'Delete everything written in demo mode?'))) { localStorage.removeItem('our-odyssey-demo'); location.reload(); } } }, 'CLEAR DEMO DATA')))
+            h('button', { class: 'link', onclick: async () => { if (await ask(tr('お試しで書いた内容をぜんぶ消しますか？', 'Delete everything written in demo mode?'), { ok: 'DELETE ALL', danger: true })) { localStorage.removeItem('our-odyssey-demo'); location.reload(); } } }, 'CLEAR DEMO DATA')))
         : h('section', { class: 'card' }, h('h2', {}, tr('ログアウト', 'Log out')),
           h('button', { class: 'btn ghost', onclick: async () => { await store.signOut(); location.hash = '#/'; start(); } }, 'LOG OUT'))));
 }
@@ -1491,7 +1498,7 @@ function setupSync() {
   document.body.append(syncPill);
   store.onChange = showSync;
   store.onSync = ({ sent, failed }) => {
-    if (failed.length) alert(tr('送れなかった記録がありました：', "Some entries couldn't be sent: ") + (failed[0].error.message || failed[0].error));
+    if (failed.length) notice(tr('送れなかった記録がありました', "Some entries couldn't be sent"), { text: String(failed[0].error.message || failed[0].error) });
     // あずけていた分が送れたら、相手の更新もいっしょに取りなおす（書いている途中なら邪魔しない）
     if (sent && !document.querySelector('dialog[open]')) refresh().catch(() => {});
   };

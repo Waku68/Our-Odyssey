@@ -1,6 +1,8 @@
 // 写真の編集画面。えらんだ写真を、切り取り・回転・色味・飾り（スタンプ、文字、日付、ふち）してから使う。
 // editPhoto(file) → JPEG の Blob（やめたら null）。withState のときは { blob, state } を返し、state を渡すと続きから直せる。
 
+import { ask, notice } from './ask.js?v=19';
+
 const NAVY = '#16204F', PINK = '#F2C4CE', PINK_D = '#E79AAB', PAPER = '#FBF1EF';
 const COLORS = [NAVY, PINK_D, PINK, '#FFFFFF'];
 const ASPECTS = [['orig', 'ORIGINAL'], ['1:1', '1:1'], ['4:5', '4:5'], ['3:4', '3:4'], ['4:3', '4:3'], ['16:9', '16:9']];
@@ -235,7 +237,7 @@ function renderAll(state, src, W, photoLayer, selId) {
 export async function editPhoto(file, opts = {}) {
   const tr = (ja, en) => (opts.lang === 'en' ? en : ja);
   let src;
-  try { src = await loadSource(file); } catch { alert(tr('この写真は開けませんでした。', "Couldn't open this photo.")); return null; }
+  try { src = await loadSource(file); } catch { notice(tr('この写真は開けませんでした', "Couldn't open this photo")); return null; }
   await Promise.all([loadTulips(),
     document.fonts?.load('400 40px Anton').catch(() => {}), document.fonts?.load('800 40px "M PLUS 1p"').catch(() => {})]);
 
@@ -465,7 +467,12 @@ export async function editPhoto(file, opts = {}) {
       setTimeout(() => dlg.close(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 170);
       resolve(v);
     };
-    const cancel = () => { if (!dirty || confirm(tr('編集をやめますか？', 'Discard your edits?'))) finish(null); };
+    let asking = false;
+    const cancel = async () => {
+      if (asking) return;
+      if (dirty) { asking = true; const ok = await ask(tr('編集をやめますか？', 'Discard your edits?'), { text: tr('ここまでの編集は消えます。', 'Your edits so far will be lost.'), ok: 'DISCARD', cancel: 'KEEP EDITING', danger: true }); asking = false; if (!ok) return; }
+      finish(null);
+    };
     const save = async () => {
       doneBtn.disabled = true;
       sel = null;
@@ -477,7 +484,7 @@ export async function editPhoto(file, opts = {}) {
       if (g.s > 1) W = Math.max(600, W / g.s);
       const out = renderAll(state, src, Math.round(W), null, null);
       const blob = await new Promise((ok) => out.toBlob(ok, 'image/jpeg', 0.86));
-      if (!blob) { doneBtn.disabled = false; alert(tr('写真を作れませんでした。', "Couldn't create the photo.")); return; }
+      if (!blob) { doneBtn.disabled = false; notice(tr('写真を作れませんでした', "Couldn't create the photo")); return; }
       const st = JSON.parse(JSON.stringify(state));
       finish(opts.withState ? { blob, state: st } : blob);
     };
