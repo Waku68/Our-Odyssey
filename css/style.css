@@ -490,3 +490,6 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 #mood-add .mcard .levels button.on { background-color: var(--navy); }
 #place-add .mcard .day.on, #mood-add .mcard .day.on { background-color: var(--navy); }
 #place-add .seg { background: rgba(255, 255, 255, .55); }
+/* 写真を透かした追加フォームは、左右の余白なしで画面いっぱいに */
+#place-add .mcard, #mood-add .mcard { margin: 0 -24px; padding-left: 24px; padding-right: 24px; border-radius: 0; box-shadow: none; }
+#place-add .mcard .strip, #mood-add .mcard .strip { margin: 0 -24px; padding-left: 24px; padding-right: 24px; scroll-padding: 0 24px; }
