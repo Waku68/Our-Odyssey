@@ -12,7 +12,7 @@ function jsonp(url, cbParam = 'callback') {
     s.src = url + '&' + cbParam + '=' + cb; document.head.append(s);
   });
 }
-const q = 'wonderwall';
+const q = encodeURIComponent(new URLSearchParams(location.search).get('q') || 'wonderwall');
 const tests = [
   ['itunes jsonp', () => jsonp(`https://itunes.apple.com/search?term=${q}&country=jp&lang=ja_jp&media=music&entity=song&limit=3`).then((j) => j.results.map((r) => r.trackName + ' / ' + r.artistName + ' / ' + !!r.previewUrl))],
   ['itunes fetch', () => fetch(`https://itunes.apple.com/search?term=${q}&country=jp&media=music&entity=song&limit=3`).then((r) => r.json()).then((j) => j.results.map((r) => r.trackName + ' / ' + !!r.previewUrl))],
