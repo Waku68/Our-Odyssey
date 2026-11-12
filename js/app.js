@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=24';
-import { editPhoto } from './photo-editor.js?v=24';
-import { ask, notice } from './ask.js?v=24';
+import { createStore } from './store.js?v=25';
+import { editPhoto } from './photo-editor.js?v=25';
+import { ask, notice } from './ask.js?v=25';
 
 const app = document.getElementById('app');
 

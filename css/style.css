@@ -481,3 +481,12 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 .places-top > .map.big-map { grid-row: 1 / 4; grid-column: 1; aspect-ratio: auto; height: auto; margin: 0; z-index: 1; border: none; border-radius: 16px;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px));
   mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px)); }
+/* 追加フォームの裏に写真を透かす（上に紙色の膜をかけて、文字と入力欄を読みやすく） */
+#place-add .mcard, #mood-add .mcard { background-color: var(--paper); background-size: cover; background-position: center top; background-repeat: no-repeat; }
+#place-add .mcard { background-image: linear-gradient(rgba(251, 241, 239, .58), rgba(251, 241, 239, .72)), url(../assets/form-places.webp); }
+#mood-add .mcard { background-image: linear-gradient(rgba(251, 241, 239, .42), rgba(251, 241, 239, .6)), url(../assets/form-mood.webp); }
+#place-add .mcard input[type=text], #place-add .mcard textarea, #place-add .mcard .drop, #place-add .mcard .day,
+#mood-add .mcard textarea, #mood-add .mcard .day, #mood-add .mcard .levels button { background-color: rgba(255, 255, 255, .82); }
+#mood-add .mcard .levels button.on { background-color: var(--navy); }
+#place-add .mcard .day.on, #mood-add .mcard .day.on { background-color: var(--navy); }
+#place-add .seg { background: rgba(255, 255, 255, .55); }
