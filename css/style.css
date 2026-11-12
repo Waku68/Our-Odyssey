@@ -371,3 +371,7 @@ dialog.modal.editor { max-width: 520px; max-height: min(94vh, 980px); }
 .seg button { min-height: 40px; border: none; border-radius: 999px; background: transparent; font-family: var(--en); font-size: 15px; letter-spacing: .08em; opacity: .6; transition: background .2s, color .2s, opacity .2s; }
 .seg button.on { opacity: 1; background: var(--navy); color: var(--pink); }
 .seg button.wish.on { background: var(--pink-d); color: var(--navy); }
+/* ひとこと・写真の空白を小さめに */
+.mcard textarea { min-height: 76px; }
+.mcard .drop.is-empty { height: 64px; }
+.mcard .drop.is-empty .drop-txt { flex-direction: row; gap: 8px; align-items: baseline; }

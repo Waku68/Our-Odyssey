@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=13';
-import { editPhoto } from './photo-editor.js?v=13';
+import { createStore } from './store.js?v=14';
+import { editPhoto } from './photo-editor.js?v=14';
 
 const app = document.getElementById('app');
 
