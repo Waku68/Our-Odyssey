@@ -1,8 +1,8 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=31';
-import { editPhoto } from './photo-editor.js?v=31';
-import { ask, notice } from './ask.js?v=31';
-import * as theme from './theme.js?v=31';
+import { createStore } from './store.js?v=32';
+import { editPhoto } from './photo-editor.js?v=32';
+import { ask, notice } from './ask.js?v=32';
+import * as theme from './theme.js?v=32';
 const { TH } = theme;
 theme.apply();
 
@@ -862,16 +862,39 @@ function jsonp(url) {
   });
 }
 const toTrack = (r) => r && r.previewUrl && ({ id: r.trackId, name: r.trackName, artist: r.artistName, preview: r.previewUrl,
-  art: (r.artworkUrl100 || '').replace(/\/\d+x\d+bb\./, '/600x600bb.'), url: r.trackViewUrl });
+  art: (r.artworkUrl100 || '').replace(/\/\d+x\d+bb\./, '/600x600bb.'), url: r.trackViewUrl, from: 'Apple Music' });
 const songQuery = (title) => title.replace(/[／/|｜\-–—「」『』"]/g, ' ').replace(/\s+/g, ' ').trim();
+async function getJson(url, ms = 8000) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+  try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error(String(r.status)); return await r.json(); } finally { clearTimeout(t); }
+}
+// Apple Music（iTunes）：ふつうの読みこみ → だめなら JSONP
+async function itunesSongs(q) {
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&country=jp&lang=ja_jp&media=music&entity=song&limit=8`;
+  let j;
+  try { j = await getJson(url); } catch { j = await jsonp(url); }
+  return (j.results || []).map(toTrack).filter(Boolean);
+}
+// 予備：Deezer（こちらも30秒の試聴がある）
+async function deezerSongs(q) {
+  const j = await jsonp(`https://api.deezer.com/search?q=${encodeURIComponent(q)}&output=jsonp&limit=8`);
+  return (j.data || []).filter((d) => d.preview).map((d) => ({ id: `dz${d.id}`, name: d.title, artist: d.artist?.name || '', preview: d.preview,
+    art: d.album?.cover_big || '', url: d.link, from: 'Deezer' }));
+}
 const songSearches = new Map();
 function searchSongs(title) {
   const q = songQuery(title);
   if (!q) return Promise.resolve([]);
   if (!songSearches.has(q)) {
-    songSearches.set(q, jsonp(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&country=jp&lang=ja_jp&media=music&entity=song&limit=8`)
-      .then((j) => (j.results || []).map(toTrack).filter(Boolean))
-      .catch((e) => { songSearches.delete(q); throw e; }));
+    songSearches.set(q, (async () => {
+      let a = null, b = null;
+      try { a = await itunesSongs(q); } catch { /* 予備へ */ }
+      if (a?.length) return a;
+      try { b = await deezerSongs(q); } catch { /* どちらもだめ */ }
+      if (b?.length) return b;
+      if (a || b) return [];
+      throw new Error('search failed');
+    })().catch((e) => { songSearches.delete(q); throw e; }));
   }
   return songSearches.get(q);
 }
@@ -987,10 +1010,10 @@ function songPlayer(e) {
       h('div', { class: 'song-main' },
         h('div', { class: 'song-art' }, t.art && h('img', { src: t.art, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }), btn),
         h('div', { class: 'song-txt' }, h('b', {}, t.name), h('small', {}, t.artist),
-          h('span', { class: 'song-bar' }, bar), h('small', { class: 'song-note' }, tr('Apple Music の30秒試聴', '30-second Apple Music preview')))),
+          h('span', { class: 'song-bar' }, bar), h('small', { class: 'song-note' }, tr(`${t.from} の30秒試聴`, `30-second ${t.from} preview`)))),
       h('div', { class: 'song-links' },
         others && h('button', { type: 'button', class: 'chip', onclick: () => { if (audio.key === key) { audio.el.pause(); audio.key = null; } i = (i + 1) % tracks.length; setSongPick(e, i); render(); } }, tr('ちがう曲？', 'NOT THIS ONE?')),
-        t.url && h('a', { class: 'chip', href: t.url, target: '_blank', rel: 'noopener' }, 'APPLE MUSIC'),
+        t.url && h('a', { class: 'chip', href: t.url, target: '_blank', rel: 'noopener' }, t.from.toUpperCase()),
         h('a', { class: 'chip', href: `https://open.spotify.com/search/${encodeURIComponent(`${t.name} ${t.artist}`)}`, target: '_blank', rel: 'noopener' }, 'SPOTIFY'),
         h('a', { class: 'chip', href: `https://music.youtube.com/search?q=${encodeURIComponent(`${t.name} ${t.artist}`)}`, target: '_blank', rel: 'noopener' }, 'YOUTUBE')));
     paint();
@@ -1001,7 +1024,7 @@ function songPlayer(e) {
 }
 // 曲の写真の候補：ジャケット写真
 async function songPhotos(q) {
-  try { return (await searchSongs(q)).filter((t) => t.art).slice(0, 4).map((t) => ({ url: t.art, title: `${t.name} / ${t.artist}`, from: 'Apple Music' })); } catch { return []; }
+  try { return (await searchSongs(q)).filter((t) => t.art).slice(0, 4).map((t) => ({ url: t.art, title: `${t.name} / ${t.artist}`, from: t.from })); } catch { return []; }
 }
 
 function talk(e, fresh = new Set()) {
