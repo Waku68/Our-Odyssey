@@ -55,8 +55,8 @@ img { max-width: 100%; display: block; }
 .flower { position: absolute; pointer-events: none; height: auto; z-index: 1;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); }
-.flower.blue { left: -21.5%; bottom: 0; width: 64%; }
-.flower.pink { right: -14%; bottom: 0; width: 49%; }
+.flower.blue { left: -13%; bottom: 0; width: 50%; }
+.flower.pink { right: -13%; bottom: 0; width: 50%; }
 .home .banner { align-self: stretch; }
 .hero-pin.on { margin-bottom: -32vh; }
 .hero-pin.on > .home { position: sticky; will-change: opacity, transform; backface-visibility: hidden; }
