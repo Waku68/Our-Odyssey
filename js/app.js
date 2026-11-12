@@ -178,8 +178,7 @@ function home() {
     if (e) store.photoUrl(e.photo).then((u) => { b.style.backgroundImage = `url("${u}")`; });
     return b;
   };
-  const root = h('div', {},
-    h('div', { class: 'home' },
+  const heroEl = h('div', { class: 'home' },
       pageNav(),
       h('div', { class: 'tag' }, `Since ${dots(CONFIG.START_DATE)}`),
       h('p', { class: 'big first' }, String(days)),
@@ -188,11 +187,41 @@ function home() {
       h('div', { class: 'stage' },
         slot('a', 'ふたりの写真'), slot('b', '思い出の品の写真'),
         h('img', { class: 'flower blue', src: 'assets/tulip-blue.webp', alt: '' }),
-        h('img', { class: 'flower pink', src: 'assets/tulip-pink.webp', alt: '' }))),
+        h('img', { class: 'flower pink', src: 'assets/tulip-pink.webp', alt: '' })));
+  const pin = h('div', { class: 'hero-pin' }, heroEl);
+  const root = h('div', {}, pin,
     store.mode === 'demo' && h('p', { class: 'note' }, 'お試しモード：書いた内容はこの端末にだけ保存されます。'),
     timeline());
-  requestAnimationFrame(() => fadeIn(root));
+  requestAnimationFrame(() => { fadeIn(root); pinHero(pin, heroEl); });
   return root;
+}
+// 1384 DAYS をその場に止めたまま、スクロールに合わせて消していく。消えきったら年表が上がってくる。
+function pinHero(pin, hero) {
+  if (reduceMotion()) return;
+  pin.classList.add('on');
+  let lead = 0, dist = 1, raf = 0;
+  const layout = () => {
+    const V = window.innerHeight;
+    const H = hero.offsetHeight;
+    lead = Math.max(0, H - V);
+    dist = Math.round(V * 0.75);
+    hero.style.top = `${Math.min(0, V - H)}px`;
+    pin.style.height = `${H + dist}px`;
+  };
+  const update = () => {
+    raf = 0;
+    if (!pin.isConnected) { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); ro.disconnect(); return; }
+    const p = Math.min(1, Math.max(0, -pin.getBoundingClientRect().top / (lead + dist)));
+    hero.style.opacity = String(1 - p);
+    hero.style.transform = `translateY(${(-p * 28).toFixed(1)}px) scale(${(1 - p * 0.07).toFixed(3)})`;
+    hero.style.visibility = p >= 1 ? 'hidden' : '';
+  };
+  const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+  const ro = new ResizeObserver(() => { layout(); onScroll(); });
+  ro.observe(hero);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  layout(); update();
 }
 function timeline() {
   const kind = { gift: '贈りもの', place: '過ごした場所', anniversary: '記念日' };
