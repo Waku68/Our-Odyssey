@@ -468,3 +468,16 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 .mpop-txt p { margin-top: 2px; font-size: 11.5px; max-height: 5.8em; }
 .mpop-txt p.none { font-size: 11px; }
 .mpop-more { margin-top: 2px; min-height: 26px; font-size: 11px; }
+/* PLACES：地図を見出しの裏まで広げる。左右は余白を残して、そこを触ればページがスクロールする */
+.places-top { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+.places-top > .head { grid-row: 1; grid-column: 1; position: relative; z-index: 3; pointer-events: none; }
+.places-top > .chips { grid-row: 2; grid-column: 1; position: relative; z-index: 3; align-self: end; }
+.places-top > .chips .chip { background: var(--paper); }
+.places-top > .chips .chip.on { background: var(--navy); }
+.places-top > .chips .chip.wish.on { background: var(--pink-d); }
+/* 見出し〜ボタンの行の帯：地図の上にかぶせて、地図を触れないようにする（ここをなぞるとページがスクロール） */
+.places-top > .places-shield { grid-row: 1 / 3; grid-column: 1; position: relative; z-index: 2; }
+.places-top > .places-spacer { grid-row: 3; grid-column: 1; height: min(calc(100vw - 48px), 432px); margin-top: 12px; }
+.places-top > .map.big-map { grid-row: 1 / 4; grid-column: 1; aspect-ratio: auto; height: auto; margin: 0; z-index: 1; border: none; border-radius: 16px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px));
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px)); }

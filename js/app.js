@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=22';
-import { editPhoto } from './photo-editor.js?v=22';
-import { ask, notice } from './ask.js?v=22';
+import { createStore } from './store.js?v=23';
+import { editPhoto } from './photo-editor.js?v=23';
+import { ask, notice } from './ask.js?v=23';
 
 const app = document.getElementById('app');
 
@@ -794,7 +794,7 @@ function pinIcon(L, e) {
 // 遠すぎるものは出さない（画面の中心から、縦横それぞれ画面 EDGE_REACH 枚ぶんまで）。
 const EDGE_REACH = 3;
 // ピンをタップしたときの吹き出し。地図は動かさず、ピンの上に出す（上に入りきらないときは下に出す。ピンは隠さない）
-function mapBubble(L, map, mapEl) {
+function mapBubble(L, map, mapEl, topInset = () => 0) {
   const pop = h('div', { class: 'mpop-bubble', hidden: true, role: 'dialog' });
   mapEl.append(pop);
   L.DomEvent.disableClickPropagation(pop);
@@ -808,7 +808,7 @@ function mapBubble(L, map, mapEl) {
     const left = Math.min(Math.max(p.x - bw / 2, 10), w - bw - 10);
     const head = p.y - (cur.photo ? 64 : 18);   // ピンの頭の少し上
     const foot = p.y + (cur.photo ? 6 : 14);    // ピンの少し下
-    const room = head - 11 - 8, roomBelow = hgt - foot - 11 - 8;
+    const room = head - 11 - 8 - topInset(), roomBelow = hgt - foot - 11 - 8;
     const below = bh > room && roomBelow > room;
     pop.classList.toggle('below', below);
     pop.style.left = `${left}px`;
@@ -834,7 +834,7 @@ function mapBubble(L, map, mapEl) {
             : h('p', { class: 'none' }, wish ? tr('行きたい理由はまだ書いてありません', 'No reason written yet') : tr('ひとことはまだありません', 'No note yet')))),
       h('button', { type: 'button', class: 'mpop-more', onclick: () => openDetail(e.id) }, 'DETAILS →'));
     pop.hidden = false;
-    if (bring) map.panInside([e.lat, e.lng], { padding: [48, 48], animate: !reduceMotion() });
+    if (bring) map.panInside([e.lat, e.lng], { paddingTopLeft: [48, topInset() + 48], paddingBottomRight: [48, 48], animate: !reduceMotion() });
     place();
     pop.classList.remove('pop-in'); void pop.offsetWidth; pop.classList.add('pop-in');
   };
@@ -842,7 +842,7 @@ function mapBubble(L, map, mapEl) {
   map.on('click', hide);
   return { show, hide };
 }
-function edgeDots(L, map, mapEl, pts, onPick) {
+function edgeDots(L, map, mapEl, pts, onPick, topInset = () => 0) {
   const layer = h('div', { class: 'edge-dots' });
   mapEl.append(layer);
   L.DomEvent.disableClickPropagation(layer);
@@ -853,18 +853,19 @@ function edgeDots(L, map, mapEl, pts, onPick) {
   const PAD = 12;
   const update = () => {
     const { x: w, y: hgt } = map.getSize();
-    const cx = w / 2, cy = hgt / 2;
+    const top = Math.min(topInset(), hgt - 40);
+    const cx = w / 2, hy = (hgt - top) / 2, cy = top + hy;
     pts.forEach((e, i) => {
       const d = dots[i];
       const p = map.latLngToContainerPoint([e.lat, e.lng]);
       const dx = p.x - cx, dy = p.y - cy;
-      const inside = p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= hgt;
-      const far = Math.abs(dx) > cx * EDGE_REACH || Math.abs(dy) > cy * EDGE_REACH;
+      const inside = p.x >= 0 && p.x <= w && p.y >= top && p.y <= hgt;
+      const far = Math.abs(dx) > cx * EDGE_REACH || Math.abs(dy) > hy * EDGE_REACH;
       d.hidden = inside || far;
       if (d.hidden) return;
-      const t = Math.min((cx - PAD) / Math.abs(dx || 1e-9), (cy - PAD) / Math.abs(dy || 1e-9));
+      const t = Math.min((cx - PAD) / Math.abs(dx || 1e-9), (hy - PAD) / Math.abs(dy || 1e-9));
       // 近いほどはっきり、遠いほど薄く
-      const near = Math.max(Math.abs(dx) / cx, Math.abs(dy) / cy); // 1（すぐ外）〜 EDGE_REACH
+      const near = Math.max(Math.abs(dx) / cx, Math.abs(dy) / hy); // 1（すぐ外）〜 EDGE_REACH
       d.style.left = `${cx + dx * t}px`;
       d.style.top = `${cy + dy * t}px`;
       d.style.opacity = String(1 - 0.55 * (near - 1) / (EDGE_REACH - 1));
@@ -883,18 +884,26 @@ function mapPage() {
     h('button', { class: `chip ${k}${mapFilter === k ? ' on' : ''}`, onclick: () => { mapFilter = k; draw(); } }, label)));
 
   const mapEl = h('div', { class: 'map big-map' });
+  // 見出しとALL/PLACES/WISHESの行の裏にも地図を出すが、そこは見るだけ（触るとページのスクロール）。
+  // shield がその帯を覆って、地図に指が届かないようにしている
+  const shield = h('div', { class: 'places-shield', 'aria-hidden': 'true' });
+  const topInset = () => shield.offsetHeight;
+  const syncInset = () => mapEl.style.setProperty('--inset', `${topInset()}px`);
   leaflet().then((L) => {
     const map = L.map(mapEl, { zoomControl: false });
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19 }).addTo(map);
-    const bubble = mapBubble(L, map, mapEl);
+    syncInset();
+    map.on('resize', syncInset);
+    const bubble = mapBubble(L, map, mapEl, topInset);
     for (const e of pts) L.marker([e.lat, e.lng], { icon: pinIcon(L, e), title: e.title, keyboard: true }).addTo(map).on('click', () => bubble.show(e));
+    const fit = { paddingTopLeft: [40, topInset() + 40], paddingBottomRight: [40, 40] };
     if (mapView) map.setView(mapView.c, mapView.z);
-    else if (pts.length === 1) map.setView([pts[0].lat, pts[0].lng], 13);
-    else if (pts.length) map.fitBounds(pts.map((e) => [e.lat, e.lng]), { padding: [40, 40], maxZoom: 14 });
+    else if (pts.length === 1) map.fitBounds([[pts[0].lat, pts[0].lng], [pts[0].lat, pts[0].lng]], { ...fit, maxZoom: 13 });
+    else if (pts.length) map.fitBounds(pts.map((e) => [e.lat, e.lng]), { ...fit, maxZoom: 14 });
     else map.setView([36.2, 138.2], 5);
     map.on('moveend', () => { mapView = { c: map.getCenter(), z: map.getZoom() }; });
-    edgeDots(L, map, mapEl, pts, (e) => bubble.show(e, true));
+    edgeDots(L, map, mapEl, pts, (e) => bubble.show(e, true), topInset);
     // 日本全体が見えるくらい引いたときは、名前が重なるので出さない
     const labels = () => mapEl.classList.toggle('labels-off', map.getZoom() < 7);
     map.on('zoomend', labels); labels();
@@ -920,8 +929,7 @@ function mapPage() {
   renderAdd();
 
   return h('div', {}, pageNav(),
-    pageHead('Places', ''),
-    chips, mapEl,
+    h('div', { class: 'places-top' }, pageHead('Places', ''), chips, mapEl, shield, h('div', { class: 'places-spacer' })),
     h('p', { class: 'legend' }, h('span', { class: 'lg place' }), tr('過ごした場所　', 'Been there　'), h('span', { class: 'lg wish' }),
       tr('行きたいところ　・ピンをタップでひとこと', 'Want to go　・Tap a pin to peek')),
     shownList.length ? h('div', { class: 'list' }, shownList.map(row)) : h('p', { class: 'empty' }, tr('まだ何もありません。下から最初のひとつを。', 'Nothing here yet. Add the first one below.')),
