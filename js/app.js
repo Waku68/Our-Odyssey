@@ -1,7 +1,10 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=30';
-import { editPhoto } from './photo-editor.js?v=30';
-import { ask, notice } from './ask.js?v=30';
+import { createStore } from './store.js?v=31';
+import { editPhoto } from './photo-editor.js?v=31';
+import { ask, notice } from './ask.js?v=31';
+import * as theme from './theme.js?v=31';
+const { TH } = theme;
+theme.apply();
 
 const app = document.getElementById('app');
 
@@ -159,7 +162,7 @@ function hashStr(str) {
   b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
   return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36);
 }
-const entrySig = (e) => hashStr(JSON.stringify([e.section, e.title, e.body, e.date, e.category, e.lat, e.lng, e.photo, ...(e.link ? [e.link] : [])]));
+const entrySig = (e) => hashStr(JSON.stringify([e.section, e.title, e.body, e.date, e.category, e.lat, e.lng, e.photo]));
 const moodSig = (m) => hashStr(JSON.stringify([m.date, m.level, m.note, m.shared]));
 function partnerPairs() {
   const out = [];
@@ -392,8 +395,7 @@ async function setHero(k, e) {
   const blob = await pickPhoto({ aspect: k === 'a' ? '3:4' : '4:5' }); if (!blob) return;
   act(async () => {
     const photo = await store.uploadPhoto(blob);
-    // どちらが置いた写真でも差しかえられる（前の写真は消す）
-    if (e) { await store.saveEntry({ id: e.id, photo }); if (e.photo) store.removePhoto(e.photo).catch(() => {}); }
+    if (e && e.author === me()) await store.saveEntry({ id: e.id, photo });
     else await store.saveEntry({ section: 'hero', category: k, title: '', photo });
   });
 }
@@ -411,8 +413,8 @@ function leaflet() {
 }
 const TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-const pin = (L, lat, lng, fill = '#16204F') =>
-  L.circleMarker([lat, lng], { radius: 9, color: '#16204F', weight: 2, fillColor: fill, fillOpacity: 1 });
+const pin = (L, lat, lng, fill = TH.navy) =>
+  L.circleMarker([lat, lng], { radius: 9, color: TH.navy, weight: 2, fillColor: fill, fillOpacity: 1 });
 
 /* ---------- 場所から写真をさがす（Wikipedia の記事の写真） ---------- */
 async function wikiThumb(lc, title) {
@@ -816,8 +818,6 @@ const F = {
   get body() { return { name: 'body', type: 'textarea', label: tr('ひとこと', 'Note'), ph: tr('そのときのこと、思ったことを自由に', 'What happened, how you felt — anything') }; },
   get geo() { return { type: 'geo', label: tr('地図の場所', 'Location'), hint: tr('入れておくと地図にピンが立ちます', 'Adds a pin to the map') }; },
   get photo() { return { type: 'photo', label: tr('写真', 'Photo') }; },
-  get link() { return { name: 'link', type: 'url', label: tr('リンク', 'Link'), ph: 'https://…',
-    hint: tr('曲なら Spotify・YouTube・Apple Music のリンクを貼るとその場で聴けます。空のままでも、曲名でさがして試聴できます', 'For songs, paste a Spotify, YouTube or Apple Music link to play it here. Leave empty to find a preview by title.') }; },
 };
 const LIKE_CATS = ['食べ物', '飲み物', '仕草', '場所', '曲', 'その他'];
 const LIKE_CATS_EN = ['Food', 'Drinks', 'Habits', 'Places', 'Songs', 'Other'];
@@ -830,7 +830,7 @@ const SECTIONS = {
     fields: () => [F.title(tr('場所の名前', 'Place'), tr('例：江ノ島の水族館', 'e.g. Enoshima Aquarium')), F.date(tr('行った日', 'Date visited')), F.body, F.geo, F.photo] },
   like: { en: 'Likes', lead: () => tr('相手の「好き」をメモしておく', 'Things they love'), fields: () => [
     { name: 'category', type: 'category', label: tr('種類', 'Type'), required: true, options: likeCats(), ph: tr('えらぶか、自由に書く', 'Pick one or type your own') },
-    F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')), F.body, F.link, F.photo] },
+    F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')), F.body, F.photo] },
   wish: { en: 'Wishes', lead: () => tr('いつか一緒に行きたいところ', 'Places we want to go someday'),
     fields: () => [F.title(tr('行きたいところ', 'Place'), tr('例：金沢の21世紀美術館', 'e.g. 21st Century Museum, Kanazawa')), { ...F.body, ph: tr('行きたい理由、やりたいこと', 'Why, and what we want to do there') }, F.geo, F.photo] },
   gift: { en: 'Gifts', lead: () => tr('贈ったもの・もらったもの', 'Gifts given and received'),
@@ -842,12 +842,11 @@ const SECTIONS = {
 const likeCats = () => [...new Set([...LIKE_CATS, ...data.entries.filter((e) => e.section === 'like' && e.category).map((e) => e.category)])]
   .filter((c) => c !== OTHER_CAT).concat(OTHER_CAT);
 const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(e.author)}から`, `from ${nameOf(e.author)}`) : nameOf(e.author));
-// 編集・削除は2人ともできる（価値観の「自分の考え」だけは本人のもの）
-const canEdit = (e) => !!e && (e.section !== 'value' || e.author === me());
+// なおす・消すのは書いた本人だけ（データベースの決まりと同じ）
+const canEdit = (e) => !!e && e.author === me();
 
 /* ---------- 曲：タップで聴く ----------
-   Likes の「曲」は、リンクがあればそれ（Spotify・YouTube はその場で再生、Apple Music は試聴）、
-   なければ曲名で Apple Music（iTunes）をさがして、30秒の試聴を流す。全曲を聴くときは各アプリで開く */
+   Likes の「曲」は、曲名で Apple Music（iTunes）をさがして、30秒の試聴を流す。全曲を聴くときは各アプリで開く */
 const SONG_CAT = '曲';
 const isSong = (e) => e?.section === 'like' && e.category === SONG_CAT;
 // iTunes の検索は JSONP で呼ぶ（ブラウザの CORS に左右されない）
@@ -876,45 +875,23 @@ function searchSongs(title) {
   }
   return songSearches.get(q);
 }
-async function lookupSong(id) {
-  const j = await jsonp(`https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}&country=jp&lang=ja_jp`);
-  return toTrack((j.results || []).find((r) => r.kind === 'song') || j.results?.[0]);
-}
-// 貼られたリンクが何か
-function linkInfo(raw) {
-  const s = (raw || '').trim();
-  if (!s) return null;
-  let u;
-  try { u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`); } catch { return null; }
-  const host = u.hostname.replace(/^www\./, '');
-  if (/(^|\.)spotify\.com$/.test(host)) {
-    const m = u.pathname.match(/\/(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/);
-    if (m) return { kind: 'spotify', url: u.href, embed: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=generator`, type: m[1] };
-  }
-  if (host === 'youtu.be' || /(^|\.)youtube\.com$/.test(host)) {
-    const id = host === 'youtu.be' ? u.pathname.slice(1).split('/')[0] : (u.searchParams.get('v') || (u.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/) || [])[1]);
-    if (id) return { kind: 'youtube', url: u.href, embed: `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0` };
-  }
-  if (/(^|\.)music\.apple\.com$/.test(host) || host === 'itunes.apple.com') {
-    const id = u.searchParams.get('i') || (u.pathname.match(/\/song\/(?:[^/]+\/)?(\d+)/) || [])[1];
-    return { kind: 'apple', url: u.href, id };
-  }
-  return { kind: 'web', url: u.href };
-}
-// その曲の Apple Music の候補（リンクがあればその曲、なければ曲名でさがした結果）
+// その曲の Apple Music の候補（曲名でさがした結果）。「ちがう曲？」でえらんだ曲は端末に覚えておく
 const songCache = new Map(), songDone = new Map();
-const songKey = (e) => `${e.id}|${e.title}|${e.link || ''}`;
+const songKey = (e) => `${e.id}|${e.title}`;
 function songFor(e) {
-  const info = linkInfo(e.link);
   const key = songKey(e);
   if (!songCache.has(key)) {
-    const p = (info?.kind === 'apple' && info.id)
-      ? lookupSong(info.id).then((t) => ({ tracks: t ? [t] : [], fixed: true }))
-      : searchSongs(e.title).then((tracks) => ({ tracks, fixed: false }));
-    songCache.set(key, p.then((r) => { songDone.set(key, r); return r; }, (err) => { songCache.delete(key); throw err; }));
+    songCache.set(key, searchSongs(e.title).then((tracks) => { songDone.set(key, tracks); return tracks; },
+      (err) => { songCache.delete(key); throw err; }));
   }
   return songCache.get(key);
 }
+const PICK_KEY = 'our-odyssey-song-pick';
+const songPick = (e) => { try { return JSON.parse(localStorage.getItem(PICK_KEY))?.[songKey(e)] || 0; } catch { return 0; } };
+function setSongPick(e, i) {
+  try { const m = JSON.parse(localStorage.getItem(PICK_KEY)) || {}; m[songKey(e)] = i; localStorage.setItem(PICK_KEY, JSON.stringify(m)); } catch { /* 覚えられなくても動く */ }
+}
+const pickedTrack = (e, tracks) => tracks[songPick(e)] || tracks[0];
 // 試聴の音はひとつだけ鳴らす。鳴っている曲が変わったら、ボタンの見た目を合わせる
 const audio = { el: null, key: null, subs: new Set() };
 function audioEl() {
@@ -956,25 +933,22 @@ const PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.6v14H
 const svgIcon = (el, svg) => { el.innerHTML = svg; return el; };
 // コルクボードのポラロイドに付ける小さな再生ボタン（タップでその場で試聴）
 function songBadge(e) {
-  const info = linkInfo(e.link);
   const key = `like:${e.id}`;
   const b = h('span', { class: 'song-play', role: 'button', tabindex: '0', 'aria-label': tr(`「${e.title}」を聴く`, `Play "${e.title}"`) });
   const paint = () => { const on = isPlaying(key); b.classList.toggle('on', on); svgIcon(b, on ? PAUSE : PLAY); };
   onAudio(b, paint); paint();
-  if (!info) songFor(e).catch(() => {});   // 先にさがしておくと、タップしてすぐ鳴る
+  songFor(e).catch(() => {});   // 先にさがしておくと、タップしてすぐ鳴る
   const go = async (ev) => {
     ev.stopPropagation(); ev.preventDefault();
-    // Spotify・YouTube のリンクは、詳細を開いてその場のプレーヤーで
-    if (info && info.kind !== 'apple') { openDetail(e.id); return; }
     if (isPlaying(key)) { audio.el.pause(); return; }
     const el = audioEl();
     const ready = songDone.get(songKey(e));
     if (!ready) { audio.key = null; el.src = silent(); el.play().catch(() => {}); }
     b.classList.add('busy');
     try {
-      const r = ready || await songFor(e);
-      if (!r.tracks[0]) { notice(tr('試聴できる曲が見つかりませんでした', 'No preview found'), { text: tr('詳細を開いて、リンクを入れると聴けるようになります。', 'Open the details and add a link to listen.') }); return; }
-      playTrack(key, r.tracks[0]);
+      const tracks = ready || await songFor(e);
+      if (!tracks.length) { notice(tr('試聴できる曲が見つかりませんでした', 'No preview found'), { text: tr('曲名を「曲名 アーティスト名」にすると見つかりやすくなります。', 'Try "title artist" as the name.') }); return; }
+      playTrack(key, pickedTrack(e, tracks));
     } catch { notice(tr('曲をさがせませんでした', "Couldn't look up the song")); }
     finally { b.classList.remove('busy'); }
   };
@@ -988,24 +962,15 @@ const musicLinks = (q) => h('div', { class: 'song-links' },
   h('a', { class: 'chip', href: `https://music.youtube.com/search?q=${encodeURIComponent(q)}`, target: '_blank', rel: 'noopener' }, 'YOUTUBE'));
 // 詳細やカードに出すプレーヤー
 function songPlayer(e) {
-  const info = linkInfo(e.link);
   const box = h('div', { class: 'song' });
-  if (info && (info.kind === 'spotify' || info.kind === 'youtube')) {
-    box.classList.add(`song-${info.kind}`);
-    box.append(h('iframe', { src: info.embed, loading: 'lazy', title: e.title, frameborder: '0',
-      allow: 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture', allowfullscreen: true,
-      height: info.kind === 'spotify' ? (info.type === 'track' || info.type === 'episode' ? '152' : '352') : null }),
-    h('a', { class: 'btn ghost small song-open', href: info.url, target: '_blank', rel: 'noopener' }, info.kind === 'spotify' ? 'OPEN IN SPOTIFY' : 'OPEN IN YOUTUBE'));
-    return box;
-  }
   const key = `like:${e.id}`;
-  let tracks = [], i = 0, fixed = false;
+  let tracks = [], i = 0;
   const status = h('p', { class: 'muted' }, tr('曲をさがしています…', 'Looking up the song…'));
   box.append(status);
   const render = () => {
     const t = tracks[i];
     if (!t) {
-      box.replaceChildren(h('p', { class: 'muted' }, tr('試聴できる曲が見つかりませんでした。EDIT からリンクを入れると聴けます。', "Couldn't find a preview. Add a link with EDIT to listen.")), musicLinks(songQuery(e.title)));
+      box.replaceChildren(h('p', { class: 'muted' }, tr('試聴できる曲が見つかりませんでした。曲名を「曲名 アーティスト名」にすると見つかりやすくなります。', 'No preview found. Try "title artist" as the name.')), musicLinks(songQuery(e.title)));
       return;
     }
     const btn = h('button', { type: 'button', class: 'song-btn', 'aria-label': tr('試聴', 'Preview'), onclick: () => playTrack(key, t) });
@@ -1017,29 +982,23 @@ function songPlayer(e) {
       bar.style.width = audio.key === key && el?.duration ? `${(el.currentTime / el.duration) * 100}%` : '0%';
     };
     onAudio(box, paint);
-    const others = !fixed && tracks.length > 1;
+    const others = tracks.length > 1;
     box.replaceChildren(
       h('div', { class: 'song-main' },
         h('div', { class: 'song-art' }, t.art && h('img', { src: t.art, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }), btn),
         h('div', { class: 'song-txt' }, h('b', {}, t.name), h('small', {}, t.artist),
           h('span', { class: 'song-bar' }, bar), h('small', { class: 'song-note' }, tr('Apple Music の30秒試聴', '30-second Apple Music preview')))),
       h('div', { class: 'song-links' },
-        others && h('button', { type: 'button', class: 'chip', onclick: () => { if (audio.key === key) { audio.el.pause(); audio.key = null; } i = (i + 1) % tracks.length; render(); } }, tr('ちがう曲？', 'NOT THIS ONE?')),
-        others && i > 0 && canEdit(e) && h('button', { type: 'button', class: 'chip on', onclick: () => act(() => store.saveEntry({ id: e.id, link: t.url })) }, tr('この曲にする', 'KEEP THIS ONE')),
+        others && h('button', { type: 'button', class: 'chip', onclick: () => { if (audio.key === key) { audio.el.pause(); audio.key = null; } i = (i + 1) % tracks.length; setSongPick(e, i); render(); } }, tr('ちがう曲？', 'NOT THIS ONE?')),
         t.url && h('a', { class: 'chip', href: t.url, target: '_blank', rel: 'noopener' }, 'APPLE MUSIC'),
         h('a', { class: 'chip', href: `https://open.spotify.com/search/${encodeURIComponent(`${t.name} ${t.artist}`)}`, target: '_blank', rel: 'noopener' }, 'SPOTIFY'),
         h('a', { class: 'chip', href: `https://music.youtube.com/search?q=${encodeURIComponent(`${t.name} ${t.artist}`)}`, target: '_blank', rel: 'noopener' }, 'YOUTUBE')));
     paint();
   };
-  songFor(e).then((r) => { tracks = r.tracks; fixed = r.fixed; render(); })
+  songFor(e).then((r) => { tracks = r; i = Math.min(songPick(e), Math.max(0, r.length - 1)); render(); })
     .catch(() => { box.replaceChildren(h('p', { class: 'muted' }, tr('曲をさがせませんでした（電波を確かめてください）', "Couldn't look up the song (check your connection)")), musicLinks(songQuery(e.title))); });
   return box;
 }
-// リンクのボタン（曲以外：お店のページなど）
-const linkButton = (e) => {
-  const info = linkInfo(e.link);
-  return info && h('a', { class: 'btn ghost small', href: info.url, target: '_blank', rel: 'noopener' }, 'OPEN LINK ↗');
-};
 // 曲の写真の候補：ジャケット写真
 async function songPhotos(q) {
   try { return (await searchSongs(q)).filter((t) => t.art).slice(0, 4).map((t) => ({ url: t.art, title: `${t.name} / ${t.artist}`, from: 'Apple Music' })); } catch { return []; }
@@ -1078,7 +1037,6 @@ function entryCard(e, key) {
     isSong(e) ? songPlayer(e) : null,
     h('div', { class: 'row' },
       key === 'wish' && h('button', { class: 'btn small', onclick: went }, 'BEEN THERE!'),
-      !isSong(e) && linkButton(e),
       ok && !e.photo && S.fields().some((f) => f.type === 'photo') && h('button', { class: 'btn ghost small', onclick: addPhoto }, 'ADD PHOTO'),
       ok && h('button', { class: 'link', onclick: edit }, 'EDIT'),
       ok && h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
@@ -1087,13 +1045,7 @@ function entryCard(e, key) {
 function addEntry(key) {
   const S = SECTIONS[key];
   openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : {},
-    onSubmit: (v) => store.saveEntry(withLink({ section: key, title: v.title, body: v.body || '', date: v.date || null, category: v.category || null, lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null }, v)) });
-}
-// リンクは入れたときだけ送る（リンクの欄をまだ作っていないデータベースでも、ほかの保存は通るように）
-function withLink(row, v, before = {}) {
-  const link = (v.link || '').trim();
-  if (link || before.link) row.link = link || null;
-  return row;
+    onSubmit: (v) => store.saveEntry({ section: key, title: v.title, body: v.body || '', date: v.date || null, category: v.category || null, lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null }) });
 }
 function sectionPage(key) {
   const S = SECTIONS[key];
@@ -1121,7 +1073,7 @@ const EN_OF = { place: 'Places', wish: 'Wishes', like: 'Likes', gift: 'Gifts', d
 function entryEdit(e) {
   const S = SECTIONS[e.section];
   openForm({ title: 'Edit', en: S.en, fields: S.fields(), initial: e,
-    onSubmit: (v) => store.saveEntry(withLink({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo }, v, e)) });
+    onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo }) });
 }
 function entryWent(e) {
   openForm({ title: 'Been there!', en: 'Places', lead: tr(`「${e.title}」に行った日を残す`, `When did we go to "${e.title}"?`), initial: { ...e, date: today() },
@@ -1145,7 +1097,7 @@ function openDetail(id) {
       h('div', { class: 'mbody' },
         e.photo && photoImg(e.photo, 'dphoto'),
         e.body ? h('p', { class: 'dbody' }, e.body) : null,
-        isSong(e) ? songPlayer(e) : linkButton(e),
+        isSong(e) ? songPlayer(e) : null,
         e.section === 'wish' && h('button', { class: 'btn', onclick: () => entryWent(e) }, 'BEEN THERE! → PLACES'),
         ok && h('div', { class: 'row' },
           h('button', { class: 'btn ghost small', onclick: () => entryEdit(e) }, 'EDIT'),
@@ -1558,7 +1510,7 @@ function moodChart(list, onEdit) {
     W = Math.round(PADL + PADR + daysBetween(start, end) * DAY);
     const animate = !moodAnimated && !reduceMotion() && list.length > 1;
     let s = '<defs><linearGradient id="mood-fill" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0" stop-color="#E79AAB" stop-opacity=".85"/><stop offset="1" stop-color="#E79AAB" stop-opacity=".12"/></linearGradient></defs>';
+      + `<stop offset="0" stop-color="${TH.pinkD}" stop-opacity=".85"/><stop offset="1" stop-color="${TH.pinkD}" stop-opacity=".12"/></linearGradient></defs>`;
 
     // 月ごとの帯と、月の名前
     let { y: yy, m: mm } = parse(start);
@@ -1567,46 +1519,46 @@ function moodChart(list, onEdit) {
       if (ms > end) break;
       const ny = mm === 12 ? yy + 1 : yy, nm = mm === 12 ? 1 : mm + 1;
       const x0 = Math.max(0, x(ms)), x1 = Math.min(W, x(ymd(ny, nm, 1)));
-      if ((yy * 12 + mm) % 2 === 0) s += `<rect x="${x0}" y="0" width="${Math.max(0, x1 - x0)}" height="${BASE}" fill="#16204F" fill-opacity=".045"/>`;
-      if (ms >= start) s += `<line x1="${x(ms)}" x2="${x(ms)}" y1="0" y2="${BASE}" stroke="#16204F" stroke-opacity=".25" stroke-width="1"/>`;
+      if ((yy * 12 + mm) % 2 === 0) s += `<rect x="${x0}" y="0" width="${Math.max(0, x1 - x0)}" height="${BASE}" fill="${TH.navy}" fill-opacity=".045"/>`;
+      if (ms >= start) s += `<line x1="${x(ms)}" x2="${x(ms)}" y1="0" y2="${BASE}" stroke="${TH.navy}" stroke-opacity=".25" stroke-width="1"/>`;
       const lx = Math.max(x0, ms >= start ? x0 : PADL) + 7;
       if (x1 - lx > 34) s += `<text x="${lx}" y="22" class="mon">${MONTHS[mm - 1]}${mm === 1 || guard === 0 ? `<tspan class="yr" dx="5">${yy}</tspan>` : ''}</text>`;
       yy = ny; mm = nm;
     }
     // 気分の高さの目安線
     for (let lv = 1; lv <= 5; lv++) {
-      s += `<line x1="0" x2="${W}" y1="${yOf(lv)}" y2="${yOf(lv)}" stroke="#16204F" stroke-opacity="${lv === 3 ? '.3' : '.16'}" stroke-width="1" stroke-dasharray="2 5"/>`;
+      s += `<line x1="0" x2="${W}" y1="${yOf(lv)}" y2="${yOf(lv)}" stroke="${TH.navy}" stroke-opacity="${lv === 3 ? '.3' : '.16'}" stroke-width="1" stroke-dasharray="2 5"/>`;
     }
     // 線と、その下の塗り
     const P = list.map((m) => [x(m.date), yOf(m.level)]);
     const line = smoothPath(P);
     if (line) {
       s += `<path class="area${animate ? ' draw' : ''}" d="${line} L${P[P.length - 1][0]},${BASE} L${P[0][0]},${BASE} Z" fill="url(#mood-fill)"/>`
-        + `<path class="line${animate ? ' draw' : ''}" pathLength="1" d="${line}" fill="none" stroke="#16204F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+        + `<path class="line${animate ? ' draw' : ''}" pathLength="1" d="${line}" fill="none" stroke="${TH.navy}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
     }
     // 下の軸と日付
-    s += `<line x1="0" x2="${W}" y1="${BASE}" y2="${BASE}" stroke="#16204F" stroke-width="2"/>`;
+    s += `<line x1="0" x2="${W}" y1="${BASE}" y2="${BASE}" stroke="${TH.navy}" stroke-width="2"/>`;
     const step = [1, 2, 7, 14].find((k) => k * DAY >= 42);
     const LABEL_DAYS = { 1: null, 2: null, 7: [1, 8, 15, 22], 14: [1, 15] };
     for (let d = start, i = 0; d <= end && i < 2000; d = addDays(d, 1), i++) {
       const px = x(d), { m: dm, d: dd } = parse(d);
-      if (DAY >= 6) s += `<line x1="${px}" x2="${px}" y1="${BASE}" y2="${BASE + 5}" stroke="#16204F" stroke-opacity=".5" stroke-width="1"/>`;
+      if (DAY >= 6) s += `<line x1="${px}" x2="${px}" y1="${BASE}" y2="${BASE + 5}" stroke="${TH.navy}" stroke-opacity=".5" stroke-width="1"/>`;
       if (!step) continue;
       const show = step === 1 || (step === 2 ? dd % 2 === 1 && dd < 31 : LABEL_DAYS[step].includes(dd));
       if (show) s += `<text x="${px}" y="${BASE + 22}" text-anchor="middle" class="tick">${step >= 7 || dd === 1 ? `${dm}/${dd}` : dd}</text>`;
     }
     const tx = x(t);
-    s += `<line x1="${tx}" x2="${tx}" y1="${TOP - 26}" y2="${BASE + 30}" stroke="#16204F" stroke-width="1.5" stroke-dasharray="4 4"/>`
-      + `<rect x="${tx - 26}" y="${BASE + 31}" width="52" height="20" rx="10" fill="#16204F"/>`
+    s += `<line x1="${tx}" x2="${tx}" y1="${TOP - 26}" y2="${BASE + 30}" stroke="${TH.navy}" stroke-width="1.5" stroke-dasharray="4 4"/>`
+      + `<rect x="${tx - 26}" y="${BASE + 31}" width="52" height="20" rx="10" fill="${TH.navy}"/>`
       + `<text x="${tx}" y="${BASE + 46}" text-anchor="middle" class="tick now">TODAY</text>`;
     // 点（メモがある日は中に小さな印）
     for (const m of list) {
       const on = m.date === moodPop, cx = x(m.date), cy = yOf(m.level);
       s += `<g class="pt${on ? ' on' : ''}" data-date="${m.date}" role="button" tabindex="0" aria-label="${dots(m.date)} ${levelShort()[m.level - 1]}${m.note ? tr('（メモあり）', ' (with note)') : ''}">`
-        + `<line x1="${cx}" x2="${cx}" y1="${BASE}" y2="${BASE + 9}" stroke="#16204F" stroke-width="2"/>`
+        + `<line x1="${cx}" x2="${cx}" y1="${BASE}" y2="${BASE + 9}" stroke="${TH.navy}" stroke-width="2"/>`
         + `<circle cx="${cx}" cy="${cy}" r="20" fill="transparent"/>`
-        + `<circle cx="${cx}" cy="${cy}" r="${on ? 9 : 7}" fill="${on ? '#16204F' : '#FBF1EF'}" stroke="#16204F" stroke-width="2.5"/>`
-        + (m.note ? `<circle cx="${cx}" cy="${cy}" r="2.4" fill="${on ? '#F2C4CE' : '#16204F'}"/>` : '')
+        + `<circle cx="${cx}" cy="${cy}" r="${on ? 9 : 7}" fill="${on ? '${TH.navy}' : '${TH.paper}'}" stroke="${TH.navy}" stroke-width="2.5"/>`
+        + (m.note ? `<circle cx="${cx}" cy="${cy}" r="2.4" fill="${on ? '${TH.pink}' : '${TH.navy}'}"/>` : '')
         + '</g>';
     }
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H);
@@ -1860,6 +1812,7 @@ function settingsPage() {
         h('div', { class: 'row', style: 'flex-wrap: nowrap' }, name,
           h('button', { class: 'btn', onclick: () => act(() => store.saveProfile({ display_name: name.value.trim() })) }, 'SAVE'))),
       langCard(),
+      themeCard(),
       store.mode === 'supabase' && passwordCard(),
       h('section', { class: 'card' }, h('h2', {}, tr('記念日の通知', 'Anniversary notifications')),
         h('label', { class: 'check' }, toggle, tr('この端末で通知を受け取る', 'Get notifications on this device')),
@@ -1903,6 +1856,33 @@ function passwordCard() {
   h('label', {}, tr('新しいパスワード（もう一度）', 'New password (again)'), again),
   msg, h('div', { class: 'row' }, btn));
   return h('section', { class: 'card' }, h('h2', {}, tr('パスワード', 'Password')), form);
+}
+function themeCard() {
+  let cur = theme.load();
+  const swatch = (t) => { const c = theme.colors(t); return h('span', { class: 'sw', style: `background:${c.pink};box-shadow:inset 0 0 0 6px ${c.paper}, 0 0 0 1.5px ${c.navy}` }); };
+  const chips = h('div', { class: 'chips theme-chips' });
+  const slider = h('input', { type: 'range', min: '0', max: '359', step: '1', class: 'hue', 'aria-label': tr('色相', 'Hue') });
+  const ink = h('input', { type: 'checkbox' });
+  const set = (t, save) => {
+    cur = { hue: Math.round(t.hue) % 360, ink: !!t.ink };
+    theme.apply(cur, save);
+    slider.value = String(cur.hue); ink.checked = cur.ink;
+    chips.replaceChildren(...theme.PRESETS.map((p) => {
+      const on = p.hue === cur.hue;
+      return h('button', { type: 'button', class: `chip${on ? ' on' : ''}`, 'aria-pressed': String(on), onclick: () => set({ hue: p.hue, ink: cur.ink }, true) },
+        swatch({ hue: p.hue, ink: cur.ink }), lang === 'en' ? p.en : p.jp);
+    }));
+  };
+  slider.addEventListener('input', () => set({ hue: +slider.value, ink: cur.ink }, false));
+  slider.addEventListener('change', () => set({ hue: +slider.value, ink: cur.ink }, true));
+  ink.addEventListener('change', () => set({ hue: cur.hue, ink: ink.checked }, true));
+  set(cur, false);
+  return h('section', { class: 'card' }, h('h2', {}, tr('色のテーマ', 'Color theme')),
+    chips,
+    h('label', { class: 'hue-row' }, tr('色相をこまかく', 'Fine-tune hue'), slider),
+    h('label', { class: 'check' }, ink, tr('文字の紺色もいっしょに変える', 'Shift the navy text color too')),
+    h('div', { class: 'row' }, h('button', { type: 'button', class: 'link', onclick: () => set({ hue: theme.PRESETS[0].hue, ink: false }, true) }, 'RESET')),
+    h('p', { class: 'muted' }, tr('写真や花・コルクボードの色はそのまま。この端末だけに反映されます。', 'Photos, flowers and the cork board keep their colors. Applies to this device only.')));
 }
 function langCard() {
   const opt = (v, label) => h('button', { type: 'button', class: `chip${lang === v ? ' on' : ''}`, 'aria-pressed': String(lang === v), onclick: () => setLang(v) }, label);
