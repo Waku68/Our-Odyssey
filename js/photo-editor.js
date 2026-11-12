@@ -1,7 +1,7 @@
 // 写真の編集画面。えらんだ写真を、切り取り・回転・色味・飾り（スタンプ、文字、日付、ふち）してから使う。
 // editPhoto(file) → JPEG の Blob（やめたら null）。withState のときは { blob, state } を返し、state を渡すと続きから直せる。
 
-import { ask, notice } from './ask.js?v=20';
+import { ask, notice } from './ask.js?v=21';
 
 const NAVY = '#16204F', PINK = '#F2C4CE', PINK_D = '#E79AAB', PAPER = '#FBF1EF';
 const COLORS = [NAVY, PINK_D, PINK, '#FFFFFF'];
