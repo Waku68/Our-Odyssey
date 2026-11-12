@@ -17,26 +17,37 @@ function addMonths(start: string, k: number) {
   const m = ((s.m - 1 + k) % 12) + 1;
   return ymd(y, m, Math.min(s.d, lastDay(y, m)));
 }
-const span = (months: number) =>
-  months % 12 === 0 ? `${months / 12}周年` : months > 12 ? `${Math.floor(months / 12)}年${months % 12}ヶ月` : `${months}ヶ月`;
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const ordinal = (n: number) => {
+  const r = n % 100;
+  if (r >= 11 && r <= 13) return `${n}th`;
+  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+};
+const num = (n: number) => n.toLocaleString("en-US");
 
-// 今日（日本時間）に当てはまる記念日のメッセージを集める
+// 今日（日本時間）に当てはまる記念日のメッセージを、日本語と英語の両方で集める
 export function messagesFor(today: string, start: string, custom: { title: string; date: string }[]) {
-  const out: string[] = [];
+  const ja: string[] = [], en: string[] = [];
+  const add = (j: string, e: string) => { ja.push(j); en.push(e); };
   const t = parse(today), s = parse(start);
   const n = days(start, today);
   const months = (t.y - s.y) * 12 + (t.m - s.m);
-  if (months > 0 && addMonths(start, months) === today) out.push(`今日は ${span(months)} の記念日です！`);
-  if (n > 0 && n % 100 === 0) out.push(`今日で付き合って ${n}日です！`);
+  if (months > 0 && addMonths(start, months) === today) {
+    const y = Math.floor(months / 12), m = months % 12;
+    if (m === 0) add(`${y}周年おめでと〜🎉`, `Happy ${ordinal(y)} anniversary 🎉`);
+    else if (y === 0) add(`${m}ヶ月記念日だよ〜🎉`, `${plural(m, "month")} together today 🎉`);
+    else add(`${y}年${m}ヶ月記念日だよ〜🎉`, `${plural(y, "year")} ${plural(m, "month")} together today 🎉`);
+  }
+  if (n > 0 && n % 100 === 0) add(`付き合って${n}日たったよ〜！`, `${num(n)} days together!`);
   for (const c of custom) {
     const cd = parse(c.date);
     const years = t.y - cd.y;
-    if (years > 0 && addMonths(c.date, years * 12) === today) out.push(`今日は「${c.title}」から ${years}年です！`);
+    if (years > 0 && addMonths(c.date, years * 12) === today) add(`「${c.title}」から${years}年だって！`, `${plural(years, "year")} since ${c.title}!`);
     const cn = days(c.date, today);
-    if (cn > 0 && cn % 100 === 0) out.push(`今日は「${c.title}」から ${cn}日です！`);
-    if (cn === 0) out.push(`今日は「${c.title}」の日です！`);
+    if (cn > 0 && cn % 100 === 0) add(`「${c.title}」から${cn}日だよ〜`, `${num(cn)} days since ${c.title}!`);
+    if (cn === 0) add(`今日は「${c.title}」の日だよ！`, `Today's the day: ${c.title}!`);
   }
-  return out;
+  return { ja, en };
 }
 
 Deno.serve(async (req) => {
@@ -50,7 +61,7 @@ Deno.serve(async (req) => {
 
     const { data: custom } = await sb.from("entries").select("title,date").eq("section", "anniversary").not("date", "is", null);
     const msgs = messagesFor(today, start, custom ?? []);
-    if (!msgs.length) return Response.json({ today, sent: 0, reason: "no anniversary today" });
+    if (!msgs.ja.length) return Response.json({ today, sent: 0, reason: "no anniversary today" });
 
     const { data: users } = await sb.from("profiles").select("id").eq("notify", true);
     const ids = (users ?? []).map((u) => u.id);
@@ -63,7 +74,11 @@ Deno.serve(async (req) => {
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify({ title: "Our Odyssey", body: msgs.join("\n") }),
+          // 端末の言語設定に合わせて、受け取ったスマホ側（sw.js）がどちらかを選ぶ
+          JSON.stringify({
+            title: "Our Odyssey", body: msgs.ja.join("\n"),
+            en: { title: "Our Odyssey", body: msgs.en.join("\n") },
+          }),
         );
         sent++;
       } catch (e) {

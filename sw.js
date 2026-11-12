@@ -4,6 +4,7 @@
 const SHELL = 'shell-v2';   // このサイトのファイル（つながっていれば毎回新しいものを取りにいく）
 const LIBS = 'libs-v1';     // 外から読みこむ部品（Supabase のライブラリ、フォント、地図）
 const PHOTOS = 'photos-v1'; // 一度見た写真
+const PREFS = 'prefs-v1';   // 通知の言語など、ページから教えてもらった設定
 const LIB_HOSTS = ['esm.sh', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 const SCOPE = self.registration.scope;
 
@@ -12,7 +13,7 @@ self.addEventListener('install', (event) => {
 });
 self.addEventListener('activate', (event) => {
   event.waitUntil(caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => ![SHELL, LIBS, PHOTOS].includes(k)).map((k) => caches.delete(k))))
+    .then((keys) => Promise.all(keys.filter((k) => ![SHELL, LIBS, PHOTOS, PREFS].includes(k)).map((k) => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -71,7 +72,16 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ページを開いたときに読みこんだ部品を、まとめて覚えておく（初めて開いたときの分も取りこぼさない）
+const LANG_URL = new URL('__lang', SCOPE).href;
+async function savedLang() {
+  try { const r = await (await caches.open(PREFS)).match(LANG_URL); return r ? await r.text() : 'ja'; } catch { return 'ja'; }
+}
+
 self.addEventListener('message', (event) => {
+  if (event.data?.type === 'lang') {
+    event.waitUntil(caches.open(PREFS).then((c) => c.put(LANG_URL, new Response(event.data.lang === 'en' ? 'en' : 'ja'))));
+    return;
+  }
   if (event.data?.type !== 'warm') return;
   event.waitUntil((async () => {
     const shell = await caches.open(SHELL), libs = await caches.open(LIBS);
@@ -91,8 +101,11 @@ self.addEventListener('message', (event) => {
 self.addEventListener('push', (event) => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; } catch { d = { body: event.data && event.data.text() }; }
-  event.waitUntil(self.registration.showNotification(d.title || 'Our Odyssey', {
-    body: d.body || '', icon: 'assets/icon-192.png', badge: 'assets/icon-192.png',
+  event.waitUntil(savedLang().then((lang) => {
+    const m = lang === 'en' && d.en ? d.en : d;
+    return self.registration.showNotification(m.title || 'Our Odyssey', {
+      body: m.body || '', icon: 'assets/icon-192.png', badge: 'assets/icon-192.png',
+    });
   }));
 });
 

@@ -17,7 +17,13 @@ function setLang(v) {
   lang = v === 'en' ? 'en' : 'ja';
   try { localStorage.setItem(LANG_KEY, lang); } catch { /* 保存できなくても今回は切りかえる */ }
   document.documentElement.lang = lang;
+  tellSwLang();
   draw();
+}
+// 通知の言語をそろえるため、Service Worker にも今の言語を教えておく
+function tellSwLang() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then((reg) => reg.active?.postMessage({ type: 'lang', lang })).catch(() => {});
 }
 let store;
 let data = { entries: [], moods: [], comments: [], profiles: [] };
@@ -1967,6 +1973,7 @@ function setupOffline() {
   navigator.serviceWorker.ready.then((reg) => {
     const urls = [location.href.split('#')[0], ...performance.getEntriesByType('resource').map((e) => e.name)];
     reg.active?.postMessage({ type: 'warm', urls });
+    reg.active?.postMessage({ type: 'lang', lang });
   }).catch(() => {});
 }
 
