@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=17';
-import { editPhoto } from './photo-editor.js?v=17';
+import { createStore } from './store.js?v=18';
+import { editPhoto } from './photo-editor.js?v=18';
 
 const app = document.getElementById('app');
 
@@ -297,7 +297,7 @@ const pin = (L, lat, lng, fill = '#16204F') =>
 
 /* ---------- 場所から写真をさがす（Wikipedia の記事の写真） ---------- */
 async function wikiThumb(lc, title) {
-  const u = `https://${lc}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=1400&titles=${encodeURIComponent(title)}`;
+  const u = `https://${lc}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=1280&titles=${encodeURIComponent(title)}`;
   const pg = Object.values((await (await fetch(u)).json()).query?.pages || {})[0];
   return pg?.thumbnail?.source ? { url: pg.thumbnail.source, title: pg.title } : null;
 }
@@ -323,6 +323,21 @@ async function placePhoto({ lat, lng, wiki, name }) {
     return lat != null ? await wikiNear(lat, lng, name) : null;
   } catch { return null; }
 }
+// 名前から写真をさがす：日本語版Wikipediaの記事の写真＋Wikimedia Commonsの写真
+async function namePhotos(q) {
+  const enc = encodeURIComponent(q);
+  const wiki = fetch(`https://ja.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=1280`)
+    .then((r) => r.json()).then((j) => Object.values(j.query?.pages || {}).sort((a, b) => a.index - b.index)
+      .filter((p) => p.thumbnail?.source).map((p) => ({ url: p.thumbnail.source, title: p.title, from: 'Wikipedia' }))).catch(() => []);
+  const commons = fetch(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(`${q} filetype:bitmap`)}&gsrlimit=8&prop=imageinfo&iiprop=url|mime&iiurlwidth=1280`)
+    .then((r) => r.json()).then((j) => Object.values(j.query?.pages || {}).sort((a, b) => a.index - b.index)
+      .map((p) => ({ i: p.imageinfo?.[0], t: p.title })).filter(({ i }) => i && /jpeg|png|webp/.test(i.mime || ''))
+      .map(({ i, t }) => ({ url: i.thumburl || i.url, title: t.replace(/^File:/, '').replace(/\.[a-z]+$/i, ''), from: 'Wikimedia Commons' }))).catch(() => []);
+  const [a, b] = await Promise.all([wiki, commons]);
+  return [...a, ...b];
+}
+// 候補の列に出す小さな画像（Wikimedia の決まった大きさの縮小版）
+const smallThumb = (u) => u.replace(/\/\d+px-/, '/250px-');
 async function fitImage(blob) {
   const bmp = await createImageBitmap(blob);
   const k = Math.min(1, maxSide() / Math.max(bmp.width, bmp.height));
@@ -455,7 +470,8 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
   let newPhoto = null;
   let draft = null; // 保存前の写真は、元の写真と編集の内容を持っておく（何度でもやり直せる）
   let dirty = false;
-  let onGeo = () => {};   // 地図の場所が決まったとき（写真の欄が自動で写真を入れるのに使う）
+  let onGeo = () => {};
+  let onTitle = () => {}; // 名前が変わったとき（写真の欄が名前から写真をさがすのに使う）   // 地図の場所が決まったとき（写真の欄が自動で写真を入れるのに使う）
   const touch = () => { dirty = true; };
   const err = h('p', { class: 'err', role: 'alert' });
   const field = (f, inner, tag = 'div') => h(tag, { class: 'field' },
@@ -476,33 +492,74 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
       const clearPhoto = () => {
         newPhoto = null; draft = null; v.photo = null; img.hidden = true; img.removeAttribute('src'); txt.hidden = false; rm.hidden = true; ed.hidden = true; drop.classList.add('is-empty');
       };
-      // 自分で写真をえらんだら、自動の写真には二度と置きかえない
-      let mine = !!v.photo, auto = false, seq = 0;
+      // 拾ってきた写真の候補。地図の場所から見つけたもの（いちばん確か）を先頭に、名前で探したものを後ろに並べる
+      // 自分で写真をえらんだら（mine）、自動では置きかえない。候補の列はそのまま出しておくので、あとから選べる
+      let mine = !!v.photo, auto = false, seq = 0, picked = -1;
+      let geoCand = null, textCands = [], cands = [];
       const credit = h('span', { class: 'hint photo-credit', hidden: true });
-      onGeo = async (info) => {
-        if (mine) return;
+      const strip = h('div', { class: 'cands', hidden: true });
+      const fromDevice = h('button', { type: 'button', class: 'cand dev', onclick: () => choose() }, h('span', {}, '+'), h('small', {}, tr('端末から', 'Device')));
+      const say = (t) => { credit.hidden = !t; credit.textContent = t || ''; };
+      const paintStrip = () => {
+        strip.hidden = !cands.length;
+        strip.replaceChildren(...cands.map((c, i) => h('button', { type: 'button', class: `cand${i === picked ? ' on' : ''}`, title: c.title,
+          'aria-label': tr(`候補${i + 1}：${c.title}`, `Option ${i + 1}: ${c.title}`), 'aria-pressed': String(i === picked), onclick: () => pick(i, true) },
+          h('img', { src: smallThumb(c.url), alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }))), fromDevice);
+      };
+      const creditOf = (c) => tr(`${c.from}「${c.title}」の写真を仮に入れました。下から別の写真もえらべます`,
+        `Added a photo from ${c.from} "${c.title}". You can pick another below.`);
+      async function pick(i, byHand) {
+        const c = cands[i]; if (!c) return;
         const my = ++seq;
-        if (!info) { if (auto) { clearPhoto(); auto = false; } credit.hidden = true; return; }
-        credit.hidden = false; credit.textContent = tr('この場所の写真をさがしています…', 'Looking for a photo of this place…');
-        const t = await placePhoto({ ...info, name: v.title });
-        if (my !== seq || mine) return;
+        picked = i; paintStrip(); say(tr('写真を読みこみ中…', 'Loading photo…'));
         let blob = null;
-        if (t) { try { blob = await fitImage(await (await fetch(t.url)).blob()); } catch { blob = null; } }
-        if (my !== seq || mine) return;
-        if (!blob) {
+        try { blob = await fitImage(await (await fetch(c.url)).blob()); } catch { blob = null; }
+        if (my !== seq) return;
+        if (!blob) {   // 読めなかった候補は外して、次へ
+          cands.splice(i, 1); picked = -1; paintStrip();
+          if (cands.length && (byHand || !mine)) return pick(Math.min(i, cands.length - 1), byHand);
           if (auto) { clearPhoto(); auto = false; }
-          credit.textContent = tr('この場所の写真は見つかりませんでした', 'No photo found for this place');
+          say(cands.length ? '' : tr('写真は見つかりませんでした', 'No photo found'));
           return;
         }
-        show(blob, { file: blob }); auto = true;
-        credit.textContent = tr(`Wikipedia「${t.title}」の写真を仮に入れました。ちがったら外すか、えらび直してください`,
-          `Added a photo from Wikipedia "${t.title}". Remove or replace it if it's not right.`);
+        show(blob, { file: blob }); auto = true; mine = false;
+        say(creditOf(c));
+      }
+      const refresh = () => {
+        const seen = new Set();
+        cands = [geoCand, ...textCands].filter((c) => c && !seen.has(c.url) && seen.add(c.url)).slice(0, 10);
+        picked = -1; paintStrip();
+        if (mine) { say(cands.length ? tr('ほかの写真の候補です。タップすると入れかわります', 'Other photos you can use — tap to swap') : ''); return; }
+        if (cands.length) pick(0, false);
+        else { if (auto) { clearPhoto(); auto = false; } say(''); }
       };
-      const choose = async () => {
+      onGeo = async (info) => {
+        const my = ++seq;
+        if (!info) { geoCand = null; refresh(); return; }
+        say(tr('この場所の写真をさがしています…', 'Looking for a photo of this place…'));
+        const t = await placePhoto({ ...info, name: v.title });
+        if (my !== seq) return;
+        geoCand = t && { ...t, from: 'Wikipedia' };
+        refresh();
+      };
+      let timer = 0;
+      onTitle = (text) => {
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          const q = text.trim();
+          const my = ++seq;
+          if (q.length < 2) { textCands = []; refresh(); return; }
+          if (!mine && !geoCand) say(tr('写真をさがしています…', 'Looking for photos…'));
+          const found = await namePhotos(q);
+          if (my !== seq || q !== (v.title || '').trim()) return;
+          textCands = found; refresh();
+        }, 900);
+      };
+      async function choose() {
         const file = await pickFile(); if (!file) return;
         const out = await editPhoto(file, { maxSide: maxSide(), lang, withState: true });
-        if (out) { show(out.blob, { file, state: out.state }); mine = true; auto = false; seq++; credit.hidden = true; }
-      };
+        if (out) { seq++; show(out.blob, { file, state: out.state }); mine = true; auto = false; picked = -1; paintStrip(); say(''); }
+      }
       // 今の写真をもう一度ひらいて直す
       const reedit = async () => {
         let src = draft?.file, state = draft?.state;
@@ -511,14 +568,14 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
         }
         if (!src) return;
         const out = await editPhoto(src, { maxSide: maxSide(), lang, withState: true, state });
-        if (out) { show(out.blob, { file: src, state: out.state }); mine = true; auto = false; credit.hidden = true; }
+        if (out) { show(out.blob, { file: src, state: out.state }); mine = true; auto = false; }
       };
       const rm = h('button', { type: 'button', class: 'link', hidden: !v.photo, onclick: () => {
-        clearPhoto(); touch(); mine = false; auto = false; seq++; credit.hidden = true;
+        seq++; clearPhoto(); touch(); mine = false; auto = false; picked = -1; paintStrip(); say('');
       } }, 'REMOVE PHOTO');
       const ed = h('button', { type: 'button', class: 'btn ghost small', hidden: !v.photo, onclick: reedit }, 'EDIT PHOTO');
       const drop = h('button', { type: 'button', class: v.photo ? 'drop' : 'drop is-empty', onclick: choose }, img, txt);
-      return field(f, h('div', { class: 'photo-field' }, drop, credit, h('div', { class: 'row' }, ed, rm)));
+      return field(f, h('div', { class: 'photo-field' }, drop, credit, strip, h('div', { class: 'row' }, ed, rm)));
     }
     if (f.type === 'level') {
       const btns = levels().map((label, i) => h('button', { type: 'button', class: v.level === i + 1 ? 'on' : '',
@@ -530,7 +587,7 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
         h('input', { type: 'checkbox', checked: !!v[f.name], onchange: (ev) => { v[f.name] = ev.target.checked; touch(); } }), f.label);
     }
     const common = { value: v[f.name] ?? '', required: f.required, readonly: f.readonly, placeholder: f.ph,
-      oninput: (ev) => { v[f.name] = ev.target.value; touch(); } };
+      oninput: (ev) => { v[f.name] = ev.target.value; touch(); if (f.name === 'title') onTitle(ev.target.value); } };
     if (f.type === 'textarea') return field(f, h('textarea', common), 'label');
     if (f.type === 'category') {
       // 決まった種類は日本語のまま保存し、表示だけ言語に合わせる

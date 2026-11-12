@@ -415,3 +415,12 @@ dialog.modal.editor { max-width: 520px; max-height: min(94vh, 980px); }
 .pin-box.ph .pin-label { top: 25px; }
 .labels-off .pin-label { display: none; }
 .photo-credit { line-height: 1.5; }
+/* 拾ってきた写真の候補 */
+.cands { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 6px; scrollbar-width: none; }
+.cands::-webkit-scrollbar { display: none; }
+.cand { flex: 0 0 58px; height: 58px; padding: 0; border: 1.5px solid rgba(22, 32, 79, .2); border-radius: 10px; background: #fff; overflow: hidden; display: grid; place-items: center; }
+.cand img { width: 100%; height: 100%; object-fit: cover; }
+.cand.on { border: 2.5px solid var(--navy); box-shadow: 0 2px 8px rgba(22, 32, 79, .25); }
+.cand.dev { border: 1.5px dashed var(--navy); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1.1; }
+.cand.dev span { font-size: 20px; font-weight: 800; }
+.cand.dev small { font-size: 9px; font-weight: 800; }
