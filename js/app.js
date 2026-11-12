@@ -655,8 +655,9 @@ const F = {
   get geo() { return { type: 'geo', label: tr('地図の場所', 'Location'), hint: tr('入れておくと地図にピンが立ちます', 'Adds a pin to the map') }; },
   get photo() { return { type: 'photo', label: tr('写真', 'Photo') }; },
 };
-const LIKE_CATS = ['食べ物', '飲み物', '仕草', '場所', '曲'];
-const LIKE_CATS_EN = ['Food', 'Drinks', 'Habits', 'Places', 'Songs'];
+const LIKE_CATS = ['食べ物', '飲み物', '仕草', '場所', '曲', 'その他'];
+const LIKE_CATS_EN = ['Food', 'Drinks', 'Habits', 'Places', 'Songs', 'Other'];
+const OTHER_CAT = 'その他';
 // 決まった種類は日本語で保存して、表示だけ英語にする（ふたりの言語設定がちがっても同じ種類になる）
 const catLabel = (c) => { const i = LIKE_CATS.indexOf(c); return lang === 'en' && i >= 0 ? LIKE_CATS_EN[i] : c; };
 const catKey = (label) => { const i = LIKE_CATS_EN.indexOf(label.trim()); return lang === 'en' && i >= 0 ? LIKE_CATS[i] : label; };
@@ -673,7 +674,9 @@ const SECTIONS = {
   dislike: { en: 'Dislikes', lead: () => tr('相手の苦手なものを覚えておく', "Things they don't like"),
     fields: () => [F.title(tr('嫌いなもの', 'What'), tr('例：満員電車', 'e.g. Packed trains')), F.body] },
 };
-const likeCats = () => [...new Set([...LIKE_CATS, ...data.entries.filter((e) => e.section === 'like' && e.category).map((e) => e.category)])];
+// 「その他」は自分で足した種類よりも後ろ、いちばん最後に並べる
+const likeCats = () => [...new Set([...LIKE_CATS, ...data.entries.filter((e) => e.section === 'like' && e.category).map((e) => e.category)])]
+  .filter((c) => c !== OTHER_CAT).concat(OTHER_CAT);
 const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(e.author)}から`, `from ${nameOf(e.author)}`) : nameOf(e.author));
 
 function talk(e) {
