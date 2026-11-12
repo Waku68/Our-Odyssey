@@ -50,10 +50,10 @@ img { max-width: 100%; display: block; }
 .slot.b { left: 48.5%; bottom: 84px; width: 31.5%; height: 178px; background-color: var(--pink-d); color: var(--navy); border: var(--line); transform: rotate(5deg); }
 .slot.has span { display: none; }
 .flower { position: absolute; pointer-events: none; height: auto; z-index: 1;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 96%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 96%); }
-.flower.blue { left: -21.5%; bottom: -8px; width: 64%; }
-.flower.pink { right: -14%; bottom: -8px; width: 49%; }
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); }
+.flower.blue { left: -21.5%; bottom: 0; width: 64%; }
+.flower.pink { right: -14%; bottom: 0; width: 49%; }
 .menu { list-style: none; margin: 8px 0 0; padding: 0; border-top: var(--line); }
 .menu a { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0 8px; border-bottom: var(--line); text-decoration: none; }
 .menu .en { font-size: 40px; line-height: 1.05; }
