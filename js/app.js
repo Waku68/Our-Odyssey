@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=21';
-import { editPhoto } from './photo-editor.js?v=21';
-import { ask, notice } from './ask.js?v=21';
+import { createStore } from './store.js?v=22';
+import { editPhoto } from './photo-editor.js?v=22';
+import { ask, notice } from './ask.js?v=22';
 
 const app = document.getElementById('app');
 
@@ -794,24 +794,26 @@ function pinIcon(L, e) {
 // 遠すぎるものは出さない（画面の中心から、縦横それぞれ画面 EDGE_REACH 枚ぶんまで）。
 const EDGE_REACH = 3;
 // ピンをタップしたときの吹き出し。地図は動かさず、ピンの上に出す（上に入りきらないときは下に出す。ピンは隠さない）
-const BUBBLE_ZOOM = 15;
-const BUBBLE_MAX = 2;
 function mapBubble(L, map, mapEl) {
   const pop = h('div', { class: 'mpop-bubble', hidden: true, role: 'dialog' });
   mapEl.append(pop);
   L.DomEvent.disableClickPropagation(pop);
   L.DomEvent.disableScrollPropagation(pop);
   let cur = null;
-  // 吹き出しは地図に貼りついたもの：ズーム BUBBLE_ZOOM でふつうの大きさ、引くほど小さく、寄るほど大きく（最大 BUBBLE_MAX 倍）
-  // 画面の端で見切れてもそのまま（ずらしたり反対側に出したりしない）
   const place = () => {
     if (!cur) return;
+    const { x: w, y: hgt } = map.getSize();
     const p = map.latLngToContainerPoint([cur.lat, cur.lng]);
-    const k = Math.min(BUBBLE_MAX, 2 ** (map.getZoom() - BUBBLE_ZOOM));
-    pop.style.left = `${p.x}px`;
-    pop.style.top = `${p.y - (cur.photo ? 64 : 18)}px`;   // ピンの頭の少し上をしっぽの先に
-    pop.style.setProperty('--s', k.toFixed(4));
-    pop.style.visibility = k < 0.08 ? 'hidden' : '';
+    const bw = pop.offsetWidth, bh = pop.offsetHeight;
+    const left = Math.min(Math.max(p.x - bw / 2, 10), w - bw - 10);
+    const head = p.y - (cur.photo ? 64 : 18);   // ピンの頭の少し上
+    const foot = p.y + (cur.photo ? 6 : 14);    // ピンの少し下
+    const room = head - 11 - 8, roomBelow = hgt - foot - 11 - 8;
+    const below = bh > room && roomBelow > room;
+    pop.classList.toggle('below', below);
+    pop.style.left = `${left}px`;
+    pop.style.top = `${below ? foot : head}px`;
+    pop.style.setProperty('--tail', `${Math.min(Math.max(p.x - left, 16), bw - 16)}px`);
   };
   const hide = () => { cur = null; pop.hidden = true; };
   // bring：画面の外のピン（端の点）のときだけ、見えるところまで最小限動かす
@@ -836,7 +838,7 @@ function mapBubble(L, map, mapEl) {
     place();
     pop.classList.remove('pop-in'); void pop.offsetWidth; pop.classList.add('pop-in');
   };
-  map.on('move zoom zoomend resize', place);
+  map.on('move zoom resize', place);
   map.on('click', hide);
   return { show, hide };
 }
