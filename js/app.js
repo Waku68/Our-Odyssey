@@ -144,7 +144,8 @@ const tabBar = (active) => h('nav', { class: 'tabbar', 'aria-label': 'タブ' },
 const pageNav = (back) => h('div', { class: 'nav' },
   back ? h('a', { class: 'link', href: '#/more' }, '← その他') : h('span'),
   h('span', { class: 'word' }, 'Our Odyssey'), h('span', { class: 'nav-spacer' }));
-const pageHead = (en, jp, ...extra) => h('div', { class: 'head' }, h('h1', {}, en), h('p', { class: 'jp' }, jp), extra);
+// 大きな英語の見出し（日本語の副題は出さない）
+const pageHead = (en, _jp, ...extra) => h('div', { class: 'head' }, h('h1', {}, en), extra);
 
 // 画面に入ってきたものから、ふわっと出す
 function fadeIn(root) {
@@ -207,7 +208,7 @@ function timeline() {
       h('div', { class: 'muted' }, it.k), it.photo && photoImg(it.photo, '')));
   }
   return h('section', { class: 'home-tl' },
-    h('div', { class: 'head fade' }, h('h1', {}, 'Timeline'), h('p', { class: 'jp' }, '年表 ― 日付のあるものが新しい順に')), out);
+    h('div', { class: 'head fade' }, h('h1', {}, 'Timeline')), out);
 }
 function addDays(s, n) {
   const d = new Date(utc(s) + n * 864e5);
@@ -952,7 +953,7 @@ function loginPage() {
   const pw = h('input', { type: 'password', required: true, autocomplete: 'current-password' });
   const err = h('p', { class: 'err' });
   return h('div', {}, h('div', { class: 'nav' }, h('span'), h('span', { class: 'word' }, 'Our Odyssey'), h('span')),
-    pageHead('Login', 'ふたりだけの場所です'),
+    h('div', { class: 'head' }, h('h1', {}, 'Login'), h('p', { class: 'jp' }, 'ふたりだけの場所です')),
     h('form', { style: 'display: flex; flex-direction: column; gap: 14px', onsubmit: async (ev) => {
       ev.preventDefault(); err.textContent = '';
       try { await store.signIn(toEmail(email.value), pw.value); await start(); }

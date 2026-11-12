@@ -134,6 +134,7 @@ dialog.detail .sheet { display: flex; flex-direction: column; max-height: min(88
 .head { margin: 18px 0 20px; }
 .head h1 { font-family: var(--en); font-weight: 400; text-transform: uppercase; font-size: min(22vw, 104px); line-height: .96; margin: 0; overflow-wrap: anywhere; }
 .head .jp { font-weight: 800; margin: 6px 0 12px; }
+.head > .btn { margin-top: 16px; }
 .cards { display: flex; flex-direction: column; gap: 22px; margin-top: 22px; }
 .card { border-top: var(--line); padding-top: 12px; }
 .card .photo { width: 100%; max-height: 420px; object-fit: cover; margin-bottom: 10px; background: var(--pink-d); }
