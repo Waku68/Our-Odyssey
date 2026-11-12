@@ -57,7 +57,9 @@ img { max-width: 100%; display: block; }
 .flower.pink { right: -14%; bottom: 0; width: 49%; }
 .home .banner { align-self: stretch; }
 .hero-pin.on { margin-bottom: -32vh; }
-.hero-pin.on > .home { position: sticky; will-change: opacity, transform; transform-origin: 50% 35%; }
+.hero-pin.on > .home { position: sticky; will-change: opacity, transform; backface-visibility: hidden; }
+.hero-pin.native > .home { animation: hero-out linear both; animation-timeline: scroll(root); animation-range: var(--fade-start, 0px) var(--fade-end, 600px); }
+@keyframes hero-out { to { opacity: 0; transform: translate3d(0, -28px, 0); visibility: hidden; } }
 
 /* 下のタブ */
 .tabbar { position: fixed; left: 28px; right: 28px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 50; max-width: 360px; margin: 0 auto;
@@ -102,7 +104,7 @@ img { max-width: 100%; display: block; }
 .pthumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: 0 0 40px; }
 
 /* 地図のタブ */
-.map.big-map { height: min(58vh, 520px); border-radius: 16px; overflow: hidden; margin-top: 12px; }
+.map.big-map { height: auto; aspect-ratio: 1 / 1; border-radius: 16px; overflow: hidden; margin-top: 12px; }
 .pin-wrap { background: none; border: none; }
 .pin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(22, 32, 79, .45); }
 .pin.place { background: var(--navy); }

@@ -199,29 +199,40 @@ function home() {
 function pinHero(pin, hero) {
   if (reduceMotion()) return;
   pin.classList.add('on');
-  let lead = 0, dist = 1, raf = 0;
+  // スクロールに連動したアニメーションをブラウザに任せられるなら任せる（いちばんなめらか）
+  const native = window.CSS?.supports?.('animation-timeline: scroll()');
+  let V = 0, W = 0, start = 0, len = 1, raf = 0;
   const layout = () => {
-    const V = window.innerHeight;
+    // iPhoneはスクロール中にアドレスバーの出し入れで高さが変わるので、横幅が変わったときだけ測り直す
+    if (!V || window.innerWidth !== W) { V = document.documentElement.clientHeight; W = window.innerWidth; }
     const H = hero.offsetHeight;
-    lead = Math.max(0, H - V);
-    dist = Math.round(V * 0.75);
+    const lead = Math.max(0, H - V);
+    const dist = Math.round(V * 0.75);
+    start = 0; // ホームは一番上にあるので、スクロールし始めた瞬間から消えはじめる
+    len = lead + dist;
     hero.style.top = `${Math.min(0, V - H)}px`;
     pin.style.height = `${H + dist}px`;
+    pin.style.setProperty('--fade-start', `${start}px`);
+    pin.style.setProperty('--fade-end', `${start + len}px`);
   };
   const update = () => {
     raf = 0;
-    if (!pin.isConnected) { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); ro.disconnect(); return; }
-    const p = Math.min(1, Math.max(0, -pin.getBoundingClientRect().top / (lead + dist)));
+    const p = Math.min(1, Math.max(0, (window.scrollY - start) / len));
     hero.style.opacity = String(1 - p);
-    hero.style.transform = `translateY(${(-p * 28).toFixed(1)}px) scale(${(1 - p * 0.07).toFixed(3)})`;
+    hero.style.transform = `translate3d(0, ${(-p * 28).toFixed(1)}px, 0)`;
     hero.style.visibility = p >= 1 ? 'hidden' : '';
   };
-  const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
-  const ro = new ResizeObserver(() => { layout(); onScroll(); });
+  const onScroll = () => {
+    if (!pin.isConnected) { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); ro.disconnect(); return; }
+    if (!native && !raf) raf = requestAnimationFrame(update);
+  };
+  const onResize = () => { layout(); onScroll(); };
+  const ro = new ResizeObserver(onResize);
   ro.observe(hero);
   window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll);
-  layout(); update();
+  window.addEventListener('resize', onResize);
+  if (native) pin.classList.add('native');
+  layout(); if (!native) update();
 }
 function timeline() {
   const kind = { gift: '贈りもの', place: '過ごした場所', anniversary: '記念日' };
