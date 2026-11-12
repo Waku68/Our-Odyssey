@@ -195,14 +195,14 @@ function home() {
 function timeline() {
   const kind = { gift: '贈りもの', place: '過ごした場所', anniversary: '記念日' };
   const items = [{ date: CONFIG.START_DATE, title: '付き合いはじめた日', k: '記念日' },
-    ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ id: e.id, date: e.date, title: e.title, k: kind[e.section], photo: e.photo }))];
+    ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ id: e.id, section: e.section, date: e.date, title: e.title, k: kind[e.section], photo: e.photo }))];
   items.sort((a, b) => (a.date < b.date ? 1 : -1));
   const out = [];
   let year = null, group = null;
   for (const it of items) {
     const y = it.date.slice(0, 4);
     if (y !== year) { year = y; group = h('div', { class: 'tl' }); out.push(h('div', { class: 'year fade' }, y), group); }
-    group.append(h(it.id ? 'button' : 'div', { class: 'it fade', type: it.id ? 'button' : null, onclick: it.id ? () => openDetail(it.id) : null },
+    group.append(h(it.id ? 'button' : 'div', { class: 'it fade', type: it.id ? 'button' : null, onclick: it.id ? () => (it.section === 'anniversary' ? (location.hash = '#/more/anniv') : openDetail(it.id)) : null },
       h('div', { class: 'd' }, dots(it.date).slice(5)), h('div', { class: 't' }, it.title),
       h('div', { class: 'muted' }, it.k), it.photo && photoImg(it.photo, '')));
   }
