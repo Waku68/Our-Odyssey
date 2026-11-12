@@ -34,18 +34,18 @@ export function messagesFor(today: string, start: string, custom: { title: strin
   const months = (t.y - s.y) * 12 + (t.m - s.m);
   if (months > 0 && addMonths(start, months) === today) {
     const y = Math.floor(months / 12), m = months % 12;
-    if (m === 0) add(`${y}周年おめでと〜🎉`, `Happy ${ordinal(y)} anniversary 🎉`);
-    else if (y === 0) add(`${m}ヶ月記念日だよ〜🎉`, `${plural(m, "month")} together today 🎉`);
-    else add(`${y}年${m}ヶ月記念日だよ〜🎉`, `${plural(y, "year")} ${plural(m, "month")} together today 🎉`);
+    const ja = m === 0 ? `${y}周年` : months > 12 ? `${y}年${m}ヶ月` : `${months}ヶ月`;
+    const en = m === 0 ? ordinal(y) : y ? `${plural(y, "year")} ${plural(m, "month")}` : plural(m, "month");
+    add(`今日は ${ja} の記念日です`, `Today is our ${en} anniversary`);
   }
-  if (n > 0 && n % 100 === 0) add(`付き合って${n}日たったよ〜！`, `${num(n)} days together!`);
+  if (n > 0 && n % 100 === 0) add(`今日で付き合って ${n}日です`, `${num(n)} days together today`);
   for (const c of custom) {
     const cd = parse(c.date);
     const years = t.y - cd.y;
-    if (years > 0 && addMonths(c.date, years * 12) === today) add(`「${c.title}」から${years}年だって！`, `${plural(years, "year")} since ${c.title}!`);
+    if (years > 0 && addMonths(c.date, years * 12) === today) add(`今日は「${c.title}」から ${years}年です`, `${plural(years, "year")} since "${c.title}" today`);
     const cn = days(c.date, today);
-    if (cn > 0 && cn % 100 === 0) add(`「${c.title}」から${cn}日だよ〜`, `${num(cn)} days since ${c.title}!`);
-    if (cn === 0) add(`今日は「${c.title}」の日だよ！`, `Today's the day: ${c.title}!`);
+    if (cn > 0 && cn % 100 === 0) add(`今日は「${c.title}」から ${cn}日です`, `${num(cn)} days since "${c.title}" today`);
+    if (cn === 0) add(`今日は「${c.title}」の日です`, `Today is "${c.title}"`);
   }
   return { ja, en };
 }
