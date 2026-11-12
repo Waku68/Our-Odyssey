@@ -77,6 +77,10 @@ img { max-width: 100%; display: block; }
 @keyframes inR { from { transform: translateX(38%); opacity: 0; } }
 @keyframes inL { from { transform: translateX(-38%); opacity: 0; } }
 .nav-spacer { min-width: 64px; }
+/* オフライン中・送信待ちのお知らせ（下のタブのすぐ上） */
+.sync { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 49;
+  max-width: calc(100vw - 48px); padding: 6px 14px; border: var(--line); border-radius: 999px; background: var(--paper); color: var(--navy);
+  font-size: 12px; font-weight: 800; line-height: 1.5; text-align: center; white-space: nowrap; box-shadow: 0 6px 16px rgba(22, 32, 79, .18); }
 .nav > span:first-child:empty { min-width: 64px; }
 
 /* ふわっと出る */

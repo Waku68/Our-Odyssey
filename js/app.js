@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js';
+import { createStore } from './store.js?v=11';
 
 const app = document.getElementById('app');
 let store;
@@ -1186,13 +1186,53 @@ function loginPage() {
       h('button', { class: 'btn', type: 'submit' }, 'ログイン')));
 }
 
+/* ---------- ネットがないときも書けるように ---------- */
+// 書いたものはいったん端末にあずけ、つながったら送る（store.js）。ここでは今の状態を小さく出す。
+const syncPill = h('div', { class: 'sync', role: 'status', 'aria-live': 'polite', hidden: true });
+function showSync() {
+  const n = store.pending?.() || 0;
+  const off = !navigator.onLine;
+  syncPill.hidden = !(off || n);
+  syncPill.textContent = off
+    ? (n ? `オフライン中・${n}件をあとで送ります` : 'オフライン中・書いたものはあとで送ります')
+    : `${n}件を送っています…`;
+}
+let syncReady = false;
+function setupSync() {
+  if (syncReady || store.mode !== 'supabase' || !store.flush) return;
+  syncReady = true;
+  document.body.append(syncPill);
+  store.onChange = showSync;
+  store.onSync = ({ sent, failed }) => {
+    if (failed.length) alert(`送れなかった記録がありました：${failed[0].error.message || failed[0].error}`);
+    // あずけていた分が送れたら、相手の更新もいっしょに取りなおす（書いている途中なら邪魔しない）
+    if (sent && !document.querySelector('dialog[open]')) refresh().catch(() => {});
+  };
+  const kick = () => { showSync(); store.flush(); };
+  window.addEventListener('online', kick);
+  window.addEventListener('offline', showSync);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kick(); });
+  setInterval(() => { if (navigator.onLine && store.pending()) store.flush(); }, 30000);
+  kick();
+}
+// アプリの部品を端末に覚えさせて、ネットがなくても開けるようにする
+function setupOffline() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.ready.then((reg) => {
+    const urls = [location.href.split('#')[0], ...performance.getEntriesByType('resource').map((e) => e.name)];
+    reg.active?.postMessage({ type: 'warm', urls });
+  }).catch(() => {});
+}
+
 async function start() {
   try {
     store ??= await createStore();
     if (!store.user()) { app.replaceChildren(loginPage()); return; }
     await refresh();
+    setupSync();
     // 地図の部品は、最初の画面が出たあと手があいたときに先に読みこんでおく
-    (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(() => leaflet().catch(() => {}));
+    (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(() => leaflet().catch(() => {}).finally(setupOffline));
   } catch (e) {
     app.replaceChildren(h('p', { class: 'empty' }, `読みこめませんでした：${e.message || e}`));
   }
