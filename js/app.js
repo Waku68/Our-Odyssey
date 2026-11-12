@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=23';
-import { editPhoto } from './photo-editor.js?v=23';
-import { ask, notice } from './ask.js?v=23';
+import { createStore } from './store.js?v=24';
+import { editPhoto } from './photo-editor.js?v=24';
+import { ask, notice } from './ask.js?v=24';
 
 const app = document.getElementById('app');
 
@@ -907,7 +907,18 @@ function mapPage() {
     // 日本全体が見えるくらい引いたときは、名前が重なるので出さない
     const labels = () => mapEl.classList.toggle('labels-off', map.getZoom() < 7);
     map.on('zoomend', labels); labels();
-    setTimeout(() => map.invalidateSize(), 380);
+    // 見出しのフォントが後から読みこまれるなどして地図の大きさが変わったら、すぐに測り直す（地図は動かさない）。
+    // 放っておくと、スマホで最初に触ったときの画面サイズの通知でまとめて測り直され、地図がずれて見える
+    let lastSize = '';
+    const fitSize = () => {
+      const key = `${mapEl.clientWidth}x${mapEl.clientHeight}`;
+      if (key === lastSize || !mapEl.clientWidth) return;
+      lastSize = key;
+      map.invalidateSize({ pan: false });
+      syncInset();
+    };
+    if ('ResizeObserver' in window) new ResizeObserver(fitSize).observe(mapEl);
+    setTimeout(fitSize, 380);
   }).catch(() => { mapEl.textContent = tr('地図を読みこめませんでした。', "Couldn't load the map."); });
 
   const row = (e) => h('button', { class: 'lrow', type: 'button', onclick: () => openDetail(e.id) },
