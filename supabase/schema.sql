@@ -111,3 +111,15 @@ create policy "photos read" on storage.objects for select to authenticated using
 create policy "photos upload" on storage.objects for insert to authenticated with check (bucket_id = 'photos');
 create policy "photos delete own" on storage.objects for delete to authenticated
   using (bucket_id = 'photos' and owner = auth.uid());
+
+-- 5) 相手の更新をすぐ届ける（Realtime） ----------------------------------------
+-- realtime.sql と同じ内容。あとから足したので、すでに schema.sql を実行済みなら realtime.sql だけ実行すればいい。
+do $$
+declare t text;
+begin
+  foreach t in array array['entries', 'comments', 'moods', 'profiles'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;

@@ -280,6 +280,20 @@ async function supaStore() {
     onChange: null, onSync: null,
     pending: () => outbox.filter((o) => o.uid === uid()).length,
     flush: () => flush(true),
+    // 相手が書いたら知らせてもらう（Supabase の Realtime）。つながらなくても、ほかの取りなおしでカバーする
+    watch(cb) {
+      let ch = null;
+      const start = () => {
+        if (ch || !session) return;
+        ch = sb.channel('our-odyssey-changes');
+        for (const table of ['entries', 'comments', 'moods', 'profiles']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => cb(table));
+        ch.subscribe((status) => { if (status === 'SUBSCRIBED') cb('reconnect'); });
+      };
+      const stop = () => { if (ch) { sb.removeChannel(ch); ch = null; } };
+      // 裏に回ると iPhone は接続を切るので、表に戻ったらつなぎ直す
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { stop(); start(); } });
+      start();
+    },
     user: () => (session ? { id: session.user.id } : null),
     async signIn(email, password) {
       session = ok(await sb.auth.signInWithPassword({ email, password })).session;

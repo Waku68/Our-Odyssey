@@ -118,6 +118,45 @@ async function refresh() {
   await load(); draw();
   document.querySelectorAll('dialog[open]').forEach((d) => d.refresh?.());
 }
+/* 相手の更新を取りこむ：アプリに戻ったとき・相手が書いたとき・開いている間は1分ごとに取りなおし、
+   変わっていたときだけ描き直す。書いている途中なら描き直さず、あとでもう一度ためす */
+let liveBusy = false, liveAgain = false, liveTimer = 0;
+const liveSig = (d) => JSON.stringify([d.entries, d.moods, d.comments, d.profiles]);
+function isEditing() {
+  if (document.querySelector('dialog[open]')) return true;
+  const a = document.activeElement;
+  if (a && app.contains(a) && a.matches('input, textarea, select, [contenteditable]')) return true;
+  if ([...app.querySelectorAll('form')].some((f) => f.isDirty?.())) return true;
+  return [...app.querySelectorAll('form input[type=text], form textarea')].some((el) => el.value.trim());
+}
+async function liveRefresh() {
+  if (!store?.user() || document.visibilityState !== 'visible') return;
+  if (liveBusy) { liveAgain = true; return; }
+  liveBusy = true;
+  try {
+    const [entries, moods, comments, profiles] = await Promise.all([store.entries(), store.moods(), store.comments(), store.profiles()]);
+    const next = { entries, moods, comments, profiles };
+    if (liveSig(next) !== liveSig(data)) {
+      if (isEditing()) { liveAgain = true; setTimeout(liveRefresh, 5000); }
+      else { const y = window.scrollY; data = next; draw(); window.scrollTo(0, y); }
+    }
+  } catch { /* つながらないときは次の機会に */ } finally {
+    liveBusy = false;
+    if (liveAgain) { liveAgain = false; setTimeout(liveRefresh, 800); }
+  }
+}
+function liveSoon() { clearTimeout(liveTimer); liveTimer = setTimeout(liveRefresh, 400); }
+let liveReady = false;
+function setupLive() {
+  if (liveReady || store.mode !== 'supabase') return;
+  liveReady = true;
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') liveSoon(); });
+  window.addEventListener('focus', liveSoon);
+  window.addEventListener('pageshow', liveSoon);
+  window.addEventListener('online', liveSoon);
+  setInterval(() => { if (document.visibilityState === 'visible') liveRefresh(); }, 60000);
+  store.watch?.(liveSoon);
+}
 const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- タブと画面の切りかえ ---------- */
@@ -644,7 +683,9 @@ function openForm({ title, en, lead, fields, initial, onSubmit }) {
 }
 function inlineForm({ fields, onSubmit }) {
   const fp = formParts({ fields, onSubmit, after: refresh, submitLabel: 'ADD' });
-  return h('form', { class: 'inline-form', novalidate: true, onsubmit: fp.handle }, fp.controls, fp.err, h('div', { class: 'row' }, fp.submit));
+  const form = h('form', { class: 'inline-form', novalidate: true, onsubmit: fp.handle }, fp.controls, fp.err, h('div', { class: 'row' }, fp.submit));
+  form.isDirty = fp.isDirty;
+  return form;
 }
 
 /* ---------- 各欄 ---------- */
@@ -1551,6 +1592,7 @@ async function start() {
     if (!store.user()) { app.replaceChildren(loginPage()); return; }
     await refresh();
     setupSync();
+    setupLive();
     // 地図の部品は、最初の画面が出たあと手があいたときに先に読みこんでおく
     (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(() => leaflet().catch(() => {}).finally(setupOffline));
   } catch (e) {
