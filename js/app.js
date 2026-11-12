@@ -197,7 +197,7 @@ function home() {
   const heroEl = h('div', { class: 'home' },
       h('div', { class: 'tag' }, `Since ${dots(CONFIG.START_DATE)}`),
       h('p', { class: 'big first' }, String(days)),
-      h('p', { class: 'big' }, 'Days'),
+      h('p', { class: 'big unit' }, 'Days'),
       banners.map((b) => h('div', { class: 'banner' }, b)),
       h('div', { class: 'stage' },
         slot('a', 'OUR PHOTO'), slot('b', 'KEEPSAKE'),

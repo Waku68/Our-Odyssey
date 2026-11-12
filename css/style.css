@@ -43,6 +43,8 @@ img { max-width: 100%; display: block; }
 .home .tag { margin-top: calc(6px + env(safe-area-inset-top)); }
 .big { font-family: var(--en); font-size: min(41vw, 196px); line-height: .94; text-align: center; white-space: nowrap; text-transform: uppercase; margin: 0; font-weight: 400; }
 .big.first { margin-top: 12px; }
+/* 数字の下の DAYS は数字より小さく（数字の約6割） */
+.big.unit { font-size: min(25vw, 120px); line-height: 1; margin-top: 2px; }
 .sub { margin: 18px 0 0; text-align: center; }
 .stage { position: relative; width: 100vw; max-width: 480px; height: 372px; margin-top: 8px; }
 .slot { position: absolute; z-index: 2; border: none; padding: 0; background-size: cover; background-position: center; display: flex; align-items: flex-start; justify-content: center; font-size: 13px; font-weight: 500; line-height: 1.5; text-align: center; }
@@ -194,6 +196,11 @@ details.talk summary { font-size: 12px; font-weight: 800; min-height: 32px; disp
 .mstat .v.jp { font-family: var(--jp); font-weight: 800; font-size: 17px; line-height: 39px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mstat small { font-size: 10px; font-weight: 800; opacity: .8; line-height: 1.4; }
 .mwrap { position: relative; margin: 14px -24px 0; }
+/* 数直線の裏にうっすら敷く画像。assets/mood-bg.webp を置くと出る（無ければ何も出ない） */
+.mwrap::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 320px; pointer-events: none;
+  background: url('../assets/mood-bg.webp') center / cover no-repeat; opacity: .22; mix-blend-mode: multiply;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 78%, transparent 100%); }
 /* グラフの入れ物（モーダルの .mbody と名前が重なっていたので分けた。見た目は以前のまま） */
 .mchart-body { position: relative; overflow-y: auto; overscroll-behavior: contain; padding: 18px 22px 8px; display: flex; flex-direction: column; gap: 20px; }
 .mchart-body::after { content: ''; position: absolute; right: 0; top: 0; width: 18px; height: 300px; background: linear-gradient(270deg, var(--pink), rgba(242, 196, 206, 0)); pointer-events: none; }
