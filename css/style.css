@@ -194,8 +194,9 @@ details.talk summary { font-size: 12px; font-weight: 800; min-height: 32px; disp
 .mstat .v.jp { font-family: var(--jp); font-weight: 800; font-size: 17px; line-height: 39px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mstat small { font-size: 10px; font-weight: 800; opacity: .8; line-height: 1.4; }
 .mwrap { position: relative; margin: 14px -24px 0; }
-.mbody { position: relative; }
-.mbody::after { content: ''; position: absolute; right: 0; top: 0; width: 18px; height: 300px; background: linear-gradient(270deg, var(--pink), rgba(242, 196, 206, 0)); pointer-events: none; }
+/* グラフの入れ物（モーダルの .mbody と名前が重なっていたので分けた。見た目は以前のまま） */
+.mchart-body { position: relative; overflow-y: auto; overscroll-behavior: contain; padding: 18px 22px 8px; display: flex; flex-direction: column; gap: 20px; }
+.mchart-body::after { content: ''; position: absolute; right: 0; top: 0; width: 18px; height: 300px; background: linear-gradient(270deg, var(--pink), rgba(242, 196, 206, 0)); pointer-events: none; }
 .mscroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; overscroll-behavior-x: contain; }
 .mscroll::-webkit-scrollbar { display: none; }
 .mcanvas { position: relative; }
@@ -288,11 +289,12 @@ dialog.modal form.sheet { display: flex; flex-direction: column; max-height: min
 .mfoot .btn:first-child { flex: 1; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .flabel { display: flex; align-items: baseline; gap: 8px; font-size: 13px; font-weight: 800; letter-spacing: .04em; }
-.opt { font-size: 10px; font-weight: 800; opacity: .6; }
+.req { font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; background: var(--navy); color: var(--pink); }
 .hint { font-size: 11px; opacity: .78; font-weight: 500; }
 .cat { display: flex; flex-direction: column; gap: 8px; }
 .drop { width: 100%; aspect-ratio: 4 / 3; border: 1.5px dashed var(--navy); border-radius: 12px; background: var(--paper); padding: 0; overflow: hidden; display: grid; place-items: center; }
 .drop-img { width: 100%; height: 100%; object-fit: cover; }
+.drop.is-empty { aspect-ratio: auto; height: 92px; }
 .drop-txt { display: flex; flex-direction: column; align-items: center; font-weight: 800; font-size: 15px; }
 .drop-txt small { font-size: 11px; font-weight: 500; opacity: .75; }
 label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 800; }
@@ -305,6 +307,7 @@ input::placeholder, textarea::placeholder { color: var(--navy); opacity: .45; }
 textarea { min-height: 110px; resize: vertical; }
 .preview { width: 120px; height: 90px; object-fit: cover; }
 .err { color: #8E1230; font-weight: 800; font-size: 13px; }
+.err:empty { display: none; }
 @media (prefers-reduced-motion: reduce) { .view, .fade, .acc-panel, dialog, dialog::backdrop, .down span, .day, .levels button { animation: none !important; transition: none !important; } }
 
 @media (min-width: 481px) { .stage { width: 480px; } .big { font-size: 196px; } }
@@ -343,3 +346,28 @@ dialog.modal.editor { max-width: 520px; max-height: min(94vh, 980px); }
 .ed-colors { display: flex; gap: 10px; }
 .ed-color { width: 34px; height: 34px; border-radius: 50%; border: var(--line); padding: 0; }
 .ed-color.on { box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--navy); }
+
+/* ページの下の追加フォーム（Places / Mood）：ひとつのカードにまとめて、左揃え・角の丸みをそろえる */
+.mcard { display: flex; flex-direction: column; gap: 18px; padding: 18px 16px 16px; border-radius: 16px; background: var(--paper); box-shadow: 0 6px 20px rgba(22, 32, 79, .10); overflow: hidden; }
+.mcard .inline-form { gap: 18px; }
+.mcard > .muted { margin: -6px 0 0; }
+.mcard .flabel { font-size: 14px; }
+.mcard input[type=text], .mcard textarea, .mcard .drop { background: #fff; border-radius: 10px; }
+.mcard .daypick .month, .mcard .daypick-foot { justify-content: flex-start; }
+.mcard .daypick .month { gap: 2px; margin-left: -10px; }
+.mcard .strip { margin: 0 -16px; padding: 6px 16px 8px; scroll-padding: 0 16px; }
+.mcard .day { background: #fff; box-shadow: none; border: 1.5px solid rgba(22, 32, 79, .14); border-radius: 10px; }
+.mcard .day.on { background: var(--navy); color: var(--pink); border-color: var(--navy); box-shadow: 0 4px 12px rgba(22, 32, 79, .25); }
+.mcard .day.today { outline-offset: -1.5px; }
+.mcard .levels button { border-radius: 10px; background: #fff; }
+.mcard .levels button.on { background: var(--navy); }
+.mcard .map.pick { border-radius: 10px; overflow: hidden; }
+.mcard > .row:last-child, .mcard .inline-form > .row:last-child { flex-direction: column; align-items: stretch; gap: 4px; }
+.mcard > .row:last-child .btn, .mcard .inline-form > .row:last-child .btn { width: 100%; min-height: 52px; border-radius: 10px; font-size: 15px; letter-spacing: .06em; }
+.mcard > .row:last-child .link { align-self: center; }
+.mcard .mstatus { margin: -4px 0 0; }
+/* PLACES / WISHES の切りかえ（上の絞り込みボタンと見分けがつく形） */
+.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 999px; background: rgba(22, 32, 79, .08); }
+.seg button { min-height: 40px; border: none; border-radius: 999px; background: transparent; font-family: var(--en); font-size: 15px; letter-spacing: .08em; opacity: .6; transition: background .2s, color .2s, opacity .2s; }
+.seg button.on { opacity: 1; background: var(--navy); color: var(--pink); }
+.seg button.wish.on { background: var(--pink-d); color: var(--navy); }

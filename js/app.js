@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=12';
-import { editPhoto } from './photo-editor.js?v=12';
+import { createStore } from './store.js?v=13';
+import { editPhoto } from './photo-editor.js?v=13';
 
 const app = document.getElementById('app');
 
@@ -404,7 +404,7 @@ function dayStrip({ value, onChange, marks = new Set(), max = null, allowNone = 
       h('span', { class: 'pill' }, label, native), next),
     strip,
     h('div', { class: 'row daypick-foot' },
-      h('button', { type: 'button', class: 'btn small', onclick: () => pick(max && today() > max ? max : today()) }, 'TODAY'), noneBtn,
+      h('button', { type: 'button', class: 'chip', onclick: () => pick(max && today() > max ? max : today()) }, 'TODAY'), noneBtn,
       h('span', { class: 'muted' }, tr('月の部分をタップするとカレンダー', 'Tap the month for a calendar'))));
   root.pick = pick;
   return root;
@@ -420,7 +420,7 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
   const touch = () => { dirty = true; };
   const err = h('p', { class: 'err', role: 'alert' });
   const field = (f, inner, tag = 'div') => h(tag, { class: 'field' },
-    f.label && h('span', { class: 'flabel' }, f.label, !f.required && !f.readonly && f.type !== 'check' && h('span', { class: 'opt' }, tr('なくてもOK', 'optional'))),
+    f.label && h('span', { class: 'flabel' }, f.label, f.required && !f.readonly && h('span', { class: 'req' }, tr('必須', 'required'))),
     inner, f.hint && h('span', { class: 'hint' }, f.hint));
   const control = (f) => {
     if (f.type === 'geo') return field(f, geoField(v));
@@ -432,7 +432,7 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
       const txt = h('span', { class: 'drop-txt', hidden: !!v.photo }, '+ ADD PHOTO', h('small', {}, tr('タップして端末の写真から', 'Tap to choose from your device')));
       const show = (blob, d) => {
         newPhoto = blob; draft = d;
-        img.src = URL.createObjectURL(blob); img.hidden = false; txt.hidden = true; rm.hidden = false; ed.hidden = false; touch();
+        img.src = URL.createObjectURL(blob); img.hidden = false; txt.hidden = true; rm.hidden = false; ed.hidden = false; drop.classList.remove('is-empty'); touch();
       };
       const choose = async () => {
         const file = await pickFile(); if (!file) return;
@@ -450,10 +450,10 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
         if (out) show(out.blob, { file: src, state: out.state });
       };
       const rm = h('button', { type: 'button', class: 'link', hidden: !v.photo, onclick: () => {
-        newPhoto = null; draft = null; v.photo = null; img.hidden = true; img.removeAttribute('src'); txt.hidden = false; rm.hidden = true; ed.hidden = true; touch();
+        newPhoto = null; draft = null; v.photo = null; img.hidden = true; img.removeAttribute('src'); txt.hidden = false; rm.hidden = true; ed.hidden = true; drop.classList.add('is-empty'); touch();
       } }, 'REMOVE PHOTO');
       const ed = h('button', { type: 'button', class: 'btn ghost small', hidden: !v.photo, onclick: reedit }, 'EDIT PHOTO');
-      const drop = h('button', { type: 'button', class: 'drop', onclick: choose }, img, txt);
+      const drop = h('button', { type: 'button', class: v.photo ? 'drop' : 'drop is-empty', onclick: choose }, img, txt);
       return field(f, h('div', { class: 'photo-field' }, drop, h('div', { class: 'row' }, ed, rm)));
     }
     if (f.type === 'level') {
@@ -690,14 +690,14 @@ function mapPage() {
       h('small', {}, [e.section === 'place' ? 'PLACES' : 'WISHES', e.date && dots(e.date), e.lat == null && tr('地図なし', 'no pin')].filter(Boolean).join(' ・ '))),
     h('span', { 'aria-hidden': 'true' }, '›'));
 
-  const addBox = h('div', { class: 'addbox' });
+  const addBox = h('div', { class: 'addbox mcard' });
   const renderAdd = () => {
     const S = SECTIONS[addKind];
     const form = inlineForm({ fields: S.fields(),
       onSubmit: (v) => store.saveEntry({ section: addKind, title: v.title, body: v.body || '', date: v.date || null, category: null, lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null }) });
     addBox.replaceChildren(
-      h('div', { class: 'chips' }, [['place', 'PLACES'], ['wish', 'WISHES']].map(([k, label]) =>
-        h('button', { type: 'button', class: `chip ${k}${addKind === k ? ' on' : ''}`, onclick: () => { addKind = k; renderAdd(); } }, label))),
+      h('div', { class: 'seg', role: 'group', 'aria-label': tr('追加する種類', 'What to add') }, [['place', 'PLACES'], ['wish', 'WISHES']].map(([k, label]) =>
+        h('button', { type: 'button', class: `${k}${addKind === k ? ' on' : ''}`, 'aria-pressed': String(addKind === k), onclick: () => { addKind = k; renderAdd(); } }, label))),
       h('p', { class: 'muted' }, S.lead()), form);
   };
   renderAdd();
@@ -1109,7 +1109,7 @@ function moodChart(list, onEdit) {
 
   return h('div', { class: 'mood' }, stats,
     h('div', { class: 'mwrap' },
-      h('div', { class: 'mbody' }, scroller, yax,
+      h('div', { class: 'mchart-body' }, scroller, yax,
         !list.length && h('p', { class: 'mempty' }, tr('まだ記録がありません。', 'No entries yet.'), h('br'), tr('下の「ADD MOOD」から。', 'Start with ADD MOOD below.'))),
       h('div', { class: 'mctrl' },
         h('div', { class: 'mzoom' },
@@ -1154,10 +1154,11 @@ function moodPage() {
   };
   form.append(
     h('h2', { class: 'en madd-title' }, 'Add mood'), h('p', { class: 'jp' }, tr('気分を追加', 'Log a mood')),
-    strip, status,
-    h('div', { class: 'levels' }, levelBtns),
-    h('label', { class: 'field' }, h('span', { class: 'flabel' }, tr('メモ', 'Note'), h('span', { class: 'opt' }, tr('なくてもOK', 'optional'))), note),
-    err, h('div', { class: 'row' }, saveBtn, del));
+    h('div', { class: 'mcard' },
+      strip, status,
+      h('div', { class: 'levels' }, levelBtns),
+      h('label', { class: 'field' }, h('span', { class: 'flabel' }, tr('メモ', 'Note')), note),
+      err, h('div', { class: 'row' }, saveBtn, del)));
   loadDay(moodSel);
 
   return h('div', {}, pageNav(),
