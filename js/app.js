@@ -942,45 +942,48 @@ function annivLines() {
   }
   return lines.sort((a, b) => a.left - b.left);
 }
-/* コルクボード：ポラロイド（写真あり）とメモ（写真なし）を画鋲で留める。
+/* MORE はぜんぶコルクボード：ポラロイド（写真あり）とメモ（写真なし）を画鋲で留める。
    大きさ・傾き・ずれ・浮き具合は項目ごとに id から決めるので、開くたびに変わらない */
-const CORK_KEYS = new Set(['like', 'gift', 'dislike']);
 function seeded(str) {
   let x = 2166136261;
   for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); }
   return () => { x = Math.imul(x ^ (x >>> 15), 2246822507); x = Math.imul(x ^ (x >>> 13), 3266489909); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
 }
-function corkBoard(items) {
+// cards: { seed, title, sub, onclick, photo?, big?, cls? }
+function corkBoard(cards) {
   const between = (r, a, b) => a + (b - a) * r();
-  return h('div', { class: 'cork-board' }, h('div', { class: 'cork' }, h('div', { class: 'cork-grid' }, items.map((e) => {
-    const r = seeded(String(e.id));
+  return h('div', { class: 'cork-board' }, h('div', { class: 'cork' }, h('div', { class: 'cork-grid' }, cards.map((c) => {
+    const r = seeded(String(c.seed));
     const style = `--s:${between(r, .88, 1.06).toFixed(3)};--r:${between(r, -4, 4).toFixed(2)}deg;--x:${between(r, -3, 4).toFixed(1)}px;--y:${between(r, -3, 10).toFixed(1)}px;--z:${between(r, 1, 3).toFixed(2)}`;
     const pin = h('img', { class: 'tack', src: `assets/pin-${r() < .5 ? 'pink' : 'navy'}.webp`, alt: '' });
-    const sub = [e.category && catLabel(e.category), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・');
-    return h('button', { class: `pol${e.photo ? '' : ' memo'}`, type: 'button', style, onclick: () => openDetail(e.id) },
-      pin, e.photo ? h('span', { class: 'pim' }, photoImg(e.photo, '')) : null, h('b', {}, e.title), h('small', {}, sub));
+    return h('button', { class: ['pol', !c.photo && 'memo', c.cls].filter(Boolean).join(' '), type: 'button', style, onclick: c.onclick },
+      pin, c.photo ? h('span', { class: 'pim' }, photoImg(c.photo, '')) : null, c.big || null, h('b', {}, c.title), h('small', {}, c.sub));
   }))));
 }
+const MAX_PINNED = 6;
 function morePreview(key) {
   const go = (k) => { location.hash = `#/more/${k}`; };
+  const board = (n, cards, add) => ({ n, items: cards.length ? [corkBoard(cards)] : [], add });
   if (key === 'values') {
     const all = data.entries.filter((e) => e.section === 'value');
     const topics = [...new Set(all.map((e) => e.title))];
-    return { n: topics.length, items: topics.slice(-3).reverse().map((tp) => {
+    return board(topics.length, topics.slice(-MAX_PINNED).reverse().map((tp) => {
       const both = new Set(all.filter((e) => e.title === tp).map((e) => e.author)).size >= 2;
-      return h('button', { class: 'prow', type: 'button', onclick: () => go('values') }, h('b', {}, tp), h('small', {}, both ? tr('ふたりとも答えた', 'Both answered') : tr('まだ片方だけ', 'One answer so far')));
-    }), add: () => writeValue() };
+      return { seed: `value:${tp}`, title: tp, sub: both ? tr('ふたりとも答えた', 'Both answered') : tr('まだ片方だけ', 'One answer so far'), onclick: () => go('values') };
+    }), () => writeValue());
   }
   if (key === 'anniv') {
     const lines = annivLines();
-    return { n: lines.length, items: lines.slice(0, 3).map((l) => h('button', { class: 'prow', type: 'button', onclick: () => go('anniv') },
-      h('b', {}, l.title), h('small', {}, l.left === 0 ? tr('今日！', 'Today!') : tr(`${md(l.date)}・あと${l.left}日`, `${md(l.date)} · in ${plural(l.left, 'day')}`)))), add: addAnniv };
+    return board(lines.length, lines.slice(0, MAX_PINNED).map((l) => ({
+      seed: `anniv:${l.title}:${l.date}`, cls: 'days', title: l.title, sub: md(l.date), onclick: () => go('anniv'),
+      big: h('span', { class: 'big' }, l.left === 0 ? 'TODAY' : String(l.left), l.left === 0 ? null : h('i', {}, l.left === 1 ? 'DAY' : 'DAYS')),
+    })), addAnniv);
   }
   const items = data.entries.filter((e) => e.section === key).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-  if (CORK_KEYS.has(key)) return { n: items.length, items: items.length ? [corkBoard(items.slice(0, 6))] : [], add: () => addEntry(key) };
-  return { n: items.length, items: items.slice(0, 3).map((e) => h('button', { class: 'prow', type: 'button', onclick: () => openDetail(e.id) },
-    e.photo ? photoImg(e.photo, 'pthumb') : null,
-    h('b', {}, e.title), h('small', {}, [e.category && catLabel(e.category), nameOf(e.author)].filter(Boolean).join(' ・ ')))), add: () => addEntry(key) };
+  return board(items.length, items.slice(0, MAX_PINNED).map((e) => ({
+    seed: e.id, photo: e.photo, title: e.title, onclick: () => openDetail(e.id),
+    sub: [e.category && catLabel(e.category), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・'),
+  })), () => addEntry(key));
 }
 function morePage() {
   return h('div', {}, pageNav(), pageHead('More', ''),

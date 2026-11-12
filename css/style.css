@@ -136,6 +136,13 @@ img { max-width: 100%; display: block; }
   background-image: linear-gradient(160deg, rgba(255, 255, 255, .5), transparent 45%), repeating-linear-gradient(transparent 0 15px, rgba(22, 32, 79, .13) 15px 16px);
   background-position: 0 0, 0 12px; }
 .pol.memo b { margin-top: 0; font-size: 11px; line-height: 16px; }
+/* 記念日はめくりカレンダーの1枚のように：上にピンクの帯、残り日数を大きく */
+.pol.days { background-color: #FBF9F4; padding: 16px 7px 8px; text-align: center;
+  background-image: linear-gradient(var(--pink-d) 0 9px, rgba(22, 32, 79, .15) 9px 10px, transparent 10px), linear-gradient(160deg, rgba(255, 255, 255, .6), transparent 45%); }
+.pol.days .big { display: block; font-family: var(--en); font-size: 30px; line-height: 1; letter-spacing: .02em; }
+.pol.days .big i { font-style: normal; font-size: 9px; letter-spacing: .1em; margin-left: 2px; }
+.pol.days b { margin-top: 4px; font-size: 10px; line-height: 1.3; }
+.pol.days small { white-space: nowrap; }
 .pol .tack { position: absolute; top: -9px; left: 50%; width: 17px; height: auto; margin-left: -7px; z-index: 2; pointer-events: none; filter: drop-shadow(3px 4px 2.5px rgba(30, 12, 2, .5)); }
 
 /* 地図のタブ */
