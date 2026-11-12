@@ -1,0 +1,127 @@
+:root {
+  --pink: #F2C4CE;
+  --pink-d: #E79AAB;
+  --navy: #16204F;
+  --paper: #FBF1EF;
+  --line: 1.5px solid var(--navy);
+  --jp: 'M PLUS 1p', sans-serif;
+  --en: 'Anton', 'M PLUS 1p', sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--pink); }
+body {
+  margin: 0; background: var(--pink); color: var(--navy);
+  font-family: var(--jp); font-weight: 500; font-size: 15px; line-height: 1.7;
+  -webkit-text-size-adjust: 100%; overflow-x: hidden;
+}
+#app { max-width: 480px; margin: 0 auto; padding: 16px 24px 56px; min-height: 100vh; }
+.loading { text-align: center; padding-top: 40vh; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+img { max-width: 100%; display: block; }
+
+/* 共通の部品 */
+.en { font-family: var(--en); text-transform: uppercase; font-weight: 400; }
+.nav { display: flex; justify-content: space-between; align-items: center; height: 44px; }
+.nav .word { font-family: var(--en); font-size: 20px; letter-spacing: .04em; text-transform: uppercase; text-decoration: none; }
+.link { background: none; border: none; padding: 0; min-height: 44px; font-weight: 800; font-size: 12px; letter-spacing: .08em; text-decoration: none; display: inline-flex; align-items: center; }
+.tag { display: inline-block; border: var(--line); border-radius: 3px; padding: 5px 10px; font-family: var(--en); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; line-height: 1.4; }
+.btn { min-height: 44px; padding: 0 18px; border: var(--line); border-radius: 3px; background: var(--navy); color: var(--pink); font-weight: 800; font-size: 14px; }
+.btn.ghost { background: transparent; color: var(--navy); }
+.btn.small { min-height: 36px; padding: 0 12px; font-size: 12px; }
+.btn:disabled { opacity: .5; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.muted { font-size: 12px; opacity: .78; }
+.banner { background: var(--navy); color: var(--pink); padding: 10px 14px; font-weight: 800; text-align: center; margin-top: 12px; }
+.note { border: 1.5px dashed var(--navy); padding: 8px 12px; font-size: 12px; margin-top: 12px; }
+
+/* ホーム */
+.home { display: flex; flex-direction: column; align-items: center; margin: 0 -24px; padding: 0 24px; overflow: hidden; }
+.home .nav { width: 100%; }
+.home .tag { margin-top: 26px; }
+.big { font-family: var(--en); font-size: min(41vw, 196px); line-height: .94; text-align: center; white-space: nowrap; text-transform: uppercase; margin: 0; font-weight: 400; }
+.big.first { margin-top: 12px; }
+.sub { margin: 18px 0 0; text-align: center; }
+.stage { position: relative; width: 100vw; max-width: 480px; height: 372px; margin-top: 8px; }
+.slot { position: absolute; border: none; padding: 0; background-size: cover; background-position: center; display: flex; align-items: flex-start; justify-content: center; font-size: 13px; font-weight: 500; line-height: 1.5; text-align: center; }
+.slot span { padding: 26px 12px 0; }
+.slot.a { left: 21.5%; bottom: 96px; width: 34%; height: 200px; background-color: var(--navy); color: var(--pink); transform: rotate(-4deg); }
+.slot.b { left: 48.5%; bottom: 84px; width: 31.5%; height: 178px; background-color: var(--pink-d); color: var(--navy); border: var(--line); transform: rotate(5deg); }
+.slot.has span { display: none; }
+.flower { position: absolute; pointer-events: none; height: auto; }
+.flower.blue { left: -21.5%; bottom: -60px; width: 64%; }
+.flower.pink { right: -14%; bottom: -76px; width: 49%; }
+.menu { list-style: none; margin: 8px 0 0; padding: 0; border-top: var(--line); }
+.menu a { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0 8px; border-bottom: var(--line); text-decoration: none; }
+.menu .en { font-size: 40px; line-height: 1.05; }
+.menu .jp { font-size: 12px; font-weight: 800; white-space: nowrap; }
+
+/* 各ページ */
+.head { margin: 18px 0 20px; }
+.head h1 { font-family: var(--en); font-weight: 400; text-transform: uppercase; font-size: min(22vw, 104px); line-height: .96; margin: 0; overflow-wrap: anywhere; }
+.head .jp { font-weight: 800; margin: 6px 0 12px; }
+.cards { display: flex; flex-direction: column; gap: 22px; margin-top: 22px; }
+.card { border-top: var(--line); padding-top: 12px; }
+.card .photo { width: 100%; max-height: 420px; object-fit: cover; margin-bottom: 10px; background: var(--pink-d); }
+.card h2 { font-size: 19px; font-weight: 800; margin: 0; line-height: 1.4; overflow-wrap: anywhere; }
+.card .meta { font-size: 12px; font-weight: 800; letter-spacing: .04em; margin: 2px 0 6px; }
+.card p { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.card .row { margin-top: 6px; }
+.empty { border: 1.5px dashed var(--navy); padding: 22px 16px; text-align: center; margin-top: 22px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.chip { min-height: 36px; padding: 0 12px; border: var(--line); border-radius: 999px; background: transparent; font-size: 13px; font-weight: 800; }
+.chip.on { background: var(--navy); color: var(--pink); }
+details.talk { margin-top: 8px; }
+details.talk summary { font-size: 12px; font-weight: 800; min-height: 32px; display: flex; align-items: center; cursor: pointer; }
+.talk .c { font-size: 13px; padding: 4px 0; display: flex; justify-content: space-between; gap: 8px; }
+.talk form { display: flex; gap: 8px; margin-top: 6px; }
+.talk input { flex: 1; min-width: 0; }
+
+/* 価値観 */
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.pair > div { background: var(--paper); padding: 10px 12px; min-height: 80px; }
+.pair .who { font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+.pair p { margin: 2px 0 6px; }
+
+/* 年表 */
+.year { font-family: var(--en); font-size: 72px; line-height: 1; margin: 28px 0 6px; }
+.tl { border-left: var(--line); margin-left: 4px; padding-left: 16px; display: flex; flex-direction: column; gap: 14px; }
+.tl .it { position: relative; }
+.tl .it::before { content: ''; position: absolute; left: -22px; top: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--navy); }
+.tl .d { font-family: var(--en); font-size: 15px; letter-spacing: .06em; }
+.tl .t { font-weight: 800; }
+.tl img { width: 120px; height: 90px; object-fit: cover; margin-top: 4px; }
+
+/* 記念日 */
+.count { font-family: var(--en); font-size: 64px; line-height: 1; }
+.count small { font-family: var(--jp); font-size: 16px; font-weight: 800; margin-left: 4px; }
+
+/* メンタル */
+.chart { width: 100%; height: auto; background: var(--paper); margin-top: 8px; }
+.levels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.levels button { min-height: 48px; border: var(--line); background: transparent; font-weight: 800; font-size: 12px; padding: 0 2px; line-height: 1.3; }
+.levels button.on { background: var(--navy); color: var(--pink); }
+
+/* 地図 */
+.map { height: 300px; border: var(--line); margin-top: 12px; z-index: 0; }
+.map.pick { height: 220px; margin-top: 8px; }
+
+/* 入力シート */
+dialog { border: none; padding: 0; width: 100%; max-width: 480px; max-height: 92vh; margin: auto auto 0; background: var(--pink); color: var(--navy); border-top: 3px solid var(--navy); }
+dialog::backdrop { background: rgba(22, 32, 79, .55); }
+dialog form.sheet { padding: 20px 24px 28px; display: flex; flex-direction: column; gap: 14px; }
+dialog h2 { font-family: var(--en); font-weight: 400; text-transform: uppercase; font-size: 40px; line-height: 1; margin: 0; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 800; }
+label.check { flex-direction: row; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; }
+label.check input { width: 22px; height: 22px; accent-color: var(--navy); }
+input[type=text], input[type=date], input[type=email], input[type=password], textarea, select {
+  width: 100%; min-height: 44px; padding: 8px 10px; border: var(--line); border-radius: 3px; background: var(--paper); font-size: 16px; font-weight: 500;
+}
+textarea { min-height: 96px; resize: vertical; }
+.preview { width: 120px; height: 90px; object-fit: cover; }
+.menu-sheet { padding: 12px 24px 28px; }
+.menu-sheet .menu { border-top: none; margin-top: 0; }
+.err { color: #8E1230; font-weight: 800; font-size: 13px; }
+
+@media (min-width: 481px) { .stage { width: 480px; } .big { font-size: 196px; } }
