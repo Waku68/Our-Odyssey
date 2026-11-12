@@ -120,14 +120,12 @@ const menuList = (onpick) => h('ul', { class: 'menu' }, MENU.map(([href, en, jp]
   h('li', {}, h('a', { href, onclick: onpick }, h('span', { class: 'en' }, en), h('span', { class: 'jp' }, jp)))));
 
 function openMenu() {
-  const dlg = h('dialog');
+  const dlg = h('dialog', { class: 'sheet-dlg', 'aria-label': 'メニュー' });
   dlg.append(h('div', { class: 'menu-sheet' },
     h('div', { class: 'nav' }, h('span', { class: 'word' }, 'Menu'),
-      h('button', { class: 'link', onclick: () => dlg.close() }, 'とじる')),
+      h('button', { class: 'link', onclick: () => closeDialog(dlg) }, 'とじる')),
     menuList(() => dlg.close())));
-  document.body.append(dlg);
-  dlg.addEventListener('close', () => dlg.remove());
-  dlg.showModal();
+  showDialog(dlg);
 }
 const pageNav = () => h('div', { class: 'nav' },
   h('a', { class: 'link', href: '#/' }, '← ホーム'),
@@ -244,73 +242,172 @@ function geoField(v) {
 }
 
 const LEVELS = ['とても\nつらい', 'つらい', 'ふつう', 'いい', 'とても\nいい'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const BOOKMARK = '<svg viewBox="0 0 10 13" aria-hidden="true"><path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor"/></svg>';
 
-function openForm({ title, fields, initial = {}, onSubmit }) {
+/* ---------- ダイアログ（入力・メニュー共通） ---------- */
+function showDialog(dlg) {
+  document.body.append(dlg);
+  const root = document.documentElement;
+  root.classList.add('locked');
+  dlg.addEventListener('close', () => { dlg.remove(); if (!document.querySelector('dialog[open]')) root.classList.remove('locked'); });
+  dlg.addEventListener('click', (ev) => { if (ev.target === dlg) closeDialog(dlg); });
+  dlg.addEventListener('cancel', (ev) => { ev.preventDefault(); closeDialog(dlg); });
+  dlg.showModal();
+}
+function closeDialog(dlg, force = false) {
+  if (!dlg.open || dlg.classList.contains('closing')) return;
+  if (!force && dlg.guard && !dlg.guard()) return;
+  dlg.classList.add('closing');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(() => dlg.close(), reduce ? 0 : 170);
+}
+
+/* ---------- 日付をえらぶ帯（横にスクロールする日のカード） ---------- */
+function dayStrip({ value, onChange, marks = new Set(), max = null, allowNone = false }) {
+  let sel = value || null;
+  let { y, m } = parse(sel || today());
+  const label = h('span', { class: 'pill-text' });
+  const native = h('input', { type: 'date', class: 'month-native', 'aria-label': 'カレンダーから日付をえらぶ', max: max || null,
+    onclick: () => { try { native.showPicker(); } catch { /* 未対応のブラウザはそのまま */ } },
+    onchange: (ev) => { if (ev.target.value) pick(ev.target.value); } });
+  const strip = h('div', { class: 'strip' });
+  const center = (smooth) => {
+    const c = strip.querySelector('.on') || strip.querySelector('.today');
+    const left = c ? c.offsetLeft - (strip.clientWidth - c.offsetWidth) / 2 : 0;
+    strip.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
+  };
+  const bm = () => { const i = h('i', { class: 'bm' }); i.innerHTML = BOOKMARK; return i; };
+  const noneBtn = allowNone ? h('button', { type: 'button', class: 'chip', onclick: () => { sel = null; render(); onChange(null); } }, '日付なし') : null;
+  const next = h('button', { type: 'button', class: 'mnav', 'aria-label': '次の月', onclick: () => shift(1) }, '›');
+  function render() {
+    label.textContent = `${MONTHS[m - 1]}  ${y}`;
+    native.value = sel || '';
+    next.disabled = !!max && ymd(y, m, lastDay(y, m)) >= max;
+    const t = today();
+    strip.replaceChildren(...Array.from({ length: lastDay(y, m) }, (_, i) => {
+      const d = ymd(y, m, i + 1);
+      const cls = ['day', d === sel && 'on', d === t && 'today', marks.has(d) && 'marked'].filter(Boolean).join(' ');
+      return h('button', { type: 'button', class: cls, disabled: !!max && d > max, 'aria-pressed': String(d === sel),
+        'aria-label': `${m}月${i + 1}日${marks.has(d) ? '（記録あり）' : ''}`, onclick: () => pick(d) },
+      bm(), h('span', { class: 'wd' }, WEEK[new Date(utc(d)).getUTCDay()]), h('span', { class: 'dn' }, pad(i + 1)));
+    }));
+    if (noneBtn) noneBtn.classList.toggle('on', !sel);
+  }
+  function pick(d) { sel = d; ({ y, m } = parse(d)); render(); onChange(d); requestAnimationFrame(() => center(true)); }
+  function shift(k) {
+    m += k;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    render(); requestAnimationFrame(() => center(false));
+  }
+  render();
+  const ro = new ResizeObserver(() => { if (strip.clientWidth) { center(false); ro.disconnect(); } });
+  ro.observe(strip);
+  const root = h('div', { class: 'daypick' },
+    h('div', { class: 'month' },
+      h('button', { type: 'button', class: 'mnav', 'aria-label': '前の月', onclick: () => shift(-1) }, '‹'),
+      h('span', { class: 'pill' }, label, native), next),
+    strip,
+    h('div', { class: 'row daypick-foot' },
+      h('button', { type: 'button', class: 'btn small', onclick: () => pick(max && today() > max ? max : today()) }, '今日へ'), noneBtn,
+      h('span', { class: 'muted' }, '月の部分をタップするとカレンダー')));
+  root.pick = pick;
+  return root;
+}
+
+/* ---------- 入力のモーダル ---------- */
+function openForm({ title, en, lead, fields, initial = {}, onSubmit }) {
   const v = { ...initial };
   let newPhoto = null;
-  const err = h('p', { class: 'err' });
+  let dirty = false;
+  const touch = () => { dirty = true; };
+  const err = h('p', { class: 'err', role: 'alert' });
+  const field = (f, inner, tag = 'div') => h(tag, { class: 'field' },
+    f.label && h('span', { class: 'flabel' }, f.label, !f.required && !f.readonly && f.type !== 'check' && h('span', { class: 'opt' }, 'なくてもOK')),
+    inner, f.hint && h('span', { class: 'hint' }, f.hint));
   const control = (f) => {
-    if (f.type === 'geo') return geoField(v);
+    if (f.type === 'geo') return field(f, geoField(v));
+    if (f.type === 'date') {
+      return field(f, dayStrip({ value: v[f.name], allowNone: !f.required, onChange: (d) => { v[f.name] = d; touch(); } }));
+    }
     if (f.type === 'photo') {
-      const prev = v.photo ? photoImg(v.photo, 'preview') : h('img', { class: 'preview', alt: '', hidden: true });
-      return h('div', { class: 'row' },
-        h('button', { type: 'button', class: 'btn ghost small', onclick: async () => {
-          const file = await pickFile(); if (!file) return;
-          newPhoto = await shrink(file); prev.hidden = false; prev.src = URL.createObjectURL(newPhoto);
-        } }, v.photo ? '写真をかえる' : '写真を載せる'), prev);
+      const img = v.photo ? photoImg(v.photo, 'drop-img') : h('img', { class: 'drop-img', alt: '', hidden: true });
+      const txt = h('span', { class: 'drop-txt', hidden: !!v.photo }, '＋ 写真をえらぶ', h('small', {}, 'タップして端末の写真から'));
+      const rm = h('button', { type: 'button', class: 'link', hidden: !v.photo, onclick: () => {
+        newPhoto = null; v.photo = null; img.hidden = true; img.removeAttribute('src'); txt.hidden = false; rm.hidden = true; touch();
+      } }, '写真をはずす');
+      const drop = h('button', { type: 'button', class: 'drop', onclick: async () => {
+        const file = await pickFile(); if (!file) return;
+        newPhoto = await shrink(file); img.src = URL.createObjectURL(newPhoto); img.hidden = false; txt.hidden = true; rm.hidden = false; touch();
+      } }, img, txt);
+      return field(f, h('div', {}, drop, rm));
     }
     if (f.type === 'level') {
-      const btns = LEVELS.map((label, i) => h('button', { type: 'button', class: v.level === i + 1 ? 'on' : '', style: 'white-space: pre-line',
-        onclick: () => { v.level = i + 1; btns.forEach((b, j) => b.classList.toggle('on', j === i)); } }, label));
-      return h('label', {}, f.label, h('div', { class: 'levels' }, btns));
+      const btns = LEVELS.map((label, i) => h('button', { type: 'button', class: v.level === i + 1 ? 'on' : '',
+        onclick: () => { v.level = i + 1; btns.forEach((b, j) => b.classList.toggle('on', j === i)); touch(); } }, label));
+      return field(f, h('div', { class: 'levels' }, btns));
     }
     if (f.type === 'check') {
       return h('label', { class: 'check' },
-        h('input', { type: 'checkbox', checked: !!v[f.name], onchange: (ev) => { v[f.name] = ev.target.checked; } }), f.label);
+        h('input', { type: 'checkbox', checked: !!v[f.name], onchange: (ev) => { v[f.name] = ev.target.checked; touch(); } }), f.label);
     }
-    const common = { value: v[f.name] ?? '', required: f.required, readonly: f.readonly, oninput: (ev) => { v[f.name] = ev.target.value; } };
-    if (f.type === 'textarea') return h('label', {}, f.label, h('textarea', common));
+    const common = { value: v[f.name] ?? '', required: f.required, readonly: f.readonly, placeholder: f.ph,
+      oninput: (ev) => { v[f.name] = ev.target.value; touch(); } };
+    if (f.type === 'textarea') return field(f, h('textarea', common), 'label');
     if (f.type === 'category') {
-      const id = `dl-${f.name}`;
-      return h('label', {}, f.label, h('input', { type: 'text', list: id, placeholder: 'えらぶか、自由に書く', ...common }),
-        h('datalist', { id }, f.options.map((o) => h('option', { value: o }))));
+      const input = h('input', { type: 'text', ...common });
+      const chips = h('div', { class: 'chips' }, f.options.map((o) => h('button', { type: 'button', class: `chip${v[f.name] === o ? ' on' : ''}`,
+        onclick: () => { input.value = o; v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c.textContent === o)); } }, o)));
+      input.addEventListener('input', () => [...chips.children].forEach((c) => c.classList.toggle('on', c.textContent === input.value)));
+      return field(f, h('div', { class: 'cat' }, chips, input));
     }
-    return h('label', {}, f.label, h('input', { type: f.type, ...common }));
+    return field(f, h('input', { type: f.type, ...common }), 'label');
   };
-  const dlg = h('dialog');
+  const dlg = h('dialog', { class: 'modal', 'aria-label': title });
+  dlg.guard = () => !dirty || confirm('書きかけの内容を捨てて閉じますか？');
   const submit = h('button', { class: 'btn', type: 'submit' }, '保存する');
-  dlg.append(h('form', { class: 'sheet', onsubmit: async (ev) => {
+  dlg.append(h('form', { class: 'sheet', novalidate: true, onsubmit: async (ev) => {
     ev.preventDefault(); err.textContent = '';
-    if (fields.some((f) => f.type === 'level') && !v.level) { err.textContent = '気分をえらんでください。'; return; }
+    for (const f of fields) {
+      const missing = f.type === 'level' ? !v.level : (f.required && f.name && !String(v[f.name] ?? '').trim());
+      if (missing) { err.textContent = `「${f.label}」を${['date', 'level', 'category'].includes(f.type) ? 'えらんで' : '書いて'}ください。`; return; }
+    }
     submit.disabled = true;
     try {
       if (newPhoto) v.photo = await store.uploadPhoto(newPhoto);
       for (const f of fields) if (f.type === 'date' && !v[f.name]) v[f.name] = null;
-      await onSubmit(v); dlg.close(); await refresh();
+      await onSubmit(v);
+      if (initial.photo && v.photo !== initial.photo) store.removePhoto(initial.photo).catch(() => {});
+      closeDialog(dlg, true); await refresh();
     } catch (e) { err.textContent = e.message || String(e); submit.disabled = false; }
   } },
-    h('h2', {}, title), fields.map(control), err,
-    h('div', { class: 'row' }, submit, h('button', { class: 'btn ghost', type: 'button', onclick: () => dlg.close() }, 'やめる'))));
-  document.body.append(dlg);
-  dlg.addEventListener('close', () => dlg.remove());
-  dlg.showModal();
+    h('div', { class: 'mhead' },
+      h('div', {}, en && h('div', { class: 'tag' }, en), h('h2', {}, title), lead && h('p', { class: 'lead' }, lead)),
+      h('button', { type: 'button', class: 'x', 'aria-label': 'とじる', onclick: () => closeDialog(dlg) }, '×')),
+    h('div', { class: 'mbody' }, fields.map(control)),
+    h('div', { class: 'mfoot' }, err, h('div', { class: 'row' }, submit,
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => closeDialog(dlg) }, 'やめる')))));
+  showDialog(dlg);
 }
 
 /* ---------- 各欄 ---------- */
 const F = {
-  title: (label) => ({ name: 'title', type: 'text', label, required: true }),
+  title: (label, ph) => ({ name: 'title', type: 'text', label, required: true, ph }),
   date: (label = '日付') => ({ name: 'date', type: 'date', label }),
-  body: { name: 'body', type: 'textarea', label: 'ひとこと' },
-  geo: { type: 'geo' }, photo: { type: 'photo' },
+  body: { name: 'body', type: 'textarea', label: 'ひとこと', ph: 'そのときのこと、思ったことを自由に' },
+  geo: { type: 'geo', label: '地図の場所', hint: '入れておくと PLACES の地図にピンが立ちます' },
+  photo: { type: 'photo', label: '写真' },
 };
 const LIKE_CATS = ['食べ物', '飲み物', '仕草', '場所', '曲'];
 const SECTIONS = {
-  place: { en: 'Places', jp: '過ごした場所', fields: () => [F.title('場所の名前'), F.date('行った日'), F.body, F.geo, F.photo] },
-  like: { en: 'Likes', jp: '好きなもの', fields: () => [
-    { name: 'category', type: 'category', label: '種類', required: true, options: likeCats() }, F.title('好きなもの'), F.body, F.geo, F.photo] },
-  wish: { en: 'Wishes', jp: '行きたいところ', fields: () => [F.title('行きたいところ'), F.body, F.geo, F.photo] },
-  gift: { en: 'Gifts', jp: '贈ったもの', fields: () => [F.title('贈ったもの'), F.date('贈った日'), F.body, F.photo] },
-  dislike: { en: 'Dislikes', jp: '嫌いなもの', fields: () => [F.title('嫌いなもの'), F.body] },
+  place: { en: 'Places', jp: '過ごした場所', lead: 'ふたりで過ごした場所を残す', fields: () => [F.title('場所の名前', '例：江ノ島の水族館'), F.date('行った日'), F.body, F.geo, F.photo] },
+  like: { en: 'Likes', jp: '好きなもの', lead: '相手の「好き」をメモしておく', fields: () => [
+    { name: 'category', type: 'category', label: '種類', required: true, options: likeCats(), ph: 'えらぶか、自由に書く' }, F.title('好きなもの', '例：抹茶ラテ'), F.body, F.geo, F.photo] },
+  wish: { en: 'Wishes', jp: '行きたいところ', lead: 'いつか一緒に行きたいところ', fields: () => [F.title('行きたいところ', '例：金沢の21世紀美術館'), { ...F.body, ph: '行きたい理由、やりたいこと' }, F.geo, F.photo] },
+  gift: { en: 'Gifts', jp: '贈ったもの', lead: '贈ったもの・もらったもの', fields: () => [F.title('贈ったもの', '例：手編みのマフラー'), F.date('贈った日'), F.body, F.photo] },
+  dislike: { en: 'Dislikes', jp: '嫌いなもの', lead: '相手の苦手なものを覚えておく', fields: () => [F.title('嫌いなもの', '例：満員電車'), F.body] },
 };
 const likeCats = () => [...new Set([...LIKE_CATS, ...data.entries.filter((e) => e.section === 'like' && e.category).map((e) => e.category)])];
 
@@ -332,13 +429,13 @@ function entryCard(e, key) {
   const S = SECTIONS[key];
   const mine = e.author === me();
   const meta = [e.date && dots(e.date), e.category, key === 'gift' ? `${nameOf(e.author)}から` : nameOf(e.author)].filter(Boolean).join(' ・ ');
-  const edit = () => openForm({ title: 'なおす', fields: S.fields(), initial: e,
+  const edit = () => openForm({ title: 'なおす', en: S.en, fields: S.fields(), initial: e,
     onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo }) });
   const addPhoto = async () => {
     const f = await pickFile(); if (!f) return;
     act(async () => store.saveEntry({ id: e.id, photo: await store.uploadPhoto(await shrink(f)) }));
   };
-  const went = () => openForm({ title: '行った！', initial: { ...e, date: today() },
+  const went = () => openForm({ title: '行った！', en: 'Places', lead: `「${e.title}」に行った日を残す`, initial: { ...e, date: today() },
     fields: [F.date('行った日'), F.body, F.photo],
     onSubmit: (v) => store.saveEntry({ id: e.id, section: 'place', date: v.date, body: v.body, photo: v.photo }) });
   return h('article', { class: 'card' },
@@ -357,7 +454,7 @@ function sectionPage(key) {
   if (!S) return home();
   let items = data.entries.filter((e) => e.section === key);
   items.sort((a, b) => ((b.date || b.created_at) < (a.date || a.created_at) ? -1 : 1));
-  const add = () => openForm({ title: '書きたす', fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : {},
+  const add = () => openForm({ title: '書きたす', en: S.en, lead: S.lead, fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : {},
     onSubmit: (v) => store.saveEntry({ section: key, title: v.title, body: v.body || '', date: v.date || null, category: v.category || null, lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null }) });
   let chips = null;
   if (key === 'like') {
@@ -395,8 +492,8 @@ function valuesPage() {
   const all = data.entries.filter((e) => e.section === 'value').sort(byCreated);
   const topics = [...new Set(all.map((e) => e.title))];
   const p = partner();
-  const write = (topic, mine) => openForm({ title: topic ? '自分の答え' : 'お題を足す',
-    fields: [{ ...F.title('お題'), readonly: !!topic }, { name: 'body', type: 'textarea', label: '自分の考え', required: true }],
+  const write = (topic, mine) => openForm({ title: topic ? '自分の答え' : 'お題を足す', en: 'Values', lead: topic ? 'このお題への自分の考え' : 'ふたりで答えたいお題と、自分の答え',
+    fields: [{ ...F.title('お題', '例：理想の休日の過ごし方'), readonly: !!topic }, { name: 'body', type: 'textarea', label: '自分の考え', required: true, ph: '思っていることをそのまま' }],
     initial: mine || { title: topic || '' },
     onSubmit: (v) => (mine ? store.saveEntry({ id: mine.id, body: v.body }) : store.saveEntry({ section: 'value', title: v.title.trim(), body: v.body })) });
   const side = (who, e, topic, isMe) => h('div', {},
@@ -435,11 +532,11 @@ function annivPage() {
       n >= 0 && h('div', { class: 'count' }, String(n), h('small', {}, '日')),
       lines.map((l) => h('p', {}, l)),
       e && e.author === me() && h('div', { class: 'row' },
-        h('button', { class: 'link', onclick: () => openForm({ title: 'なおす', fields: [F.title('なんの日？'), { ...F.date(), required: true }], initial: e,
+        h('button', { class: 'link', onclick: () => openForm({ title: 'なおす', en: 'Days', fields: [F.title('なんの日？', '例：はじめて旅行した日'), { ...F.date(), required: true }], initial: e,
           onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, date: v.date }) }) }, 'なおす'),
         h('button', { class: 'link', onclick: () => removeEntry(e) }, '消す')));
   };
-  const add = () => openForm({ title: '記念日を足す', fields: [F.title('なんの日？'), { ...F.date(), required: true }],
+  const add = () => openForm({ title: '記念日を足す', en: 'Days', lead: '毎年その日に数えて、当日の朝に通知します', fields: [F.title('なんの日？', '例：はじめて旅行した日'), { ...F.date(), required: true }],
     onSubmit: (v) => store.saveEntry({ section: 'anniversary', title: v.title, date: v.date }) });
   return h('div', {}, pageNav(),
     pageHead('Days', '記念日 ― 日数は毎日ひとりでに進みます', h('button', { class: 'btn', onclick: add }, '+ 記念日を足す')),
@@ -465,48 +562,124 @@ function timelinePage() {
 }
 
 /* ---------- メンタルの記録 ---------- */
-function moodChart(list) {
-  const W = 320, H = 150, L = 22, R = 10, T = 12, B = 22;
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('class', 'chart');
-  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', '気分の折れ線グラフ');
-  const t0 = utc(list[0].date), t1 = utc(list[list.length - 1].date);
-  const x = (d) => (t1 === t0 ? (L + W - R) / 2 : L + ((utc(d) - t0) / (t1 - t0)) * (W - L - R));
-  const y = (lv) => T + ((5 - lv) / 4) * (H - T - B);
+const LEVEL_SHORT = ['とてもつらい', 'つらい', 'ふつう', 'いい', 'とてもいい'];
+let moodSel = null;
+
+// 横にスクロールする気分の線。1日 = DAY px。
+function moodChart(list, selected, onPick) {
+  const t = today();
+  const DAY = 14, H = 300, TOP = 30, BASE = 236, PADX = 28;
+  const first = list.length && list[0].date < addDays(t, -30) ? list[0].date : addDays(t, -30);
+  const start = addDays(first, -3), end = addDays(t, 3);
+  const W = PADX * 2 + daysBetween(start, end) * DAY;
+  const x = (d) => PADX + daysBetween(start, d) * DAY;
+  const y = (lv) => BASE - 22 - ((lv - 1) / 4) * (BASE - 22 - TOP);
+  const r1 = (n) => Math.round(n * 10) / 10;
+  const P = list.map((m) => [r1(x(m.date)), r1(y(m.level))]);
+  const clampY = (v) => Math.min(BASE - 4, Math.max(TOP - 8, v));
+  let line = '';
+  if (P.length > 1) {
+    line = `M${P[0]}`;
+    for (let i = 0; i < P.length - 1; i++) {
+      const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2;
+      const c1 = [r1(p1[0] + (p2[0] - p0[0]) / 6), r1(clampY(p1[1] + (p2[1] - p0[1]) / 6))];
+      const c2 = [r1(p2[0] - (p3[0] - p1[0]) / 6), r1(clampY(p2[1] - (p3[1] - p1[1]) / 6))];
+      line += ` C${c1} ${c2} ${p2}`;
+    }
+  }
   let s = '';
-  for (let lv = 1; lv <= 5; lv++) s += `<line x1="${L}" x2="${W - R}" y1="${y(lv)}" y2="${y(lv)}" stroke="#16204F" stroke-opacity=".15"/><text x="6" y="${y(lv) + 4}" font-size="10" fill="#16204F">${lv}</text>`;
-  s += `<polyline fill="none" stroke="#16204F" stroke-width="2" stroke-linejoin="round" points="${list.map((m) => `${x(m.date).toFixed(1)},${y(m.level).toFixed(1)}`).join(' ')}"/>`;
-  for (const m of list) s += `<circle cx="${x(m.date).toFixed(1)}" cy="${y(m.level).toFixed(1)}" r="4" fill="#E79AAB" stroke="#16204F" stroke-width="2"/>`;
-  s += `<text x="${L}" y="${H - 6}" font-size="10" fill="#16204F">${dots(list[0].date)}</text><text x="${W - R}" y="${H - 6}" font-size="10" fill="#16204F" text-anchor="end">${dots(list[list.length - 1].date)}</text>`;
+  if (line) s += `<path d="${line} L${P[P.length - 1][0]},${BASE} L${P[0][0]},${BASE} Z" fill="#E79AAB" fill-opacity=".45"/>`
+    + `<path d="${line}" fill="none" stroke="#16204F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (selected) s += `<line x1="${x(selected)}" x2="${x(selected)}" y1="${TOP - 18}" y2="${BASE}" stroke="#16204F" stroke-width="1.5" stroke-dasharray="3 4"/>`;
+  s += `<line x1="0" x2="${W}" y1="${BASE}" y2="${BASE}" stroke="#16204F" stroke-width="2"/>`;
+  // 目盛り：記録した日（近すぎるものは日付を省く）と「今」
+  let lastLabel = -Infinity;
+  const tx = x(t);
+  for (const m of list) {
+    const px = x(m.date);
+    s += `<line x1="${px}" x2="${px}" y1="${BASE}" y2="${BASE + 10}" stroke="#16204F" stroke-width="2"/>`;
+    if (px - lastLabel >= 40 && tx - px >= 30) {
+      const { m: mm, d } = parse(m.date);
+      s += `<text x="${px}" y="${BASE + 30}" text-anchor="middle" class="tick">${mm}/${d}</text>`;
+      lastLabel = px;
+    }
+  }
+  s += `<line x1="${tx}" x2="${tx}" y1="${BASE}" y2="${BASE + 12}" stroke="#16204F" stroke-width="2.5"/>`
+    + `<text x="${tx}" y="${BASE + 32}" text-anchor="middle" class="tick now">今</text>`;
+  for (const m of list) {
+    const on = m.date === selected;
+    s += `<g class="pt" data-date="${m.date}" role="button" tabindex="0" aria-label="${dots(m.date)} ${LEVEL_SHORT[m.level - 1]}">`
+      + `<circle cx="${x(m.date)}" cy="${y(m.level)}" r="18" fill="transparent"/>`
+      + `<circle cx="${x(m.date)}" cy="${y(m.level)}" r="${on ? 8 : 6}" fill="${on ? '#16204F' : '#F2C4CE'}" stroke="#16204F" stroke-width="2.5"/></g>`;
+  }
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H);
+  svg.setAttribute('class', 'mchart'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', '気分の移り変わり');
   svg.innerHTML = s;
-  return svg;
+  const hit = (ev) => { const g = ev.target.closest('.pt'); if (g) onPick(g.dataset.date); };
+  svg.addEventListener('click', hit);
+  svg.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') hit(ev); });
+
+  const scroller = h('div', { class: 'mscroll' }, svg);
+  const go = (k) => scroller.scrollBy({ left: k * scroller.clientWidth * 0.7, behavior: 'smooth' });
+  const toSel = () => {
+    const px = selected && selected !== t ? x(selected) : W;
+    scroller.scrollLeft = px - scroller.clientWidth * (selected && selected !== t ? 0.5 : 1);
+  };
+  const ro = new ResizeObserver(() => { if (scroller.clientWidth) { toSel(); ro.disconnect(); } });
+  ro.observe(scroller);
+  return h('div', { class: 'mwrap' },
+    h('div', { class: 'mlegend' }, h('span', {}, '↑ いい'), h('span', {}, '↓ つらい')),
+    scroller,
+    h('button', { class: 'arrow l', type: 'button', 'aria-label': '前の日々へ', onclick: () => go(-1) }, '←'),
+    h('button', { class: 'arrow r', type: 'button', 'aria-label': '最近へ', onclick: () => go(1) }, '→'),
+    !list.length && h('p', { class: 'mempty' }, 'まだ記録がありません。', h('br'), '下の「気分を追加」から。'));
 }
+
 function moodPage() {
-  const p = partner();
-  const pname = p ? nameOf(p.id) : 'あいて';
-  const byDate = (a, b) => (a.date < b.date ? -1 : 1);
-  const mine = data.moods.filter((m) => m.user_id === me()).sort(byDate);
-  const theirs = data.moods.filter((m) => m.user_id !== me()).sort(byDate);
-  const fields = [{ ...F.date('いつごろ'), required: true }, { type: 'level', label: 'そのころの気分' },
-    { name: 'note', type: 'textarea', label: 'メモ（なくてもいい）' }, { name: 'shared', type: 'check', label: `この記録を${pname}にも見せる` }];
-  const add = () => openForm({ title: '記録する', fields, initial: { date: today(), shared: false },
-    onSubmit: (v) => store.saveMood({ date: v.date, level: v.level, note: v.note || '', shared: !!v.shared }) });
-  const label = (lv) => LEVELS[lv - 1].replace('\n', '');
-  const item = (m, own) => h('article', { class: 'card' },
-    h('h2', {}, label(m.level)), h('div', { class: 'meta' }, [dots(m.date), own && (m.shared ? `${pname}にも見せている` : '自分だけ')].filter(Boolean).join(' ・ ')),
-    m.note && h('p', {}, m.note),
-    own && h('div', { class: 'row' },
-      h('button', { class: 'link', onclick: () => openForm({ title: 'なおす', fields, initial: m,
-        onSubmit: (v) => store.saveMood({ id: m.id, date: v.date, level: v.level, note: v.note || '', shared: !!v.shared }) }) }, 'なおす'),
-      h('button', { class: 'link', onclick: () => { if (confirm('消しますか？')) act(() => store.removeMood(m.id)); } }, '消す')));
+  const t = today();
+  const mine = data.moods.filter((m) => m.user_id === me()).sort((a, b) => (a.date < b.date ? -1 : 1));
+  const byDay = new Map(mine.map((m) => [m.date, m]));
+  if (!moodSel || moodSel > t) moodSel = t;
+
+  const v = {};
+  const err = h('p', { class: 'err', role: 'alert' });
+  const status = h('p', { class: 'mstatus' });
+  const levelBtns = LEVELS.map((label, i) => h('button', { type: 'button', onclick: () => { v.level = i + 1; paint(); } }, label));
+  const paint = () => levelBtns.forEach((b, i) => { b.classList.toggle('on', v.level === i + 1); b.setAttribute('aria-pressed', String(v.level === i + 1)); });
+  const note = h('textarea', { placeholder: 'なにがあった？（なくてもいい）', oninput: (ev) => { v.note = ev.target.value; } });
+  const saveBtn = h('button', { class: 'btn', type: 'submit' });
+  const del = h('button', { type: 'button', class: 'link', onclick: () => { if (confirm('この日の記録を消しますか？')) act(() => store.removeMood(v.id)); } }, 'この日の記録を消す');
+  const loadDay = (d) => {
+    const m = byDay.get(d);
+    v.id = m?.id; v.level = m?.level; v.note = m?.note || '';
+    note.value = v.note; paint(); err.textContent = '';
+    status.textContent = m ? `${md(d)}の記録があります。なおせます。` : `${md(d)}は、どんな気分だった？`;
+    saveBtn.textContent = m ? 'なおす' : '記録する';
+    del.hidden = !m;
+  };
+  const form = h('form', { class: 'madd', id: 'mood-add', onsubmit: (ev) => {
+    ev.preventDefault();
+    if (!v.level) { err.textContent = '気分をえらんでください。'; return; }
+    const row = { date: moodSel, level: v.level, note: v.note || '', shared: false };
+    act(() => store.saveMood(v.id ? { id: v.id, ...row } : row));
+  } });
+  const strip = dayStrip({ value: moodSel, max: t, marks: new Set(byDay.keys()), onChange: (d) => { moodSel = d; loadDay(d); } });
+  const pickFromChart = (d) => { moodSel = d; draw(); requestAnimationFrame(() => document.getElementById('mood-add')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
+  form.append(
+    h('h2', { class: 'en madd-title' }, 'Add mood'), h('p', { class: 'jp' }, '気分を追加'),
+    strip, status,
+    h('div', { class: 'levels' }, levelBtns),
+    h('label', { class: 'field' }, h('span', { class: 'flabel' }, 'メモ', h('span', { class: 'opt' }, 'なくてもOK')), note),
+    err, h('div', { class: 'row' }, saveBtn, del));
+  loadDay(moodSel);
+
   return h('div', {}, pageNav(),
-    pageHead('Mood', 'メンタルの記録 ― 思い出したときに、印象に残っている日をざっくりと', h('button', { class: 'btn', onclick: add }, '+ 記録する')),
-    h('p', { class: 'note' }, `ここは自分にしか見えません。「${pname}にも見せる」を入れた記録だけ、相手の画面に出ます。`),
-    mine.length ? [moodChart(mine), h('div', { class: 'cards' }, [...mine].reverse().map((m) => item(m, true)))]
-      : h('p', { class: 'empty' }, 'まだ記録がありません。'),
-    theirs.length ? [h('h2', { class: 'en', style: 'font-size: 40px; margin: 36px 0 0' }, 'Shared'),
-      h('p', { class: 'jp' }, `${pname}が見せてくれた記録`), moodChart(theirs),
-      h('div', { class: 'cards' }, [...theirs].reverse().map((m) => item(m, false)))] : null);
+    pageHead('Mood', 'メンタルの記録 ― 思い出したときに、印象に残っている日をざっくりと'),
+    moodChart(mine, moodSel, pickFromChart),
+    h('p', { class: 'muted mhint' }, '点をタップすると、その日の記録をなおせます。ここは自分にしか見えません。'),
+    h('button', { class: 'down', type: 'button', onclick: () => form.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, '気分を追加', h('span', { 'aria-hidden': 'true' }, '↓')),
+    form);
 }
 
 /* ---------- 設定 ---------- */
