@@ -577,7 +577,7 @@ function mapPage() {
   const shownList = all.filter((e) => mapFilter === 'all' || e.section === mapFilter);
   const pts = shownList.filter((e) => e.lat != null);
   const count = (k) => all.filter((e) => e.section === k).length;
-  const chips = h('div', { class: 'chips' }, [['all', 'ぜんぶ'], ['place', `PLACES ${count('place')}`], ['wish', `WISHES ${count('wish')}`]].map(([k, label]) =>
+  const chips = h('div', { class: 'chips' }, [['all', `ALL ${all.length}`], ['place', `PLACES ${count('place')}`], ['wish', `WISHES ${count('wish')}`]].map(([k, label]) =>
     h('button', { class: `chip ${k}${mapFilter === k ? ' on' : ''}`, onclick: () => { mapFilter = k; draw(); } }, label)));
 
   const mapEl = h('div', { class: 'map big-map' });
