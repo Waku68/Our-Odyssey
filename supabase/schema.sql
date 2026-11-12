@@ -18,6 +18,7 @@ create table if not exists public.entries (
   lat double precision,
   lng double precision,
   photo text,
+  link text,
   author uuid not null default auth.uid() references auth.users,
   created_at timestamptz not null default now()
 );
@@ -79,14 +80,11 @@ create policy "profiles read" on public.profiles for select to authenticated usi
 create policy "profiles insert own" on public.profiles for insert to authenticated with check (id = auth.uid());
 create policy "profiles update own" on public.profiles for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
 
--- 投稿：2人とも読める・足せる。なおす／消すのは書いた本人だけ。
--- 例外：「行きたいところ」は、どちらでも「行った！」で「過ごした場所」に移せる。
+-- 投稿：2人とも読める・足せる。相手の投稿も、2人ともなおせる・消せる。
 create policy "entries read" on public.entries for select to authenticated using (true);
 create policy "entries insert own" on public.entries for insert to authenticated with check (author = auth.uid());
-create policy "entries update own or wish" on public.entries for update to authenticated
-  using (author = auth.uid() or section = 'wish')
-  with check (author = auth.uid() or section = 'place');
-create policy "entries delete own" on public.entries for delete to authenticated using (author = auth.uid());
+create policy "entries update both" on public.entries for update to authenticated using (true) with check (true);
+create policy "entries delete both" on public.entries for delete to authenticated using (true);
 
 -- ひとこと：2人とも読める・書ける。消せるのは本人だけ。
 create policy "comments read" on public.comments for select to authenticated using (true);
@@ -109,8 +107,7 @@ on conflict (id) do nothing;
 
 create policy "photos read" on storage.objects for select to authenticated using (bucket_id = 'photos');
 create policy "photos upload" on storage.objects for insert to authenticated with check (bucket_id = 'photos');
-create policy "photos delete own" on storage.objects for delete to authenticated
-  using (bucket_id = 'photos' and owner = auth.uid());
+create policy "photos delete both" on storage.objects for delete to authenticated using (bucket_id = 'photos');
 
 -- 5) 相手の更新をすぐ届ける（Realtime） ----------------------------------------
 -- realtime.sql と同じ内容。あとから足したので、すでに schema.sql を実行済みなら realtime.sql だけ実行すればいい。

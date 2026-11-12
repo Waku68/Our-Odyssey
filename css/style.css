@@ -354,7 +354,7 @@ dialog.modal form.sheet { display: flex; flex-direction: column; max-height: min
 label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 800; }
 label.check { flex-direction: row; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; }
 label.check input { width: 22px; height: 22px; accent-color: var(--navy); }
-input[type=text], input[type=date], input[type=email], input[type=password], textarea, select {
+input[type=text], input[type=date], input[type=email], input[type=password], input[type=url], textarea, select {
   width: 100%; min-height: 48px; padding: 10px 12px; border: var(--line); border-radius: 10px; background: var(--paper); font-size: 16px; font-weight: 500;
 }
 input::placeholder, textarea::placeholder { color: var(--navy); opacity: .45; }
@@ -406,7 +406,7 @@ dialog.modal.editor { max-width: 520px; max-height: min(94vh, 980px); }
 .mcard .inline-form { gap: 18px; }
 .mcard > .muted { margin: -6px 0 0; }
 .mcard .flabel { font-size: 14px; }
-.mcard input[type=text], .mcard textarea, .mcard .drop { background: #fff; border-radius: 10px; }
+.mcard input[type=text], .mcard input[type=url], .mcard textarea, .mcard .drop { background: #fff; border-radius: 10px; }
 .mcard .daypick .month, .mcard .daypick-foot { justify-content: flex-start; }
 .mcard .daypick .month { gap: 2px; margin-left: -10px; }
 .mcard .strip { margin: 0 -16px; padding: 6px 16px 8px; scroll-padding: 0 16px; }
@@ -506,6 +506,9 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 .places-top > .legend { grid-row: 4; grid-column: 1; position: relative; z-index: 3; margin: 0 -24px; padding: 6px 24px 14px; }
 .places-top > .head { grid-row: 1; grid-column: 1; position: relative; z-index: 3; pointer-events: none; }
 .places-top > .chips { grid-row: 2; grid-column: 1; position: relative; z-index: 3; align-self: end; }
+/* ALL/PLACES/WISHES は見出しのすぐ下に */
+.places-top > .head { margin-bottom: 0; }
+.places-top > .chips { margin-top: -2px; }
 .places-top > .chips .chip { background: var(--paper); }
 .places-top > .chips .chip.on { background: var(--navy); }
 .places-top > .chips .chip.wish.on { background: var(--pink-d); }
@@ -513,9 +516,11 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 .places-top > .places-shield { grid-row: 1 / 3; grid-column: 1; position: relative; z-index: 2; }
 .places-top > .places-spacer { grid-row: 3; grid-column: 1; height: calc(min(calc(100vw - 48px), 432px) - 40px); margin-top: 12px; }
 .places-top > .map.big-map { grid-row: 1 / 5; grid-column: 1; aspect-ratio: auto; height: auto; margin: 0; z-index: 1; border: none; border-radius: 16px;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px),
+  /* 上は見出しの文字の半分あたり（--fstart）まで地図を見せず、そこからALL/PLACES/WISHESの行の下（--inset）にかけて濃くする */
+  --fs: var(--fstart, 60px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent var(--fs), rgba(0, 0, 0, .4) calc(var(--fs) + (var(--inset, 200px) - var(--fs)) * .35), #000 var(--inset, 200px),
     #000 calc(100% - var(--leg, 40px)), rgba(0, 0, 0, .4) calc(100% - var(--leg, 40px) + 22px), transparent calc(100% - var(--leg, 40px) + 34px));
-  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px),
+  mask-image: linear-gradient(to bottom, transparent 0, transparent var(--fs), rgba(0, 0, 0, .4) calc(var(--fs) + (var(--inset, 200px) - var(--fs)) * .35), #000 var(--inset, 200px),
     #000 calc(100% - var(--leg, 40px)), rgba(0, 0, 0, .4) calc(100% - var(--leg, 40px) + 22px), transparent calc(100% - var(--leg, 40px) + 34px)); }
 /* 下は凡例の文字のところから短くぼかすので、ズームボタンと地図の出典はその上に持ち上げる */
 .places-top > .map.big-map .leaflet-bottom { bottom: var(--leg, 40px); }
@@ -565,3 +570,45 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
   background: #F74D7E; box-shadow: 0 0 0 2px var(--navy); }
 .tabbar a.on.has-new::after { box-shadow: 0 0 0 2px var(--pink); }
 @media (prefers-reduced-motion: reduce) { .newtag { animation: none; } }
+
+/* 地図の場所さがし：候補の列 */
+.geo-hits { display: flex; gap: 8px; overflow-x: auto; padding: 8px 2px 2px; scrollbar-width: none; }
+.geo-hits::-webkit-scrollbar { display: none; }
+.geo-hit { flex: 0 0 auto; max-width: 15em; text-align: left; border: var(--line); border-radius: 10px; background: rgba(255, 255, 255, .7); padding: 6px 10px; line-height: 1.35; }
+.geo-hit b { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.geo-hit small { display: block; font-size: 10px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.geo-hit.on { background: var(--navy); color: var(--pink); }
+
+/* 曲：タップで聴く */
+.song { margin: 4px 0 10px; }
+.song-main { display: flex; gap: 12px; align-items: center; }
+.song-art { position: relative; flex: 0 0 76px; width: 76px; height: 76px; border-radius: 8px; overflow: hidden; background: var(--navy); box-shadow: 0 3px 8px rgba(22, 32, 79, .25); }
+.song-art img { width: 100%; height: 100%; object-fit: cover; }
+.song-btn { position: absolute; inset: 0; margin: auto; width: 40px; height: 40px; border-radius: 50%; border: none; padding: 9px;
+  background: rgba(251, 241, 239, .92); color: var(--navy); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
+.song-btn svg, .song-play svg { width: 100%; height: 100%; display: block; }
+.song-btn.on { background: var(--navy); color: var(--pink); }
+.song-txt { min-width: 0; flex: 1; line-height: 1.35; }
+.song-txt b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song-txt small { display: block; font-size: 12px; font-weight: 800; opacity: .75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song-txt .song-note { font-size: 10px; font-weight: 500; opacity: .6; margin-top: 2px; }
+.song-bar { display: block; height: 3px; margin-top: 8px; background: rgba(22, 32, 79, .15); border-radius: 2px; overflow: hidden; }
+.song-bar i { display: block; height: 100%; width: 0; background: var(--navy); transition: width .25s linear; }
+.song-links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.song-links .chip { min-height: 30px; font-size: 11px; padding: 0 10px; display: inline-flex; align-items: center; text-decoration: none; letter-spacing: .04em; }
+.song iframe { display: block; width: 100%; border: 0; border-radius: 12px; }
+.song-youtube iframe { aspect-ratio: 16 / 9; height: auto; }
+.song-open { margin-top: 8px; display: inline-flex; align-items: center; text-decoration: none; }
+/* コルクボードのポラロイドの再生ボタン */
+.song-play { position: absolute; right: 5px; bottom: 5px; width: 26px; height: 26px; padding: 6px; border-radius: 50%; z-index: 2;
+  background: rgba(251, 241, 239, .94); color: var(--navy); box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+.song-play.on { background: var(--navy); color: var(--pink); }
+.song-play.busy { animation: song-busy 1s ease-in-out infinite; }
+.pol.memo .song-play { position: relative; right: auto; bottom: auto; display: block; margin: 6px auto 0; }
+@keyframes song-busy { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .song-play.busy { animation: none; } }
+
+/* パスワードの変更 */
+.pwform { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.pwform input { min-height: 44px; }
+.pwform .err { margin: 0; }

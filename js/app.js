@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=29';
-import { editPhoto } from './photo-editor.js?v=29';
-import { ask, notice } from './ask.js?v=29';
+import { createStore } from './store.js?v=30';
+import { editPhoto } from './photo-editor.js?v=30';
+import { ask, notice } from './ask.js?v=30';
 
 const app = document.getElementById('app');
 
@@ -159,7 +159,7 @@ function hashStr(str) {
   b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
   return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36);
 }
-const entrySig = (e) => hashStr(JSON.stringify([e.section, e.title, e.body, e.date, e.category, e.lat, e.lng, e.photo]));
+const entrySig = (e) => hashStr(JSON.stringify([e.section, e.title, e.body, e.date, e.category, e.lat, e.lng, e.photo, ...(e.link ? [e.link] : [])]));
 const moodSig = (m) => hashStr(JSON.stringify([m.date, m.level, m.note, m.shared]));
 function partnerPairs() {
   const out = [];
@@ -370,7 +370,8 @@ function timeline() {
   const kind = { gift: tr('贈りもの', 'Gift'), place: tr('過ごした場所', 'Place'), anniversary: tr('記念日', 'Anniversary') };
   const items = [{ date: CONFIG.START_DATE, title: tr('付き合いはじめた日', 'The day we started dating'), k: kind.anniversary },
     ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ id: e.id, section: e.section, date: e.date, title: e.title, k: kind[e.section], photo: e.photo }))];
-  items.sort((a, b) => (a.date < b.date ? 1 : -1));
+  // 上が古く、下にスクロールするほど新しくなる
+  items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const out = [];
   let year = null, group = null;
   for (const it of items) {
@@ -391,7 +392,8 @@ async function setHero(k, e) {
   const blob = await pickPhoto({ aspect: k === 'a' ? '3:4' : '4:5' }); if (!blob) return;
   act(async () => {
     const photo = await store.uploadPhoto(blob);
-    if (e && e.author === me()) await store.saveEntry({ id: e.id, photo });
+    // どちらが置いた写真でも差しかえられる（前の写真は消す）
+    if (e) { await store.saveEntry({ id: e.id, photo }); if (e.photo) store.removePhoto(e.photo).catch(() => {}); }
     else await store.saveEntry({ section: 'hero', category: k, title: '', photo });
   });
 }
@@ -464,37 +466,78 @@ async function fitImage(blob) {
   return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
 }
 
+/* 場所の名前から地図の位置をさがす。
+   1) OpenStreetMap（Nominatim）で名前をさがす（施設・駅・お店など）
+   2) 見つからなければ、国土地理院の検索（日本の地名・住所）でさがす
+   見つかった候補はいくつか並べて、タップでえらび直せる */
+async function geoSearch(q) {
+  const out = [];
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=5&extratags=1&accept-language=${lang}&q=${encodeURIComponent(q)}`);
+    for (const x of await r.json()) {
+      out.push({ lat: +x.lat, lng: +x.lon, name: x.name || x.display_name.split(',')[0],
+        sub: x.display_name.split(',').slice(1, 4).join(',').trim(), wiki: x.extratags?.wikipedia });
+    }
+  } catch { /* 次の検索へ */ }
+  if (!out.length) {
+    try {
+      const r = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(q)}`);
+      for (const x of (await r.json()).slice(0, 5)) {
+        const [lng, lat] = x.geometry?.coordinates || [];
+        if (lat != null) out.push({ lat, lng, name: x.properties?.title || q, sub: tr('国土地理院', 'GSI Japan') });
+      }
+    } catch { /* どちらもだめ */ }
+  }
+  return out;
+}
 function geoField(v, onSet = () => {}) {
   const box = h('div', { hidden: true });
   const picked = () => tr('場所をえらんであります', 'Location set');
   const status = h('span', { class: 'muted' }, v.lat != null ? picked() : '');
-  let map, marker, L;
+  const hits = h('div', { class: 'geo-hits', hidden: true });
+  let map, marker, L, seq = 0;
   const put = (lat, lng, wiki) => {
     v.lat = lat; v.lng = lng; status.textContent = picked();
     if (marker) marker.remove();
     marker = pin(L, lat, lng).addTo(map);
     onSet({ lat, lng, wiki });
   };
-  const q = h('input', { type: 'text', placeholder: tr('場所の名前でさがす', 'Search by place name') });
-  const search = async () => {
-    if (!q.value.trim()) return;
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&extratags=1&accept-language=${lang}&q=${encodeURIComponent(q.value)}`);
-    const [hit] = await r.json();
-    if (!hit) { status.textContent = tr('見つかりませんでした。地図をタップしてえらべます。', 'Not found. You can tap the map instead.'); return; }
-    map.setView([+hit.lat, +hit.lon], 14); put(+hit.lat, +hit.lon, hit.extratags?.wikipedia);
+  const q = h('input', { type: 'text', placeholder: tr('場所の名前でさがす（例：富士急ハイランド）', 'Search by place name'), enterkeyhint: 'search' });
+  const choose = (list, i) => {
+    const x = list[i];
+    map.setView([x.lat, x.lng], 15); put(x.lat, x.lng, x.wiki);
+    [...hits.children].forEach((c, j) => c.classList.toggle('on', j === i));
   };
-  q.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); search(); } });
+  const search = async () => {
+    const text = q.value.trim();
+    if (!text || !map) return;
+    const my = ++seq;
+    status.textContent = tr('さがしています…', 'Searching…');
+    const list = await geoSearch(text);
+    if (my !== seq) return;
+    hits.hidden = list.length < 2;
+    hits.replaceChildren(...list.map((x, i) => h('button', { type: 'button', class: 'geo-hit', onclick: () => choose(list, i) },
+      h('b', {}, x.name), x.sub && h('small', {}, x.sub))));
+    if (!list.length) { status.textContent = tr('見つかりませんでした。名前を短くするか、地図をタップしてえらべます。', 'Not found. Try a shorter name, or tap the map.'); return; }
+    choose(list, 0);
+    if (list.length > 1) status.textContent = tr('ちがったら下の候補からえらび直せます', 'Not right? Pick another below');
+  };
+  // 日本語入力の「確定」の Enter では検索しない
+  q.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.isComposing && ev.keyCode !== 229) { ev.preventDefault(); search(); } });
   const mapEl = h('div', { class: 'map pick' });
-  box.append(h('div', { class: 'row search-row' }, q, h('button', { type: 'button', class: 'btn ghost small', onclick: search }, 'SEARCH')), mapEl);
+  box.append(h('div', { class: 'row search-row' }, q, h('button', { type: 'button', class: 'btn ghost small', onclick: search }, 'SEARCH')), hits, mapEl,
+    h('p', { class: 'hint' }, tr('地図をタップしても場所をえらべます', 'You can also tap the map')));
   const open = async () => {
     box.hidden = false;
     if (map) return;
-    L = await leaflet();
+    try { L = await leaflet(); } catch (e) { status.textContent = e.message; return; }
     map = L.map(mapEl).setView(v.lat != null ? [v.lat, v.lng] : [36.2, 138.2], v.lat != null ? 14 : 4);
     L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19 }).addTo(map);
     if (v.lat != null) marker = pin(L, v.lat, v.lng).addTo(map);
     map.on('click', (ev) => put(ev.latlng.lat, ev.latlng.lng));
     setTimeout(() => map.invalidateSize(), 60);
+    // まだ場所がなければ、書いてある名前でそのままさがす
+    if (v.lat == null && (v.title || '').trim()) { q.value = v.title.trim(); search(); }
   };
   const clear = () => { v.lat = null; v.lng = null; status.textContent = ''; if (marker) marker.remove(); onSet(null); };
   return h('div', {},
@@ -672,7 +715,8 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
           const my = ++seq;
           if (q.length < 2) { textCands = []; refresh(); return; }
           if (!mine && !geoCand) say(tr('写真をさがしています…', 'Looking for photos…'));
-          const found = await namePhotos(q);
+          // 曲なら、まずジャケット写真を候補にする
+          const found = v.category === SONG_CAT ? [...await songPhotos(q), ...await namePhotos(q)] : await namePhotos(q);
           if (my !== seq || q !== (v.title || '').trim()) return;
           textCands = found; refresh();
         }, 900);
@@ -772,6 +816,8 @@ const F = {
   get body() { return { name: 'body', type: 'textarea', label: tr('ひとこと', 'Note'), ph: tr('そのときのこと、思ったことを自由に', 'What happened, how you felt — anything') }; },
   get geo() { return { type: 'geo', label: tr('地図の場所', 'Location'), hint: tr('入れておくと地図にピンが立ちます', 'Adds a pin to the map') }; },
   get photo() { return { type: 'photo', label: tr('写真', 'Photo') }; },
+  get link() { return { name: 'link', type: 'url', label: tr('リンク', 'Link'), ph: 'https://…',
+    hint: tr('曲なら Spotify・YouTube・Apple Music のリンクを貼るとその場で聴けます。空のままでも、曲名でさがして試聴できます', 'For songs, paste a Spotify, YouTube or Apple Music link to play it here. Leave empty to find a preview by title.') }; },
 };
 const LIKE_CATS = ['食べ物', '飲み物', '仕草', '場所', '曲', 'その他'];
 const LIKE_CATS_EN = ['Food', 'Drinks', 'Habits', 'Places', 'Songs', 'Other'];
@@ -784,7 +830,7 @@ const SECTIONS = {
     fields: () => [F.title(tr('場所の名前', 'Place'), tr('例：江ノ島の水族館', 'e.g. Enoshima Aquarium')), F.date(tr('行った日', 'Date visited')), F.body, F.geo, F.photo] },
   like: { en: 'Likes', lead: () => tr('相手の「好き」をメモしておく', 'Things they love'), fields: () => [
     { name: 'category', type: 'category', label: tr('種類', 'Type'), required: true, options: likeCats(), ph: tr('えらぶか、自由に書く', 'Pick one or type your own') },
-    F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')), F.body, F.photo] },
+    F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')), F.body, F.link, F.photo] },
   wish: { en: 'Wishes', lead: () => tr('いつか一緒に行きたいところ', 'Places we want to go someday'),
     fields: () => [F.title(tr('行きたいところ', 'Place'), tr('例：金沢の21世紀美術館', 'e.g. 21st Century Museum, Kanazawa')), { ...F.body, ph: tr('行きたい理由、やりたいこと', 'Why, and what we want to do there') }, F.geo, F.photo] },
   gift: { en: 'Gifts', lead: () => tr('贈ったもの・もらったもの', 'Gifts given and received'),
@@ -796,6 +842,208 @@ const SECTIONS = {
 const likeCats = () => [...new Set([...LIKE_CATS, ...data.entries.filter((e) => e.section === 'like' && e.category).map((e) => e.category)])]
   .filter((c) => c !== OTHER_CAT).concat(OTHER_CAT);
 const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(e.author)}から`, `from ${nameOf(e.author)}`) : nameOf(e.author));
+// 編集・削除は2人ともできる（価値観の「自分の考え」だけは本人のもの）
+const canEdit = (e) => !!e && (e.section !== 'value' || e.author === me());
+
+/* ---------- 曲：タップで聴く ----------
+   Likes の「曲」は、リンクがあればそれ（Spotify・YouTube はその場で再生、Apple Music は試聴）、
+   なければ曲名で Apple Music（iTunes）をさがして、30秒の試聴を流す。全曲を聴くときは各アプリで開く */
+const SONG_CAT = '曲';
+const isSong = (e) => e?.section === 'like' && e.category === SONG_CAT;
+// iTunes の検索は JSONP で呼ぶ（ブラウザの CORS に左右されない）
+function jsonp(url) {
+  return new Promise((ok, ng) => {
+    const cb = `__oo${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const s = h('script', { src: `${url}&callback=${cb}` });
+    const done = () => { clearTimeout(t); delete window[cb]; s.remove(); };
+    const t = setTimeout(() => { done(); ng(new Error('timeout')); }, 10000);
+    window[cb] = (d) => { done(); ok(d); };
+    s.onerror = () => { done(); ng(new Error('load')); };
+    document.head.append(s);
+  });
+}
+const toTrack = (r) => r && r.previewUrl && ({ id: r.trackId, name: r.trackName, artist: r.artistName, preview: r.previewUrl,
+  art: (r.artworkUrl100 || '').replace(/\/\d+x\d+bb\./, '/600x600bb.'), url: r.trackViewUrl });
+const songQuery = (title) => title.replace(/[／/|｜\-–—「」『』"]/g, ' ').replace(/\s+/g, ' ').trim();
+const songSearches = new Map();
+function searchSongs(title) {
+  const q = songQuery(title);
+  if (!q) return Promise.resolve([]);
+  if (!songSearches.has(q)) {
+    songSearches.set(q, jsonp(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&country=jp&lang=ja_jp&media=music&entity=song&limit=8`)
+      .then((j) => (j.results || []).map(toTrack).filter(Boolean))
+      .catch((e) => { songSearches.delete(q); throw e; }));
+  }
+  return songSearches.get(q);
+}
+async function lookupSong(id) {
+  const j = await jsonp(`https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}&country=jp&lang=ja_jp`);
+  return toTrack((j.results || []).find((r) => r.kind === 'song') || j.results?.[0]);
+}
+// 貼られたリンクが何か
+function linkInfo(raw) {
+  const s = (raw || '').trim();
+  if (!s) return null;
+  let u;
+  try { u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`); } catch { return null; }
+  const host = u.hostname.replace(/^www\./, '');
+  if (/(^|\.)spotify\.com$/.test(host)) {
+    const m = u.pathname.match(/\/(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/);
+    if (m) return { kind: 'spotify', url: u.href, embed: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=generator`, type: m[1] };
+  }
+  if (host === 'youtu.be' || /(^|\.)youtube\.com$/.test(host)) {
+    const id = host === 'youtu.be' ? u.pathname.slice(1).split('/')[0] : (u.searchParams.get('v') || (u.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/) || [])[1]);
+    if (id) return { kind: 'youtube', url: u.href, embed: `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0` };
+  }
+  if (/(^|\.)music\.apple\.com$/.test(host) || host === 'itunes.apple.com') {
+    const id = u.searchParams.get('i') || (u.pathname.match(/\/song\/(?:[^/]+\/)?(\d+)/) || [])[1];
+    return { kind: 'apple', url: u.href, id };
+  }
+  return { kind: 'web', url: u.href };
+}
+// その曲の Apple Music の候補（リンクがあればその曲、なければ曲名でさがした結果）
+const songCache = new Map(), songDone = new Map();
+const songKey = (e) => `${e.id}|${e.title}|${e.link || ''}`;
+function songFor(e) {
+  const info = linkInfo(e.link);
+  const key = songKey(e);
+  if (!songCache.has(key)) {
+    const p = (info?.kind === 'apple' && info.id)
+      ? lookupSong(info.id).then((t) => ({ tracks: t ? [t] : [], fixed: true }))
+      : searchSongs(e.title).then((tracks) => ({ tracks, fixed: false }));
+    songCache.set(key, p.then((r) => { songDone.set(key, r); return r; }, (err) => { songCache.delete(key); throw err; }));
+  }
+  return songCache.get(key);
+}
+// 試聴の音はひとつだけ鳴らす。鳴っている曲が変わったら、ボタンの見た目を合わせる
+const audio = { el: null, key: null, subs: new Set() };
+function audioEl() {
+  if (!audio.el) {
+    audio.el = new Audio();
+    audio.el.preload = 'none';
+    for (const ev of ['play', 'pause', 'ended', 'timeupdate', 'error']) audio.el.addEventListener(ev, () => audio.subs.forEach((f) => f()));
+    audio.el.addEventListener('ended', () => { audio.key = null; });
+  }
+  return audio.el;
+}
+// iPhone は「タップした瞬間」に鳴らし始めないと音を出させてくれないので、曲をさがしている間は無音を流しておく
+let silentUrl = '';
+function silent() {
+  if (silentUrl) return silentUrl;
+  const n = 800, buf = new DataView(new ArrayBuffer(44 + n * 2));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) buf.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); buf.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+  buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 1, true); buf.setUint32(24, 8000, true);
+  buf.setUint32(28, 16000, true); buf.setUint16(32, 2, true); buf.setUint16(34, 16, true); str(36, 'data'); buf.setUint32(40, n * 2, true);
+  return (silentUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+}
+function playTrack(key, track) {
+  const el = audioEl();
+  if (audio.key === key && !el.paused) { el.pause(); return; }
+  if (audio.key !== key || el.src !== track.preview) { audio.key = key; el.src = track.preview; }
+  el.play().catch(() => {});
+  audio.subs.forEach((f) => f());
+}
+const isPlaying = (key) => audio.key === key && audio.el && !audio.el.paused;
+// 画面から消えたボタンは見張りをやめる
+function onAudio(node, f) {
+  const sub = () => { if (!node.isConnected) { audio.subs.delete(sub); return; } f(); };
+  audio.subs.add(sub);
+  return sub;
+}
+const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
+const PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z" fill="currentColor"/></svg>';
+const svgIcon = (el, svg) => { el.innerHTML = svg; return el; };
+// コルクボードのポラロイドに付ける小さな再生ボタン（タップでその場で試聴）
+function songBadge(e) {
+  const info = linkInfo(e.link);
+  const key = `like:${e.id}`;
+  const b = h('span', { class: 'song-play', role: 'button', tabindex: '0', 'aria-label': tr(`「${e.title}」を聴く`, `Play "${e.title}"`) });
+  const paint = () => { const on = isPlaying(key); b.classList.toggle('on', on); svgIcon(b, on ? PAUSE : PLAY); };
+  onAudio(b, paint); paint();
+  if (!info) songFor(e).catch(() => {});   // 先にさがしておくと、タップしてすぐ鳴る
+  const go = async (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    // Spotify・YouTube のリンクは、詳細を開いてその場のプレーヤーで
+    if (info && info.kind !== 'apple') { openDetail(e.id); return; }
+    if (isPlaying(key)) { audio.el.pause(); return; }
+    const el = audioEl();
+    const ready = songDone.get(songKey(e));
+    if (!ready) { audio.key = null; el.src = silent(); el.play().catch(() => {}); }
+    b.classList.add('busy');
+    try {
+      const r = ready || await songFor(e);
+      if (!r.tracks[0]) { notice(tr('試聴できる曲が見つかりませんでした', 'No preview found'), { text: tr('詳細を開いて、リンクを入れると聴けるようになります。', 'Open the details and add a link to listen.') }); return; }
+      playTrack(key, r.tracks[0]);
+    } catch { notice(tr('曲をさがせませんでした', "Couldn't look up the song")); }
+    finally { b.classList.remove('busy'); }
+  };
+  b.addEventListener('click', go);
+  b.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') go(ev); });
+  return b;
+}
+const musicLinks = (q) => h('div', { class: 'song-links' },
+  h('span', { class: 'muted' }, tr('全部聴く：', 'Full song:')),
+  h('a', { class: 'chip', href: `https://open.spotify.com/search/${encodeURIComponent(q)}`, target: '_blank', rel: 'noopener' }, 'SPOTIFY'),
+  h('a', { class: 'chip', href: `https://music.youtube.com/search?q=${encodeURIComponent(q)}`, target: '_blank', rel: 'noopener' }, 'YOUTUBE'));
+// 詳細やカードに出すプレーヤー
+function songPlayer(e) {
+  const info = linkInfo(e.link);
+  const box = h('div', { class: 'song' });
+  if (info && (info.kind === 'spotify' || info.kind === 'youtube')) {
+    box.classList.add(`song-${info.kind}`);
+    box.append(h('iframe', { src: info.embed, loading: 'lazy', title: e.title, frameborder: '0',
+      allow: 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture', allowfullscreen: true,
+      height: info.kind === 'spotify' ? (info.type === 'track' || info.type === 'episode' ? '152' : '352') : null }),
+    h('a', { class: 'btn ghost small song-open', href: info.url, target: '_blank', rel: 'noopener' }, info.kind === 'spotify' ? 'OPEN IN SPOTIFY' : 'OPEN IN YOUTUBE'));
+    return box;
+  }
+  const key = `like:${e.id}`;
+  let tracks = [], i = 0, fixed = false;
+  const status = h('p', { class: 'muted' }, tr('曲をさがしています…', 'Looking up the song…'));
+  box.append(status);
+  const render = () => {
+    const t = tracks[i];
+    if (!t) {
+      box.replaceChildren(h('p', { class: 'muted' }, tr('試聴できる曲が見つかりませんでした。EDIT からリンクを入れると聴けます。', "Couldn't find a preview. Add a link with EDIT to listen.")), musicLinks(songQuery(e.title)));
+      return;
+    }
+    const btn = h('button', { type: 'button', class: 'song-btn', 'aria-label': tr('試聴', 'Preview'), onclick: () => playTrack(key, t) });
+    const bar = h('i', {});
+    const paint = () => {
+      const on = isPlaying(key) && audio.el.src === t.preview;
+      svgIcon(btn, on ? PAUSE : PLAY); btn.classList.toggle('on', on);
+      const el = audio.el;
+      bar.style.width = audio.key === key && el?.duration ? `${(el.currentTime / el.duration) * 100}%` : '0%';
+    };
+    onAudio(box, paint);
+    const others = !fixed && tracks.length > 1;
+    box.replaceChildren(
+      h('div', { class: 'song-main' },
+        h('div', { class: 'song-art' }, t.art && h('img', { src: t.art, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }), btn),
+        h('div', { class: 'song-txt' }, h('b', {}, t.name), h('small', {}, t.artist),
+          h('span', { class: 'song-bar' }, bar), h('small', { class: 'song-note' }, tr('Apple Music の30秒試聴', '30-second Apple Music preview')))),
+      h('div', { class: 'song-links' },
+        others && h('button', { type: 'button', class: 'chip', onclick: () => { if (audio.key === key) { audio.el.pause(); audio.key = null; } i = (i + 1) % tracks.length; render(); } }, tr('ちがう曲？', 'NOT THIS ONE?')),
+        others && i > 0 && canEdit(e) && h('button', { type: 'button', class: 'chip on', onclick: () => act(() => store.saveEntry({ id: e.id, link: t.url })) }, tr('この曲にする', 'KEEP THIS ONE')),
+        t.url && h('a', { class: 'chip', href: t.url, target: '_blank', rel: 'noopener' }, 'APPLE MUSIC'),
+        h('a', { class: 'chip', href: `https://open.spotify.com/search/${encodeURIComponent(`${t.name} ${t.artist}`)}`, target: '_blank', rel: 'noopener' }, 'SPOTIFY'),
+        h('a', { class: 'chip', href: `https://music.youtube.com/search?q=${encodeURIComponent(`${t.name} ${t.artist}`)}`, target: '_blank', rel: 'noopener' }, 'YOUTUBE')));
+    paint();
+  };
+  songFor(e).then((r) => { tracks = r.tracks; fixed = r.fixed; render(); })
+    .catch(() => { box.replaceChildren(h('p', { class: 'muted' }, tr('曲をさがせませんでした（電波を確かめてください）', "Couldn't look up the song (check your connection)")), musicLinks(songQuery(e.title))); });
+  return box;
+}
+// リンクのボタン（曲以外：お店のページなど）
+const linkButton = (e) => {
+  const info = linkInfo(e.link);
+  return info && h('a', { class: 'btn ghost small', href: info.url, target: '_blank', rel: 'noopener' }, 'OPEN LINK ↗');
+};
+// 曲の写真の候補：ジャケット写真
+async function songPhotos(q) {
+  try { return (await searchSongs(q)).filter((t) => t.art).slice(0, 4).map((t) => ({ url: t.art, title: `${t.name} / ${t.artist}`, from: 'Apple Music' })); } catch { return []; }
+}
 
 function talk(e, fresh = new Set()) {
   const list = data.comments.filter((c) => c.entry_id === e.id).sort(byCreated);
@@ -815,7 +1063,7 @@ async function removeEntry(e) {
 }
 function entryCard(e, key) {
   const S = SECTIONS[key];
-  const mine = e.author === me();
+  const ok = canEdit(e);
   const meta = [e.date && dots(e.date), e.category && catLabel(e.category), fromLabel(e)].filter(Boolean).join(' ・ ');
   const edit = () => entryEdit(e);
   const addPhoto = async () => {
@@ -827,17 +1075,25 @@ function entryCard(e, key) {
     e.photo && photoImg(e.photo),
     h('h2', {}, e.title), h('div', { class: 'meta' }, meta),
     e.body && h('p', {}, e.body),
+    isSong(e) ? songPlayer(e) : null,
     h('div', { class: 'row' },
       key === 'wish' && h('button', { class: 'btn small', onclick: went }, 'BEEN THERE!'),
-      mine && !e.photo && S.fields().some((f) => f.type === 'photo') && h('button', { class: 'btn ghost small', onclick: addPhoto }, 'ADD PHOTO'),
-      mine && h('button', { class: 'link', onclick: edit }, 'EDIT'),
-      mine && h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
+      !isSong(e) && linkButton(e),
+      ok && !e.photo && S.fields().some((f) => f.type === 'photo') && h('button', { class: 'btn ghost small', onclick: addPhoto }, 'ADD PHOTO'),
+      ok && h('button', { class: 'link', onclick: edit }, 'EDIT'),
+      ok && h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
     talk(e)), entryNew(e));
 }
 function addEntry(key) {
   const S = SECTIONS[key];
   openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : {},
-    onSubmit: (v) => store.saveEntry({ section: key, title: v.title, body: v.body || '', date: v.date || null, category: v.category || null, lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null }) });
+    onSubmit: (v) => store.saveEntry(withLink({ section: key, title: v.title, body: v.body || '', date: v.date || null, category: v.category || null, lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null }, v)) });
+}
+// リンクは入れたときだけ送る（リンクの欄をまだ作っていないデータベースでも、ほかの保存は通るように）
+function withLink(row, v, before = {}) {
+  const link = (v.link || '').trim();
+  if (link || before.link) row.link = link || null;
+  return row;
 }
 function sectionPage(key) {
   const S = SECTIONS[key];
@@ -865,12 +1121,12 @@ const EN_OF = { place: 'Places', wish: 'Wishes', like: 'Likes', gift: 'Gifts', d
 function entryEdit(e) {
   const S = SECTIONS[e.section];
   openForm({ title: 'Edit', en: S.en, fields: S.fields(), initial: e,
-    onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo }) });
+    onSubmit: (v) => store.saveEntry(withLink({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo }, v, e)) });
 }
 function entryWent(e) {
   openForm({ title: 'Been there!', en: 'Places', lead: tr(`「${e.title}」に行った日を残す`, `When did we go to "${e.title}"?`), initial: { ...e, date: today() },
-    fields: [F.date(tr('行った日', 'Date visited')), F.body, F.photo],
-    onSubmit: (v) => store.saveEntry({ id: e.id, section: 'place', date: v.date, body: v.body, photo: v.photo }) });
+    fields: [F.date(tr('行った日', 'Date visited')), F.body, ...(e.lat == null ? [F.geo] : []), F.photo],
+    onSubmit: (v) => store.saveEntry({ id: e.id, section: 'place', date: v.date, body: v.body, photo: v.photo, lat: v.lat ?? null, lng: v.lng ?? null }) });
 }
 function openDetail(id) {
   const dlg = h('dialog', { class: 'modal detail', 'aria-label': tr('詳細', 'Details') });
@@ -880,7 +1136,7 @@ function openDetail(id) {
     const e = data.entries.find((x) => x.id === id);
     if (!e) { closeDialog(dlg, true); return; }
     markSeenNow(entryNew(e));
-    const mine = e.author === me();
+    const ok = canEdit(e);
     const meta = [e.date && dots(e.date), e.category && catLabel(e.category), fromLabel(e)].filter(Boolean).join(' ・ ');
     dlg.replaceChildren(h('div', { class: 'sheet' },
       h('div', { class: 'mhead' },
@@ -889,8 +1145,9 @@ function openDetail(id) {
       h('div', { class: 'mbody' },
         e.photo && photoImg(e.photo, 'dphoto'),
         e.body ? h('p', { class: 'dbody' }, e.body) : null,
+        isSong(e) ? songPlayer(e) : linkButton(e),
         e.section === 'wish' && h('button', { class: 'btn', onclick: () => entryWent(e) }, 'BEEN THERE! → PLACES'),
-        mine && h('div', { class: 'row' },
+        ok && h('div', { class: 'row' },
           h('button', { class: 'btn ghost small', onclick: () => entryEdit(e) }, 'EDIT'),
           h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
         talk(e, fresh))));
@@ -983,7 +1240,18 @@ function mapPage() {
     h('span', { class: 'lgi' }, h('span', { class: 'lg wish' }), tr('行きたいところ', 'Want to go')),
     h('span', { class: 'lgi' }, tr('・ピンをタップでひとこと', '・Tap a pin to peek')));
   const botInset = () => legend.offsetHeight;
-  const syncInset = () => { mapEl.style.setProperty('--inset', `${topInset()}px`); mapEl.style.setProperty('--leg', `${botInset()}px`); };
+  const head = pageHead('Places', '');
+  // 地図のぼかしは、見出しの文字の高さの半分あたりから始める（終わりはALL/PLACES/WISHESの行の下）
+  const fadeStart = () => {
+    const t = head.querySelector('h1');
+    if (!t || !mapEl.isConnected) return 0;
+    const a = t.getBoundingClientRect(), b = mapEl.getBoundingClientRect();
+    return Math.max(0, Math.round(a.top + a.height / 2 - b.top));
+  };
+  const syncInset = () => {
+    mapEl.style.setProperty('--inset', `${topInset()}px`); mapEl.style.setProperty('--leg', `${botInset()}px`);
+    mapEl.style.setProperty('--fstart', `${fadeStart()}px`);
+  };
   leaflet().then((L) => {
     const map = L.map(mapEl, { zoomControl: false });
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -1034,7 +1302,7 @@ function mapPage() {
   renderAdd();
 
   return h('div', {}, pageNav(),
-    h('div', { class: 'places-top' }, pageHead('Places', ''), chips, mapEl, shield, h('div', { class: 'places-spacer' }), legend),
+    h('div', { class: 'places-top' }, head, chips, mapEl, shield, h('div', { class: 'places-spacer' }), legend),
     shownList.length ? h('div', { class: 'list' }, shownList.map(row)) : h('p', { class: 'empty' }, tr('まだ何もありません。下から最初のひとつを。', 'Nothing here yet. Add the first one below.')),
     h('section', { class: 'madd', id: 'place-add' },
       h('h2', { class: 'en madd-title' }, 'Add'), h('p', { class: 'jp' }, tr('場所を追加', 'Add a place')), addBox));
@@ -1080,7 +1348,8 @@ function corkBoard(cards) {
     const style = `--s:${between(r, .88, 1.06).toFixed(3)};--r:${between(r, -4, 4).toFixed(2)}deg;--x:${between(r, -3, 4).toFixed(1)}px;--y:${between(r, -3, 10).toFixed(1)}px;--z:${between(r, 1, 3).toFixed(2)}`;
     const pin = h('img', { class: 'tack', src: `assets/pin-${r() < .5 ? 'pink' : 'navy'}.webp`, alt: '' });
     return newMark(h('button', { class: ['pol', !c.photo && 'memo', c.cls].filter(Boolean).join(' '), type: 'button', style, onclick: c.onclick },
-      pin, c.photo ? h('span', { class: 'pim' }, photoImg(c.photo, '')) : null, c.big || null, h('b', {}, c.title), h('small', {}, c.sub)), c.fresh);
+      pin, c.photo ? h('span', { class: 'pim' }, photoImg(c.photo, ''), c.badge || null) : null, c.big || null, h('b', {}, c.title), h('small', {}, c.sub),
+      !c.photo && c.badge ? c.badge : null), c.fresh);
   }))));
 }
 const MAX_PINNED = 6;
@@ -1105,7 +1374,7 @@ function morePreview(key) {
   }
   const items = data.entries.filter((e) => e.section === key).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return board(items.length, items.slice(0, MAX_PINNED).map((e) => ({
-    seed: e.id, photo: e.photo, title: e.title, onclick: () => openDetail(e.id), fresh: entryNew(e),
+    seed: e.id, photo: e.photo, title: e.title, onclick: () => openDetail(e.id), fresh: entryNew(e), badge: isSong(e) ? songBadge(e) : null,
     sub: [e.category && catLabel(e.category), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・'),
   })), () => addEntry(key));
 }
@@ -1198,7 +1467,7 @@ function annivPage() {
       h('h2', {}, title), h('div', { class: 'meta' }, dots(date)),
       n >= 0 && h('div', { class: 'count' }, String(n), h('small', {}, tr('日', 'days'))),
       lines.map((l) => h('p', {}, l)),
-      e && e.author === me() && h('div', { class: 'row' },
+      canEdit(e) && h('div', { class: 'row' },
         h('button', { class: 'link', onclick: () => openForm({ title: 'Edit', en: 'Days', fields: annivFields(), initial: e,
           onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, date: v.date }) }) }, 'EDIT'),
         h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')));
@@ -1591,6 +1860,7 @@ function settingsPage() {
         h('div', { class: 'row', style: 'flex-wrap: nowrap' }, name,
           h('button', { class: 'btn', onclick: () => act(() => store.saveProfile({ display_name: name.value.trim() })) }, 'SAVE'))),
       langCard(),
+      store.mode === 'supabase' && passwordCard(),
       h('section', { class: 'card' }, h('h2', {}, tr('記念日の通知', 'Anniversary notifications')),
         h('label', { class: 'check' }, toggle, tr('この端末で通知を受け取る', 'Get notifications on this device')),
         h('p', { class: 'muted' }, canPush
@@ -1606,6 +1876,33 @@ function settingsPage() {
             h('button', { class: 'link', onclick: async () => { if (await ask(tr('お試しで書いた内容をぜんぶ消しますか？', 'Delete everything written in demo mode?'), { ok: 'DELETE ALL', danger: true })) { localStorage.removeItem('our-odyssey-demo'); location.reload(); } } }, 'CLEAR DEMO DATA')))
         : h('section', { class: 'card' }, h('h2', {}, tr('ログアウト', 'Log out')),
           h('button', { class: 'btn ghost', onclick: async () => { await store.signOut(); location.hash = '#/'; start(); } }, 'LOG OUT'))));
+}
+function passwordCard() {
+  const login = (store.user()?.email || '').split('@')[0];
+  const input = (ac) => h('input', { type: 'password', autocomplete: ac, required: true });
+  const cur = input('current-password'), next = input('new-password'), again = input('new-password');
+  const msg = h('p', { class: 'muted', role: 'status' });
+  const btn = h('button', { class: 'btn', type: 'submit' }, 'CHANGE PASSWORD');
+  const form = h('form', { class: 'pwform', onsubmit: async (ev) => {
+    ev.preventDefault(); msg.classList.remove('err'); msg.textContent = '';
+    const fail = (t) => { msg.classList.add('err'); msg.textContent = t; };
+    if (!cur.value || !next.value) return fail(tr('いまのパスワードと新しいパスワードを入れてください。', 'Enter your current and new password.'));
+    if (next.value.length < 8) return fail(tr('新しいパスワードは8文字以上にしてください。', 'Use at least 8 characters.'));
+    if (next.value !== again.value) return fail(tr('確認用のパスワードが一致しません。', "The two new passwords don't match."));
+    btn.disabled = true;
+    try {
+      await store.changePassword(cur.value, next.value);
+      cur.value = next.value = again.value = '';
+      msg.textContent = tr('パスワードを変えました。次からは新しいパスワードでログインしてください。', 'Password changed. Use the new one next time you log in.');
+    } catch (e) { fail(e.message || String(e)); } finally { btn.disabled = false; }
+  } },
+  // パスワード管理アプリが「どのアカウントのパスワードか」わかるように、ログイン名も入れておく（見えない）
+  h('input', { type: 'text', autocomplete: 'username', value: login, hidden: true, readonly: true, 'aria-hidden': 'true', tabindex: '-1' }),
+  h('label', {}, tr('いまのパスワード', 'Current password'), cur),
+  h('label', {}, tr('新しいパスワード（8文字以上）', 'New password (8+ characters)'), next),
+  h('label', {}, tr('新しいパスワード（もう一度）', 'New password (again)'), again),
+  msg, h('div', { class: 'row' }, btn));
+  return h('section', { class: 'card' }, h('h2', {}, tr('パスワード', 'Password')), form);
 }
 function langCard() {
   const opt = (v, label) => h('button', { type: 'button', class: `chip${lang === v ? ' on' : ''}`, 'aria-pressed': String(lang === v), onclick: () => setLang(v) }, label);

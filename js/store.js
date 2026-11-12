@@ -230,11 +230,23 @@ async function supaStore() {
     }
     const t = sb.from(op.table);
     const res = await (op.kind === 'insert' ? t.insert(op.row)
-      : op.kind === 'update' ? t.update(op.patch).eq('id', op.id)
-      : t.delete().eq('id', op.id));
+      : op.kind === 'update' ? t.update(op.patch).eq('id', op.id).select('id')
+      : t.delete().eq('id', op.id).select('id'));
     // 前に送ったときに届いていた（返事だけ受け取れなかった）なら、それで送れたことにする
     if (res.error && !(op.kind === 'insert' && res.error.code === '23505')) {
-      const e = new Error(res.error.message); e.status = res.status; throw e;
+      const msg = /column .*link|link.*column|schema cache/i.test(res.error.message)
+        ? tr('リンクを保存する欄がまだありません。supabase/2026-11-13.sql を Supabase で実行してください。', 'The database has no place for links yet. Run supabase/2026-11-13.sql in Supabase.')
+        : res.error.message;
+      const e = new Error(msg); e.status = res.status; throw e;
+    }
+    // 1件も変わらなかったのに、その行がまだあるなら、変える権利がない（データベースの設定が古い）
+    if (op.kind !== 'insert' && Array.isArray(res.data) && !res.data.length) {
+      const still = await sb.from(op.table).select('id').eq('id', op.id);
+      if (!still.error && still.data?.length) {
+        const e = new Error(tr('相手の記録を変えられませんでした。supabase/2026-11-13.sql を Supabase で実行すると、2人とも編集・削除できるようになります。',
+          "Couldn't change your partner's entry. Run supabase/2026-11-13.sql in Supabase so both of you can edit and delete."));
+        e.status = 403; throw e;
+      }
     }
   }
 
@@ -294,9 +306,26 @@ async function supaStore() {
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { stop(); start(); } });
       start();
     },
-    user: () => (session ? { id: session.user.id } : null),
+    user: () => (session ? { id: session.user.id, email: session.user.email } : null),
     async signIn(email, password) {
       session = ok(await sb.auth.signInWithPassword({ email, password })).session;
+    },
+    // パスワードを変える。いまのパスワードで入り直せることを確かめてから変える
+    async changePassword(current, next) {
+      needNet();
+      const email = session?.user?.email;
+      if (!email) throw new Error(tr('ログインし直してから、もう一度ためしてください。', 'Please log in again and retry.'));
+      const check = await sb.auth.signInWithPassword({ email, password: current });
+      if (check.error) throw new Error(tr('いまのパスワードがちがいます。', 'Your current password is wrong.'));
+      session = check.data.session;
+      const { error } = await sb.auth.updateUser({ password: next });
+      if (error) {
+        const m = error.message || '';
+        if (/at least|characters|short/i.test(m)) throw new Error(tr('パスワードが短すぎます。もっと長くしてください。', 'That password is too short.'));
+        if (/different|same/i.test(m)) throw new Error(tr('いまと同じパスワードです。ちがうものにしてください。', 'The new password must be different.'));
+        if (/weak|pwned|guess/i.test(m)) throw new Error(tr('かんたんすぎるパスワードです。英数字をまぜて長めにしてください。', 'That password is too easy to guess.'));
+        throw new Error(m);
+      }
     },
     async signOut() {
       await sb.auth.signOut(); session = null;
