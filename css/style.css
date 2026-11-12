@@ -52,8 +52,8 @@ img { max-width: 100%; display: block; }
 .slot.a { left: 21.5%; bottom: 96px; width: 34%; height: 200px; background-color: var(--navy); color: var(--pink); transform: rotate(-4deg); }
 .slot.b { left: 48.5%; bottom: 84px; width: 31.5%; height: 178px; background-color: var(--pink-d); color: var(--navy); border: var(--line); transform: rotate(5deg); }
 .slot.has span { display: none; }
-/* 写真が入ったらポラロイドのように白いフチ（下だけ少し広め） */
-.slot.has { border: 6px solid #FBF9F4; border-bottom-width: 18px; background-color: #FBF9F4; box-shadow: 0 4px 10px rgba(22, 32, 79, .22), 0 0 1px rgba(22, 32, 79, .3); }
+/* 写真が入ったらポラロイドのように白いフチ（下だけほんの少し広め） */
+.slot.has { border: 6px solid #FBF9F4; border-bottom-width: 11px; background-color: #FBF9F4; box-shadow: 0 4px 10px rgba(22, 32, 79, .22), 0 0 1px rgba(22, 32, 79, .3); }
 .flower { position: absolute; pointer-events: none; height: auto; z-index: 1;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); }
