@@ -118,8 +118,8 @@ async function refresh() {
   await load(); draw();
   document.querySelectorAll('dialog[open]').forEach((d) => d.refresh?.());
 }
-/* 相手の更新を取りこむ：アプリに戻ったとき・相手が書いたとき・開いている間は1分ごとに取りなおし、
-   変わっていたときだけ描き直す。書いている途中なら描き直さず、あとでもう一度ためす */
+/* 相手の更新を取りこむ：アプリに戻ったとき・相手が書いたとき・開いている間はときどき取りなおし、
+   変わっていたときだけ描き直す（開いている間は30秒ごと）。書いている途中なら描き直さず、あとでもう一度ためす */
 let liveBusy = false, liveAgain = false, liveTimer = 0;
 const liveSig = (d) => JSON.stringify([d.entries, d.moods, d.comments, d.profiles]);
 function isEditing() {
@@ -154,7 +154,7 @@ function setupLive() {
   window.addEventListener('focus', liveSoon);
   window.addEventListener('pageshow', liveSoon);
   window.addEventListener('online', liveSoon);
-  setInterval(() => { if (document.visibilityState === 'visible') liveRefresh(); }, 60000);
+  setInterval(() => { if (document.visibilityState === 'visible') liveRefresh(); }, 30000);
   store.watch?.(liveSoon);
 }
 const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
