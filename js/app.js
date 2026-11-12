@@ -1,7 +1,20 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=11';
+import { createStore } from './store.js?v=12';
+import { editPhoto } from './photo-editor.js?v=12';
 
 const app = document.getElementById('app');
+
+/* ---------- 言語（ふだんは日本語＋ボタンだけ英語、設定で全部英語） ---------- */
+const LANG_KEY = 'our-odyssey-lang';
+let lang = (() => { try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ja'; } catch { return 'ja'; } })();
+const tr = (ja, en) => (lang === 'en' ? en : ja);
+document.documentElement.lang = lang;
+function setLang(v) {
+  lang = v === 'en' ? 'en' : 'ja';
+  try { localStorage.setItem(LANG_KEY, lang); } catch { /* 保存できなくても今回は切りかえる */ }
+  document.documentElement.lang = lang;
+  draw();
+}
 let store;
 let data = { entries: [], moods: [], comments: [], profiles: [] };
 let likeFilter = '';
@@ -33,7 +46,8 @@ const today = () => { const d = new Date(); return ymd(d.getFullYear(), d.getMon
 const utc = (s) => { const { y, m, d } = parse(s); return Date.UTC(y, m - 1, d); };
 export const daysBetween = (a, b) => Math.round((utc(b) - utc(a)) / 864e5);
 const dots = (s) => s.replaceAll('-', '.');
-const md = (s) => { const { m, d } = parse(s); return `${m}月${d}日`; };
+const md = (s) => { const { m, d } = parse(s); return tr(`${m}月${d}日`, `${MONTHS[m - 1]} ${d}`); };
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const lastDay = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
 // start から数えて k か月後の日付（月末は丸める）
@@ -57,12 +71,17 @@ function nextYearly(start, t) {
   return { date: addMonths(start, years * 12), years };
 }
 export const spanLabel = (months) => {
-  if (months % 12 === 0) return `${months / 12}周年`;
-  return months > 12 ? `${Math.floor(months / 12)}年${months % 12}ヶ月` : `${months}ヶ月`;
+  const y = Math.floor(months / 12), m = months % 12;
+  if (lang === 'en') {
+    if (m === 0) return plural(y, 'year');
+    return y ? `${plural(y, 'year')} ${plural(m, 'month')}` : plural(m, 'month');
+  }
+  if (m === 0) return `${y}周年`;
+  return months > 12 ? `${y}年${m}ヶ月` : `${months}ヶ月`;
 };
 
 const me = () => store.user().id;
-const nameOf = (id) => (data.profiles.find((p) => p.id === id)?.display_name) || 'ななし';
+const nameOf = (id) => (data.profiles.find((p) => p.id === id)?.display_name) || tr('ななし', 'No name');
 const partner = () => data.profiles.find((p) => p.id !== me());
 const byCreated = (a, b) => (a.created_at < b.created_at ? -1 : 1);
 
@@ -78,14 +97,11 @@ function pickFile() {
     i.click();
   });
 }
-async function shrink(file) {
-  const max = store.mode === 'demo' ? 900 : 1600;
-  const bmp = await createImageBitmap(file);
-  const s = Math.min(1, max / Math.max(bmp.width, bmp.height));
-  const c = document.createElement('canvas');
-  c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
-  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.82));
+const maxSide = () => (store.mode === 'demo' ? 900 : 1600);
+// 写真をえらんで、切り取り・回転・飾りつけをしてから使う。やめたら null。
+async function pickPhoto(opts = {}) {
+  const f = await pickFile(); if (!f) return null;
+  return editPhoto(f, { maxSide: maxSide(), lang, ...opts });
 }
 async function act(fn) {
   try { await fn(); await refresh(); } catch (e) { alert(e.message || String(e)); }
@@ -137,13 +153,13 @@ function draw() {
 }
 window.addEventListener('hashchange', () => { if (store?.user()) { draw(); window.scrollTo(0, 0); } });
 
-const tabBar = (active) => h('nav', { class: 'tabbar', 'aria-label': 'タブ' }, TABS.map((t, i) =>
+const tabBar = (active) => h('nav', { class: 'tabbar', 'aria-label': 'Tabs' }, TABS.map((t, i) =>
   h('a', { href: t.href, class: i === active ? 'on' : '', 'aria-current': i === active ? 'page' : null,
     onclick: (ev) => { if (i === active && shown?.depth === 0) { ev.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } } },
   tabIcon(t.icon), h('span', { class: 'en' }, t.en))));
 
 const pageNav = (back) => h('div', { class: 'nav' },
-  back ? h('a', { class: 'link', href: '#/more' }, '← その他') : h('span'),
+  back ? h('a', { class: 'link', href: '#/more' }, '← MORE') : h('span'),
   h('span', { class: 'word' }, 'Our Odyssey'), h('span', { class: 'nav-spacer' }));
 // 大きな英語の見出し（日本語の副題は出さない）
 const pageHead = (en, _jp, ...extra) => h('div', { class: 'head' }, h('h1', {}, en), extra);
@@ -164,16 +180,16 @@ function home() {
   const days = daysBetween(CONFIG.START_DATE, t);
   const nm = nextMonthly(CONFIG.START_DATE, t);
   const banners = [];
-  if (daysBetween(t, nm.date) === 0) banners.push(`今日は ${spanLabel(nm.months)} の記念日！`);
-  if (days > 0 && days % 100 === 0) banners.push(`今日で ${days}日！`);
+  if (daysBetween(t, nm.date) === 0) banners.push(tr(`今日は ${spanLabel(nm.months)} の記念日！`, `Today is our ${spanLabel(nm.months)} anniversary!`));
+  if (days > 0 && days % 100 === 0) banners.push(tr(`今日で ${days}日！`, `${days} days today!`));
   for (const e of data.entries.filter((x) => x.section === 'anniversary' && x.date)) {
     const ny = nextYearly(e.date, t);
-    if (ny.date === t && ny.years > 0) banners.push(`今日は「${e.title}」から ${ny.years}年！`);
+    if (ny.date === t && ny.years > 0) banners.push(tr(`今日は「${e.title}」から ${ny.years}年！`, `${plural(ny.years, 'year')} since "${e.title}" today!`));
   }
   const hero = (k) => data.entries.filter((e) => e.section === 'hero' && e.category === k).sort(byCreated).pop();
   const slot = (k, label) => {
     const e = hero(k);
-    const b = h('button', { class: `slot ${k}${e ? ' has' : ''}`, 'aria-label': `${label}をえらぶ`, onclick: () => setHero(k, e) },
+    const b = h('button', { class: `slot ${k}${e ? ' has' : ''}`, 'aria-label': `${label}`, onclick: () => setHero(k, e) },
       h('span', {}, `[${label}]`));
     if (e) store.photoUrl(e.photo).then((u) => { b.style.backgroundImage = `url("${u}")`; });
     return b;
@@ -184,12 +200,12 @@ function home() {
       h('p', { class: 'big' }, 'Days'),
       banners.map((b) => h('div', { class: 'banner' }, b)),
       h('div', { class: 'stage' },
-        slot('a', 'ふたりの写真'), slot('b', '思い出の品の写真'),
+        slot('a', 'OUR PHOTO'), slot('b', 'KEEPSAKE'),
         h('img', { class: 'flower blue', src: 'assets/tulip-blue.webp', alt: '' }),
         h('img', { class: 'flower pink', src: 'assets/tulip-pink.webp', alt: '' })));
   const pin = h('div', { class: 'hero-pin' }, heroEl);
   const root = h('div', {}, pin,
-    store.mode === 'demo' && h('p', { class: 'note' }, 'お試しモード：書いた内容はこの端末にだけ保存されます。'),
+    store.mode === 'demo' && h('p', { class: 'note' }, tr('お試しモード：書いた内容はこの端末にだけ保存されます。', 'Demo mode: everything is saved on this device only.')),
     timeline());
   requestAnimationFrame(() => { fadeIn(root); pinHero(pin, heroEl); });
   return root;
@@ -234,8 +250,8 @@ function pinHero(pin, hero) {
   layout(); if (!native) update();
 }
 function timeline() {
-  const kind = { gift: '贈りもの', place: '過ごした場所', anniversary: '記念日' };
-  const items = [{ date: CONFIG.START_DATE, title: '付き合いはじめた日', k: '記念日' },
+  const kind = { gift: tr('贈りもの', 'Gift'), place: tr('過ごした場所', 'Place'), anniversary: tr('記念日', 'Anniversary') };
+  const items = [{ date: CONFIG.START_DATE, title: tr('付き合いはじめた日', 'The day we started dating'), k: kind.anniversary },
     ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ id: e.id, section: e.section, date: e.date, title: e.title, k: kind[e.section], photo: e.photo }))];
   items.sort((a, b) => (a.date < b.date ? 1 : -1));
   const out = [];
@@ -255,9 +271,9 @@ function addDays(s, n) {
   return ymd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
 }
 async function setHero(k, e) {
-  const f = await pickFile(); if (!f) return;
+  const blob = await pickPhoto({ aspect: k === 'a' ? '3:4' : '4:5' }); if (!blob) return;
   act(async () => {
-    const photo = await store.uploadPhoto(await shrink(f));
+    const photo = await store.uploadPhoto(blob);
     if (e && e.author === me()) await store.saveEntry({ id: e.id, photo });
     else await store.saveEntry({ section: 'hero', category: k, title: '', photo });
   });
@@ -269,7 +285,7 @@ function leaflet() {
   leafletP ??= new Promise((ok, ng) => {
     document.head.append(h('link', { rel: 'stylesheet', href: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css' }));
     const s = h('script', { src: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js' });
-    s.onload = () => ok(window.L); s.onerror = () => ng(new Error('地図を読みこめませんでした。'));
+    s.onload = () => ok(window.L); s.onerror = () => ng(new Error(tr('地図を読みこめませんでした。', "Couldn't load the map.")));
     document.head.append(s);
   });
   return leafletP;
@@ -281,24 +297,25 @@ const pin = (L, lat, lng, fill = '#16204F') =>
 
 function geoField(v) {
   const box = h('div', { hidden: true });
-  const status = h('span', { class: 'muted' }, v.lat != null ? '場所をえらんであります' : '');
+  const picked = () => tr('場所をえらんであります', 'Location set');
+  const status = h('span', { class: 'muted' }, v.lat != null ? picked() : '');
   let map, marker, L;
   const put = (lat, lng) => {
-    v.lat = lat; v.lng = lng; status.textContent = '場所をえらんであります';
+    v.lat = lat; v.lng = lng; status.textContent = picked();
     if (marker) marker.remove();
     marker = pin(L, lat, lng).addTo(map);
   };
-  const q = h('input', { type: 'text', placeholder: '場所の名前でさがす' });
+  const q = h('input', { type: 'text', placeholder: tr('場所の名前でさがす', 'Search by place name') });
   const search = async () => {
     if (!q.value.trim()) return;
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ja&q=${encodeURIComponent(q.value)}`);
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=${lang}&q=${encodeURIComponent(q.value)}`);
     const [hit] = await r.json();
-    if (!hit) { status.textContent = '見つかりませんでした。地図をタップしてえらべます。'; return; }
+    if (!hit) { status.textContent = tr('見つかりませんでした。地図をタップしてえらべます。', 'Not found. You can tap the map instead.'); return; }
     map.setView([+hit.lat, +hit.lon], 14); put(+hit.lat, +hit.lon);
   };
   q.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); search(); } });
   const mapEl = h('div', { class: 'map pick' });
-  box.append(h('div', { class: 'row' }, q, h('button', { type: 'button', class: 'btn ghost small', onclick: search }, 'さがす')), mapEl);
+  box.append(h('div', { class: 'row search-row' }, q, h('button', { type: 'button', class: 'btn ghost small', onclick: search }, 'SEARCH')), mapEl);
   const open = async () => {
     box.hidden = false;
     if (map) return;
@@ -312,12 +329,12 @@ function geoField(v) {
   const clear = () => { v.lat = null; v.lng = null; status.textContent = ''; if (marker) marker.remove(); };
   return h('div', {},
     h('div', { class: 'row' },
-      h('button', { type: 'button', class: 'btn ghost small', onclick: open }, '地図で場所をえらぶ'),
-      h('button', { type: 'button', class: 'link', onclick: clear }, 'はずす'), status),
+      h('button', { type: 'button', class: 'btn ghost small', onclick: open }, 'PICK ON MAP'),
+      h('button', { type: 'button', class: 'link', onclick: clear }, 'CLEAR'), status),
     box);
 }
 
-const LEVELS = ['とても\nつらい', 'つらい', 'ふつう', 'いい', 'とても\nいい'];
+const levels = () => tr(['とても\nつらい', 'つらい', 'ふつう', 'いい', 'とても\nいい'], ['Very\nbad', 'Bad', 'Okay', 'Good', 'Very\ngood']);
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BOOKMARK = '<svg viewBox="0 0 10 13" aria-hidden="true"><path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor"/></svg>';
@@ -345,7 +362,7 @@ function dayStrip({ value, onChange, marks = new Set(), max = null, allowNone = 
   let sel = value || null;
   let { y, m } = parse(sel || today());
   const label = h('span', { class: 'pill-text' });
-  const native = h('input', { type: 'date', class: 'month-native', 'aria-label': 'カレンダーから日付をえらぶ', max: max || null,
+  const native = h('input', { type: 'date', class: 'month-native', 'aria-label': tr('カレンダーから日付をえらぶ', 'Pick a date from the calendar'), max: max || null,
     onclick: () => { try { native.showPicker(); } catch { /* 未対応のブラウザはそのまま */ } },
     onchange: (ev) => { if (ev.target.value) pick(ev.target.value); } });
   const strip = h('div', { class: 'strip' });
@@ -355,8 +372,8 @@ function dayStrip({ value, onChange, marks = new Set(), max = null, allowNone = 
     strip.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
   };
   const bm = () => { const i = h('i', { class: 'bm' }); i.innerHTML = BOOKMARK; return i; };
-  const noneBtn = allowNone ? h('button', { type: 'button', class: 'chip', onclick: () => { sel = null; render(); onChange(null); } }, '日付なし') : null;
-  const next = h('button', { type: 'button', class: 'mnav', 'aria-label': '次の月', onclick: () => shift(1) }, '›');
+  const noneBtn = allowNone ? h('button', { type: 'button', class: 'chip', onclick: () => { sel = null; render(); onChange(null); } }, 'NO DATE') : null;
+  const next = h('button', { type: 'button', class: 'mnav', 'aria-label': tr('次の月', 'Next month'), onclick: () => shift(1) }, '›');
   function render() {
     label.textContent = `${MONTHS[m - 1]}  ${y}`;
     native.value = sel || '';
@@ -366,7 +383,7 @@ function dayStrip({ value, onChange, marks = new Set(), max = null, allowNone = 
       const d = ymd(y, m, i + 1);
       const cls = ['day', d === sel && 'on', d === t && 'today', marks.has(d) && 'marked'].filter(Boolean).join(' ');
       return h('button', { type: 'button', class: cls, disabled: !!max && d > max, 'aria-pressed': String(d === sel),
-        'aria-label': `${m}月${i + 1}日${marks.has(d) ? '（記録あり）' : ''}`, onclick: () => pick(d) },
+        'aria-label': `${md(d)}${marks.has(d) ? tr('（記録あり）', ' (recorded)') : ''}`, onclick: () => pick(d) },
       bm(), h('span', { class: 'wd' }, WEEK[new Date(utc(d)).getUTCDay()]), h('span', { class: 'dn' }, pad(i + 1)));
     }));
     if (noneBtn) noneBtn.classList.toggle('on', !sel);
@@ -383,26 +400,27 @@ function dayStrip({ value, onChange, marks = new Set(), max = null, allowNone = 
   ro.observe(strip);
   const root = h('div', { class: 'daypick' },
     h('div', { class: 'month' },
-      h('button', { type: 'button', class: 'mnav', 'aria-label': '前の月', onclick: () => shift(-1) }, '‹'),
+      h('button', { type: 'button', class: 'mnav', 'aria-label': tr('前の月', 'Previous month'), onclick: () => shift(-1) }, '‹'),
       h('span', { class: 'pill' }, label, native), next),
     strip,
     h('div', { class: 'row daypick-foot' },
-      h('button', { type: 'button', class: 'btn small', onclick: () => pick(max && today() > max ? max : today()) }, '今日へ'), noneBtn,
-      h('span', { class: 'muted' }, '月の部分をタップするとカレンダー')));
+      h('button', { type: 'button', class: 'btn small', onclick: () => pick(max && today() > max ? max : today()) }, 'TODAY'), noneBtn,
+      h('span', { class: 'muted' }, tr('月の部分をタップするとカレンダー', 'Tap the month for a calendar'))));
   root.pick = pick;
   return root;
 }
 
 /* ---------- 入力のモーダル ---------- */
 // 入力欄の中身。モーダルでも、ページの下に置く入力欄でも使う。
-function formParts({ fields, initial = {}, onSubmit, after, submitLabel = '保存する' }) {
+function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE' }) {
   const v = { ...initial };
   let newPhoto = null;
+  let draft = null; // 保存前の写真は、元の写真と編集の内容を持っておく（何度でもやり直せる）
   let dirty = false;
   const touch = () => { dirty = true; };
   const err = h('p', { class: 'err', role: 'alert' });
   const field = (f, inner, tag = 'div') => h(tag, { class: 'field' },
-    f.label && h('span', { class: 'flabel' }, f.label, !f.required && !f.readonly && f.type !== 'check' && h('span', { class: 'opt' }, 'なくてもOK')),
+    f.label && h('span', { class: 'flabel' }, f.label, !f.required && !f.readonly && f.type !== 'check' && h('span', { class: 'opt' }, tr('なくてもOK', 'optional'))),
     inner, f.hint && h('span', { class: 'hint' }, f.hint));
   const control = (f) => {
     if (f.type === 'geo') return field(f, geoField(v));
@@ -411,18 +429,35 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = '保�
     }
     if (f.type === 'photo') {
       const img = v.photo ? photoImg(v.photo, 'drop-img') : h('img', { class: 'drop-img', alt: '', hidden: true });
-      const txt = h('span', { class: 'drop-txt', hidden: !!v.photo }, '＋ 写真をえらぶ', h('small', {}, 'タップして端末の写真から'));
-      const rm = h('button', { type: 'button', class: 'link', hidden: !v.photo, onclick: () => {
-        newPhoto = null; v.photo = null; img.hidden = true; img.removeAttribute('src'); txt.hidden = false; rm.hidden = true; touch();
-      } }, '写真をはずす');
-      const drop = h('button', { type: 'button', class: 'drop', onclick: async () => {
+      const txt = h('span', { class: 'drop-txt', hidden: !!v.photo }, '+ ADD PHOTO', h('small', {}, tr('タップして端末の写真から', 'Tap to choose from your device')));
+      const show = (blob, d) => {
+        newPhoto = blob; draft = d;
+        img.src = URL.createObjectURL(blob); img.hidden = false; txt.hidden = true; rm.hidden = false; ed.hidden = false; touch();
+      };
+      const choose = async () => {
         const file = await pickFile(); if (!file) return;
-        newPhoto = await shrink(file); img.src = URL.createObjectURL(newPhoto); img.hidden = false; txt.hidden = true; rm.hidden = false; touch();
-      } }, img, txt);
-      return field(f, h('div', {}, drop, rm));
+        const out = await editPhoto(file, { maxSide: maxSide(), lang, withState: true });
+        if (out) show(out.blob, { file, state: out.state });
+      };
+      // 今の写真をもう一度ひらいて直す
+      const reedit = async () => {
+        let src = draft?.file, state = draft?.state;
+        if (!src && v.photo) {
+          try { src = await (await fetch(await store.photoUrl(v.photo))).blob(); } catch { alert(tr('写真を読みこめませんでした。', "Couldn't load the photo.")); return; }
+        }
+        if (!src) return;
+        const out = await editPhoto(src, { maxSide: maxSide(), lang, withState: true, state });
+        if (out) show(out.blob, { file: src, state: out.state });
+      };
+      const rm = h('button', { type: 'button', class: 'link', hidden: !v.photo, onclick: () => {
+        newPhoto = null; draft = null; v.photo = null; img.hidden = true; img.removeAttribute('src'); txt.hidden = false; rm.hidden = true; ed.hidden = true; touch();
+      } }, 'REMOVE PHOTO');
+      const ed = h('button', { type: 'button', class: 'btn ghost small', hidden: !v.photo, onclick: reedit }, 'EDIT PHOTO');
+      const drop = h('button', { type: 'button', class: 'drop', onclick: choose }, img, txt);
+      return field(f, h('div', { class: 'photo-field' }, drop, h('div', { class: 'row' }, ed, rm)));
     }
     if (f.type === 'level') {
-      const btns = LEVELS.map((label, i) => h('button', { type: 'button', class: v.level === i + 1 ? 'on' : '',
+      const btns = levels().map((label, i) => h('button', { type: 'button', class: v.level === i + 1 ? 'on' : '',
         onclick: () => { v.level = i + 1; btns.forEach((b, j) => b.classList.toggle('on', j === i)); touch(); } }, label));
       return field(f, h('div', { class: 'levels' }, btns));
     }
@@ -434,9 +469,11 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = '保�
       oninput: (ev) => { v[f.name] = ev.target.value; touch(); } };
     if (f.type === 'textarea') return field(f, h('textarea', common), 'label');
     if (f.type === 'category') {
-      const input = h('input', { type: 'text', ...common });
+      // 決まった種類は日本語のまま保存し、表示だけ言語に合わせる
+      const input = h('input', { type: 'text', ...common, value: catLabel(v[f.name] ?? ''),
+        oninput: (ev) => { v[f.name] = catKey(ev.target.value); touch(); } });
       const chips = h('div', { class: 'chips' }, f.options.map((o) => h('button', { type: 'button', class: `chip${v[f.name] === o ? ' on' : ''}`,
-        onclick: () => { input.value = o; v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c.textContent === o)); } }, o)));
+        onclick: () => { input.value = catLabel(o); v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c.textContent === catLabel(o))); } }, catLabel(o))));
       input.addEventListener('input', () => [...chips.children].forEach((c) => c.classList.toggle('on', c.textContent === input.value)));
       return field(f, h('div', { class: 'cat' }, chips, input));
     }
@@ -447,7 +484,11 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = '保�
     ev.preventDefault(); err.textContent = '';
     for (const f of fields) {
       const missing = f.type === 'level' ? !v.level : (f.required && f.name && !String(v[f.name] ?? '').trim());
-      if (missing) { err.textContent = `「${f.label}」を${['date', 'level', 'category'].includes(f.type) ? 'えらんで' : '書いて'}ください。`; return; }
+      if (missing) {
+        const pick = ['date', 'level', 'category'].includes(f.type);
+        err.textContent = tr(`「${f.label}」を${pick ? 'えらんで' : '書いて'}ください。`, `Please ${pick ? 'choose' : 'fill in'} "${f.label}".`);
+        return;
+      }
     }
     submit.disabled = true;
     try {
@@ -463,62 +504,72 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = '保�
 function openForm({ title, en, lead, fields, initial, onSubmit }) {
   const dlg = h('dialog', { class: 'modal', 'aria-label': title });
   const fp = formParts({ fields, initial, onSubmit, after: async () => { closeDialog(dlg, true); await refresh(); } });
-  dlg.guard = () => !fp.isDirty() || confirm('書きかけの内容を捨てて閉じますか？');
+  dlg.guard = () => !fp.isDirty() || confirm(tr('書きかけの内容を捨てて閉じますか？', 'Discard what you wrote and close?'));
   dlg.append(h('form', { class: 'sheet', novalidate: true, onsubmit: fp.handle },
     h('div', { class: 'mhead' },
       h('div', {}, en && h('div', { class: 'tag' }, en), h('h2', {}, title), lead && h('p', { class: 'lead' }, lead)),
-      h('button', { type: 'button', class: 'x', 'aria-label': 'とじる', onclick: () => closeDialog(dlg) }, '×')),
+      h('button', { type: 'button', class: 'x', 'aria-label': 'Close', onclick: () => closeDialog(dlg) }, '×')),
     h('div', { class: 'mbody' }, fp.controls),
     h('div', { class: 'mfoot' }, fp.err, h('div', { class: 'row' }, fp.submit,
-      h('button', { class: 'btn ghost', type: 'button', onclick: () => closeDialog(dlg) }, 'やめる')))));
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => closeDialog(dlg) }, 'CANCEL')))));
   showDialog(dlg);
 }
 function inlineForm({ fields, onSubmit }) {
-  const fp = formParts({ fields, onSubmit, after: refresh, submitLabel: '追加する' });
+  const fp = formParts({ fields, onSubmit, after: refresh, submitLabel: 'ADD' });
   return h('form', { class: 'inline-form', novalidate: true, onsubmit: fp.handle }, fp.controls, fp.err, h('div', { class: 'row' }, fp.submit));
 }
 
 /* ---------- 各欄 ---------- */
 const F = {
   title: (label, ph) => ({ name: 'title', type: 'text', label, required: true, ph }),
-  date: (label = '日付') => ({ name: 'date', type: 'date', label }),
-  body: { name: 'body', type: 'textarea', label: 'ひとこと', ph: 'そのときのこと、思ったことを自由に' },
-  geo: { type: 'geo', label: '地図の場所', hint: '入れておくと地図にピンが立ちます' },
-  photo: { type: 'photo', label: '写真' },
+  date: (label = tr('日付', 'Date')) => ({ name: 'date', type: 'date', label }),
+  get body() { return { name: 'body', type: 'textarea', label: tr('ひとこと', 'Note'), ph: tr('そのときのこと、思ったことを自由に', 'What happened, how you felt — anything') }; },
+  get geo() { return { type: 'geo', label: tr('地図の場所', 'Location'), hint: tr('入れておくと地図にピンが立ちます', 'Adds a pin to the map') }; },
+  get photo() { return { type: 'photo', label: tr('写真', 'Photo') }; },
 };
 const LIKE_CATS = ['食べ物', '飲み物', '仕草', '場所', '曲'];
+const LIKE_CATS_EN = ['Food', 'Drinks', 'Habits', 'Places', 'Songs'];
+// 決まった種類は日本語で保存して、表示だけ英語にする（ふたりの言語設定がちがっても同じ種類になる）
+const catLabel = (c) => { const i = LIKE_CATS.indexOf(c); return lang === 'en' && i >= 0 ? LIKE_CATS_EN[i] : c; };
+const catKey = (label) => { const i = LIKE_CATS_EN.indexOf(label.trim()); return lang === 'en' && i >= 0 ? LIKE_CATS[i] : label; };
 const SECTIONS = {
-  place: { en: 'Places', jp: '過ごした場所', lead: 'ふたりで過ごした場所を残す', fields: () => [F.title('場所の名前', '例：江ノ島の水族館'), F.date('行った日'), F.body, F.geo, F.photo] },
-  like: { en: 'Likes', jp: '好きなもの', lead: '相手の「好き」をメモしておく', fields: () => [
-    { name: 'category', type: 'category', label: '種類', required: true, options: likeCats(), ph: 'えらぶか、自由に書く' }, F.title('好きなもの', '例：抹茶ラテ'), F.body, F.photo] },
-  wish: { en: 'Wishes', jp: '行きたいところ', lead: 'いつか一緒に行きたいところ', fields: () => [F.title('行きたいところ', '例：金沢の21世紀美術館'), { ...F.body, ph: '行きたい理由、やりたいこと' }, F.geo, F.photo] },
-  gift: { en: 'Gifts', jp: '贈ったもの', lead: '贈ったもの・もらったもの', fields: () => [F.title('贈ったもの', '例：手編みのマフラー'), F.date('贈った日'), F.body, F.photo] },
-  dislike: { en: 'Dislikes', jp: '嫌いなもの', lead: '相手の苦手なものを覚えておく', fields: () => [F.title('嫌いなもの', '例：満員電車'), F.body] },
+  place: { en: 'Places', lead: () => tr('ふたりで過ごした場所を残す', 'Places we spent time together'),
+    fields: () => [F.title(tr('場所の名前', 'Place'), tr('例：江ノ島の水族館', 'e.g. Enoshima Aquarium')), F.date(tr('行った日', 'Date visited')), F.body, F.geo, F.photo] },
+  like: { en: 'Likes', lead: () => tr('相手の「好き」をメモしておく', 'Things they love'), fields: () => [
+    { name: 'category', type: 'category', label: tr('種類', 'Type'), required: true, options: likeCats(), ph: tr('えらぶか、自由に書く', 'Pick one or type your own') },
+    F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')), F.body, F.photo] },
+  wish: { en: 'Wishes', lead: () => tr('いつか一緒に行きたいところ', 'Places we want to go someday'),
+    fields: () => [F.title(tr('行きたいところ', 'Place'), tr('例：金沢の21世紀美術館', 'e.g. 21st Century Museum, Kanazawa')), { ...F.body, ph: tr('行きたい理由、やりたいこと', 'Why, and what we want to do there') }, F.geo, F.photo] },
+  gift: { en: 'Gifts', lead: () => tr('贈ったもの・もらったもの', 'Gifts given and received'),
+    fields: () => [F.title(tr('贈ったもの', 'Gift'), tr('例：手編みのマフラー', 'e.g. Hand-knit scarf')), F.date(tr('贈った日', 'Date given')), F.body, F.photo] },
+  dislike: { en: 'Dislikes', lead: () => tr('相手の苦手なものを覚えておく', "Things they don't like"),
+    fields: () => [F.title(tr('嫌いなもの', 'What'), tr('例：満員電車', 'e.g. Packed trains')), F.body] },
 };
 const likeCats = () => [...new Set([...LIKE_CATS, ...data.entries.filter((e) => e.section === 'like' && e.category).map((e) => e.category)])];
+const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(e.author)}から`, `from ${nameOf(e.author)}`) : nameOf(e.author));
 
 function talk(e) {
   const list = data.comments.filter((c) => c.entry_id === e.id).sort(byCreated);
-  const input = h('input', { type: 'text', placeholder: 'ひとこと書く', 'aria-label': 'ひとこと' });
+  const input = h('input', { type: 'text', placeholder: tr('ひとこと書く', 'Write a comment'), 'aria-label': tr('ひとこと', 'Comment') });
   return h('details', { class: 'talk', open: openTalks.has(e.id), ontoggle: (ev) => { ev.target.open ? openTalks.add(e.id) : openTalks.delete(e.id); } },
-    h('summary', {}, `ひとこと（${list.length}）`),
-    list.map((c) => h('div', { class: 'c' }, h('span', {}, `${nameOf(c.author)}：${c.body}`),
-      c.author === me() && h('button', { class: 'link', onclick: () => act(() => store.removeComment(c.id)) }, '消す'))),
+    h('summary', {}, `COMMENTS (${list.length})`),
+    list.map((c) => h('div', { class: 'c' }, h('span', {}, `${nameOf(c.author)}${tr('：', ': ')}${c.body}`),
+      c.author === me() && h('button', { class: 'link', onclick: () => act(() => store.removeComment(c.id)) }, 'DELETE'))),
     h('form', { onsubmit: (ev) => { ev.preventDefault(); if (input.value.trim()) act(() => store.addComment(e.id, input.value.trim())); } },
-      input, h('button', { class: 'btn small', type: 'submit' }, '送る')));
+      input, h('button', { class: 'btn small', type: 'submit' }, 'SEND')));
 }
 function removeEntry(e) {
-  if (!confirm('消しますか？元には戻せません。')) return;
+  if (!confirm(tr('消しますか？元には戻せません。', "Delete this? This can't be undone."))) return;
   act(async () => { await store.removeEntry(e.id); await store.removePhoto(e.photo); });
 }
 function entryCard(e, key) {
   const S = SECTIONS[key];
   const mine = e.author === me();
-  const meta = [e.date && dots(e.date), e.category, key === 'gift' ? `${nameOf(e.author)}から` : nameOf(e.author)].filter(Boolean).join(' ・ ');
+  const meta = [e.date && dots(e.date), e.category && catLabel(e.category), fromLabel(e)].filter(Boolean).join(' ・ ');
   const edit = () => entryEdit(e);
   const addPhoto = async () => {
-    const f = await pickFile(); if (!f) return;
-    act(async () => store.saveEntry({ id: e.id, photo: await store.uploadPhoto(await shrink(f)) }));
+    const blob = await pickPhoto(); if (!blob) return;
+    act(async () => store.saveEntry({ id: e.id, photo: await store.uploadPhoto(blob) }));
   };
   const went = () => entryWent(e);
   return h('article', { class: 'card' },
@@ -526,15 +577,15 @@ function entryCard(e, key) {
     h('h2', {}, e.title), h('div', { class: 'meta' }, meta),
     e.body && h('p', {}, e.body),
     h('div', { class: 'row' },
-      key === 'wish' && h('button', { class: 'btn small', onclick: went }, '行った！'),
-      mine && !e.photo && S.fields().includes(F.photo) && h('button', { class: 'btn ghost small', onclick: addPhoto }, '写真を載せる'),
-      mine && h('button', { class: 'link', onclick: edit }, 'なおす'),
-      mine && h('button', { class: 'link', onclick: () => removeEntry(e) }, '消す')),
+      key === 'wish' && h('button', { class: 'btn small', onclick: went }, 'BEEN THERE!'),
+      mine && !e.photo && S.fields().some((f) => f.type === 'photo') && h('button', { class: 'btn ghost small', onclick: addPhoto }, 'ADD PHOTO'),
+      mine && h('button', { class: 'link', onclick: edit }, 'EDIT'),
+      mine && h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
     talk(e));
 }
 function addEntry(key) {
   const S = SECTIONS[key];
-  openForm({ title: '書きたす', en: S.en, lead: S.lead, fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : {},
+  openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : {},
     onSubmit: (v) => store.saveEntry({ section: key, title: v.title, body: v.body || '', date: v.date || null, category: v.category || null, lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null }) });
 }
 function sectionPage(key) {
@@ -548,46 +599,46 @@ function sectionPage(key) {
     const cats = likeCats();
     if (likeFilter && !cats.includes(likeFilter)) likeFilter = '';
     chips = h('div', { class: 'chips' }, ['', ...cats].map((c) =>
-      h('button', { class: `chip${likeFilter === c ? ' on' : ''}`, onclick: () => { likeFilter = c; draw(); } }, c || 'ぜんぶ')));
+      h('button', { class: `chip${likeFilter === c ? ' on' : ''}`, onclick: () => { likeFilter = c; draw(); } }, c ? catLabel(c) : 'ALL')));
     if (likeFilter) items = items.filter((e) => e.category === likeFilter);
   }
   return h('div', {}, pageNav(true),
-    pageHead(S.en, S.jp, h('button', { class: 'btn', onclick: add }, '+ 書きたす')),
+    pageHead(S.en, '', h('button', { class: 'btn', onclick: add }, '+ ADD')),
     chips,
     items.length ? h('div', { class: 'cards' }, items.map((e) => entryCard(e, key)))
-      : h('p', { class: 'empty' }, 'まだ何もありません。「+ 書きたす」から最初のひとつを。'));
+      : h('p', { class: 'empty' }, tr('まだ何もありません。「+ ADD」から最初のひとつを。', 'Nothing here yet. Tap "+ ADD" to start.')));
 }
 
 /* ---------- ひとつの思い出の詳細（モーダル） ---------- */
 const EN_OF = { place: 'Places', wish: 'Wishes', like: 'Likes', gift: 'Gifts', dislike: 'Dislikes' };
 function entryEdit(e) {
   const S = SECTIONS[e.section];
-  openForm({ title: 'なおす', en: S.en, fields: S.fields(), initial: e,
+  openForm({ title: 'Edit', en: S.en, fields: S.fields(), initial: e,
     onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo }) });
 }
 function entryWent(e) {
-  openForm({ title: '行った！', en: 'Places', lead: `「${e.title}」に行った日を残す`, initial: { ...e, date: today() },
-    fields: [F.date('行った日'), F.body, F.photo],
+  openForm({ title: 'Been there!', en: 'Places', lead: tr(`「${e.title}」に行った日を残す`, `When did we go to "${e.title}"?`), initial: { ...e, date: today() },
+    fields: [F.date(tr('行った日', 'Date visited')), F.body, F.photo],
     onSubmit: (v) => store.saveEntry({ id: e.id, section: 'place', date: v.date, body: v.body, photo: v.photo }) });
 }
 function openDetail(id) {
-  const dlg = h('dialog', { class: 'modal detail', 'aria-label': '詳細' });
+  const dlg = h('dialog', { class: 'modal detail', 'aria-label': tr('詳細', 'Details') });
   const render = () => {
     const e = data.entries.find((x) => x.id === id);
     if (!e) { closeDialog(dlg, true); return; }
     const mine = e.author === me();
-    const meta = [e.date && dots(e.date), e.category, e.section === 'gift' ? `${nameOf(e.author)}から` : nameOf(e.author)].filter(Boolean).join(' ・ ');
+    const meta = [e.date && dots(e.date), e.category && catLabel(e.category), fromLabel(e)].filter(Boolean).join(' ・ ');
     dlg.replaceChildren(h('div', { class: 'sheet' },
       h('div', { class: 'mhead' },
         h('div', {}, EN_OF[e.section] && h('div', { class: `tag ${e.section}` }, EN_OF[e.section]), h('h2', { class: 'dtitle' }, e.title), h('p', { class: 'lead' }, meta)),
-        h('button', { type: 'button', class: 'x', 'aria-label': 'とじる', onclick: () => closeDialog(dlg) }, '×')),
+        h('button', { type: 'button', class: 'x', 'aria-label': 'Close', onclick: () => closeDialog(dlg) }, '×')),
       h('div', { class: 'mbody' },
         e.photo && photoImg(e.photo, 'dphoto'),
         e.body ? h('p', { class: 'dbody' }, e.body) : null,
-        e.section === 'wish' && h('button', { class: 'btn', onclick: () => entryWent(e) }, '行った！ → PLACES へ'),
+        e.section === 'wish' && h('button', { class: 'btn', onclick: () => entryWent(e) }, 'BEEN THERE! → PLACES'),
         mine && h('div', { class: 'row' },
-          h('button', { class: 'btn ghost small', onclick: () => entryEdit(e) }, 'なおす'),
-          h('button', { class: 'link', onclick: () => removeEntry(e) }, '消す')),
+          h('button', { class: 'btn ghost small', onclick: () => entryEdit(e) }, 'EDIT'),
+          h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
         talk(e))));
   };
   dlg.refresh = render;
@@ -631,12 +682,12 @@ function mapPage() {
     else map.setView([36.2, 138.2], 5);
     map.on('moveend', () => { mapView = { c: map.getCenter(), z: map.getZoom() }; });
     setTimeout(() => map.invalidateSize(), 380);
-  }).catch(() => { mapEl.textContent = '地図を読みこめませんでした。'; });
+  }).catch(() => { mapEl.textContent = tr('地図を読みこめませんでした。', "Couldn't load the map."); });
 
   const row = (e) => h('button', { class: 'lrow', type: 'button', onclick: () => openDetail(e.id) },
     e.photo ? photoImg(e.photo, 'lthumb') : h('span', { class: `lthumb dot ${e.section}` }),
     h('span', { class: 'ltext' }, h('b', {}, e.title),
-      h('small', {}, [e.section === 'place' ? 'PLACES' : 'WISHES', e.date && dots(e.date), e.lat == null && '地図なし'].filter(Boolean).join(' ・ '))),
+      h('small', {}, [e.section === 'place' ? 'PLACES' : 'WISHES', e.date && dots(e.date), e.lat == null && tr('地図なし', 'no pin')].filter(Boolean).join(' ・ '))),
     h('span', { 'aria-hidden': 'true' }, '›'));
 
   const addBox = h('div', { class: 'addbox' });
@@ -645,29 +696,30 @@ function mapPage() {
     const form = inlineForm({ fields: S.fields(),
       onSubmit: (v) => store.saveEntry({ section: addKind, title: v.title, body: v.body || '', date: v.date || null, category: null, lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null }) });
     addBox.replaceChildren(
-      h('div', { class: 'chips' }, [['place', 'PLACES 過ごした場所'], ['wish', 'WISHES 行きたいところ']].map(([k, label]) =>
+      h('div', { class: 'chips' }, [['place', 'PLACES'], ['wish', 'WISHES']].map(([k, label]) =>
         h('button', { type: 'button', class: `chip ${k}${addKind === k ? ' on' : ''}`, onclick: () => { addKind = k; renderAdd(); } }, label))),
-      h('p', { class: 'muted' }, S.lead), form);
+      h('p', { class: 'muted' }, S.lead()), form);
   };
   renderAdd();
 
   return h('div', {}, pageNav(),
-    pageHead('Places', '過ごした場所と、行きたいところ'),
+    pageHead('Places', ''),
     chips, mapEl,
-    h('p', { class: 'legend' }, h('span', { class: 'lg place' }), '過ごした場所　', h('span', { class: 'lg wish' }), '行きたいところ　・ピンをタップで詳しく'),
-    shownList.length ? h('div', { class: 'list' }, shownList.map(row)) : h('p', { class: 'empty' }, 'まだ何もありません。下から最初のひとつを。'),
+    h('p', { class: 'legend' }, h('span', { class: 'lg place' }), tr('過ごした場所　', 'Been there　'), h('span', { class: 'lg wish' }),
+      tr('行きたいところ　・ピンをタップで詳しく', 'Want to go　・Tap a pin for details')),
+    shownList.length ? h('div', { class: 'list' }, shownList.map(row)) : h('p', { class: 'empty' }, tr('まだ何もありません。下から最初のひとつを。', 'Nothing here yet. Add the first one below.')),
     h('section', { class: 'madd', id: 'place-add' },
-      h('h2', { class: 'en madd-title' }, 'Add'), h('p', { class: 'jp' }, '場所を追加'), addBox));
+      h('h2', { class: 'en madd-title' }, 'Add'), h('p', { class: 'jp' }, tr('場所を追加', 'Add a place')), addBox));
 }
 
 /* ---------- その他（その場で開く） ---------- */
 const MORE = [
-  { key: 'like', en: 'Likes', jp: '好きなもの' },
-  { key: 'gift', en: 'Gifts', jp: '贈ったもの' },
-  { key: 'values', en: 'Values', jp: '価値観' },
-  { key: 'dislike', en: 'Dislikes', jp: '嫌いなもの' },
-  { key: 'anniv', en: 'Days', jp: '記念日' },
-  { key: 'settings', en: 'Settings', jp: '設定', link: true },
+  { key: 'like', en: 'Likes', jp: '好きなもの', sub: 'Things they love' },
+  { key: 'gift', en: 'Gifts', jp: '贈ったもの', sub: 'Given & received' },
+  { key: 'values', en: 'Values', jp: '価値観', sub: 'What we think' },
+  { key: 'dislike', en: 'Dislikes', jp: '嫌いなもの', sub: 'Not for them' },
+  { key: 'anniv', en: 'Days', jp: '記念日', sub: 'Anniversaries' },
+  { key: 'settings', en: 'Settings', jp: '設定', sub: '', link: true },
 ];
 const MORE_PAGES = { like: () => sectionPage('like'), gift: () => sectionPage('gift'), dislike: () => sectionPage('dislike'),
   values: valuesPage, anniv: annivPage, settings: settingsPage };
@@ -675,11 +727,11 @@ const moreOpen = new Set();
 function annivLines() {
   const t = today();
   const nm = nextMonthly(CONFIG.START_DATE, t);
-  const lines = [{ title: `${spanLabel(nm.months)}の記念日`, left: daysBetween(t, nm.date), date: nm.date }];
+  const lines = [{ title: tr(`${spanLabel(nm.months)}の記念日`, `${spanLabel(nm.months)} anniversary`), left: daysBetween(t, nm.date), date: nm.date }];
   for (const e of data.entries.filter((x) => x.section === 'anniversary' && x.date)) {
     const n = daysBetween(t, e.date);
     if (n >= 0) lines.push({ title: e.title, left: n, date: e.date });
-    else { const ny = nextYearly(e.date, t); lines.push({ title: `${e.title}（${ny.years}年）`, left: daysBetween(t, ny.date), date: ny.date }); }
+    else { const ny = nextYearly(e.date, t); lines.push({ title: tr(`${e.title}（${ny.years}年）`, `${e.title} (${plural(ny.years, 'year')})`), left: daysBetween(t, ny.date), date: ny.date }); }
   }
   return lines.sort((a, b) => a.left - b.left);
 }
@@ -690,25 +742,26 @@ function morePreview(key) {
     const topics = [...new Set(all.map((e) => e.title))];
     return { n: topics.length, items: topics.slice(-3).reverse().map((tp) => {
       const both = new Set(all.filter((e) => e.title === tp).map((e) => e.author)).size >= 2;
-      return h('button', { class: 'prow', type: 'button', onclick: () => go('values') }, h('b', {}, tp), h('small', {}, both ? 'ふたりとも答えた' : 'まだ片方だけ'));
+      return h('button', { class: 'prow', type: 'button', onclick: () => go('values') }, h('b', {}, tp), h('small', {}, both ? tr('ふたりとも答えた', 'Both answered') : tr('まだ片方だけ', 'One answer so far')));
     }), add: () => writeValue() };
   }
   if (key === 'anniv') {
     const lines = annivLines();
     return { n: lines.length, items: lines.slice(0, 3).map((l) => h('button', { class: 'prow', type: 'button', onclick: () => go('anniv') },
-      h('b', {}, l.title), h('small', {}, l.left === 0 ? '今日！' : `${md(l.date)}・あと${l.left}日`))), add: addAnniv };
+      h('b', {}, l.title), h('small', {}, l.left === 0 ? tr('今日！', 'Today!') : tr(`${md(l.date)}・あと${l.left}日`, `${md(l.date)} · in ${plural(l.left, 'day')}`)))), add: addAnniv };
   }
   const items = data.entries.filter((e) => e.section === key).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return { n: items.length, items: items.slice(0, 3).map((e) => h('button', { class: 'prow', type: 'button', onclick: () => openDetail(e.id) },
     e.photo ? photoImg(e.photo, 'pthumb') : null,
-    h('b', {}, e.title), h('small', {}, [e.category, nameOf(e.author)].filter(Boolean).join(' ・ ')))), add: () => addEntry(key) };
+    h('b', {}, e.title), h('small', {}, [e.category && catLabel(e.category), nameOf(e.author)].filter(Boolean).join(' ・ ')))), add: () => addEntry(key) };
 }
 function morePage() {
-  return h('div', {}, pageNav(), pageHead('More', 'そのほかの思い出'),
+  return h('div', {}, pageNav(), pageHead('More', ''),
     h('ul', { class: 'acc' }, MORE.map((m) => {
+      const sub = tr(m.jp, m.sub);
       if (m.link) {
         return h('li', {}, h('a', { class: 'acc-head', href: `#/more/${m.key}` },
-          h('span', { class: 'en' }, m.en), h('span', { class: 'jp' }, m.jp), h('span', { class: 'chev', 'aria-hidden': 'true' }, '→')));
+          h('span', { class: 'en' }, m.en), h('span', { class: 'jp' }, sub), h('span', { class: 'chev', 'aria-hidden': 'true' }, '→')));
       }
       const p = morePreview(m.key);
       const open = moreOpen.has(m.key);
@@ -717,12 +770,12 @@ function morePage() {
         const now = !li.classList.contains('open');
         li.classList.toggle('open', now); head.setAttribute('aria-expanded', String(now));
         if (now) moreOpen.add(m.key); else moreOpen.delete(m.key);
-      } }, h('span', { class: 'en' }, m.en), h('span', { class: 'jp' }, `${m.jp}・${p.n}`), h('span', { class: 'chev', 'aria-hidden': 'true' }, '+'));
+      } }, h('span', { class: 'en' }, m.en), h('span', { class: 'jp' }, `${sub}・${p.n}`), h('span', { class: 'chev', 'aria-hidden': 'true' }, '+'));
       li.append(head, h('div', { class: 'acc-panel' }, h('div', { class: 'acc-inner' },
-        p.items.length ? p.items : h('p', { class: 'muted' }, 'まだ何もありません。'),
+        p.items.length ? p.items : h('p', { class: 'muted' }, tr('まだ何もありません。', 'Nothing here yet.')),
         h('div', { class: 'row' },
-          h('button', { class: 'btn small', type: 'button', onclick: p.add }, '+ 書きたす'),
-          h('a', { class: 'btn ghost small acc-all', href: `#/more/${m.key}` }, `ぜんぶ見る（${p.n}件）`)))));
+          h('button', { class: 'btn small', type: 'button', onclick: p.add }, '+ ADD'),
+          h('a', { class: 'btn ghost small acc-all', href: `#/more/${m.key}` }, `VIEW ALL (${p.n})`)))));
       return li;
     })));
 }
@@ -736,32 +789,34 @@ function valuesPage() {
   return valuesView(all, topics, p, write);
 }
 function writeValue(topic, mine) {
-  openForm({ title: topic ? '自分の答え' : 'お題を足す', en: 'Values', lead: topic ? 'このお題への自分の考え' : 'ふたりで答えたいお題と、自分の答え',
-    fields: [{ ...F.title('お題', '例：理想の休日の過ごし方'), readonly: !!topic }, { name: 'body', type: 'textarea', label: '自分の考え', required: true, ph: '思っていることをそのまま' }],
+  openForm({ title: topic ? 'My answer' : 'New topic', en: 'Values',
+    lead: topic ? tr('このお題への自分の考え', 'What you think about this topic') : tr('ふたりで答えたいお題と、自分の答え', 'A topic for both of us, and your answer'),
+    fields: [{ ...F.title(tr('お題', 'Topic'), tr('例：理想の休日の過ごし方', 'e.g. Our ideal day off')), readonly: !!topic },
+      { name: 'body', type: 'textarea', label: tr('自分の考え', 'Your answer'), required: true, ph: tr('思っていることをそのまま', 'Just say what you think') }],
     initial: mine || { title: topic || '' },
     onSubmit: (v) => (mine ? store.saveEntry({ id: mine.id, body: v.body }) : store.saveEntry({ section: 'value', title: v.title.trim(), body: v.body })) });
 }
 function valuesView(all, topics, p, write) {
   const side = (who, e, topic, isMe) => h('div', {},
     h('div', { class: 'who' }, who),
-    e ? h('p', {}, e.body) : h('p', { class: 'muted' }, isMe ? 'まだ書いていません' : 'まだ書いていないみたい'),
+    e ? h('p', {}, e.body) : h('p', { class: 'muted' }, isMe ? tr('まだ書いていません', 'Not written yet') : tr('まだ書いていないみたい', 'No answer yet')),
     isMe && (e
-      ? h('div', { class: 'row' }, h('button', { class: 'link', onclick: () => write(topic, e) }, 'なおす'),
-        h('button', { class: 'link', onclick: () => removeEntry(e) }, '消す'))
-      : h('button', { class: 'btn small', onclick: () => write(topic) }, '書く')));
+      ? h('div', { class: 'row' }, h('button', { class: 'link', onclick: () => write(topic, e) }, 'EDIT'),
+        h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE'))
+      : h('button', { class: 'btn small', onclick: () => write(topic) }, 'WRITE')));
   return h('div', {}, pageNav(true),
-    pageHead('Values', '価値観 ― 同じお題に、ふたりそれぞれの答え', h('button', { class: 'btn', onclick: () => write() }, '+ お題を足す')),
+    pageHead('Values', '', h('button', { class: 'btn', onclick: () => write() }, '+ ADD TOPIC')),
     topics.length ? h('div', { class: 'cards' }, topics.map((t) => {
       const mine = all.find((e) => e.title === t && e.author === me());
       const theirs = all.find((e) => e.title === t && e.author !== me());
       return h('article', { class: 'card' }, h('h2', {}, t),
-        h('div', { class: 'pair' }, side(nameOf(me()), mine, t, true), side(p ? nameOf(p.id) : 'あいて', theirs, t, false)));
-    })) : h('p', { class: 'empty' }, 'お題を足して、ふたりの答えを並べてみよう。'));
+        h('div', { class: 'pair' }, side(nameOf(me()), mine, t, true), side(p ? nameOf(p.id) : tr('あいて', 'Partner'), theirs, t, false)));
+    })) : h('p', { class: 'empty' }, tr('お題を足して、ふたりの答えを並べてみよう。', 'Add a topic and line up both of your answers.')));
 }
 
 /* ---------- 記念日 ---------- */
 function addAnniv() {
-  openForm({ title: '記念日を足す', en: 'Days', lead: '毎年その日に数えて、当日の朝に通知します', fields: [F.title('なんの日？', '例：はじめて旅行した日'), { ...F.date(), required: true }],
+  openForm({ title: 'New day', en: 'Days', lead: tr('毎年その日に数えて、当日の朝に通知します', "Counted every year, with a notification that morning"), fields: annivFields(),
     onSubmit: (v) => store.saveEntry({ section: 'anniversary', title: v.title, date: v.date }) });
 }
 function annivPage() {
@@ -771,30 +826,41 @@ function annivPage() {
     const n = daysBetween(date, t);
     const ny = nextYearly(date, t);
     const lines = [];
-    if (n < 0) lines.push(`${md(date)}まで、あと${-n}日。`);
+    const hund = (Math.floor(n / 100) + 1) * 100;
+    if (n < 0) lines.push(tr(`${md(date)}まで、あと${-n}日。`, `${plural(-n, 'day')} until ${md(date)}.`));
     else {
-      if (!e) { const nm = nextMonthly(date, t); lines.push(nm.date === t ? `今日は ${spanLabel(nm.months)} の記念日！` : `つぎは ${spanLabel(nm.months)}（${md(nm.date)}）まで、あと${daysBetween(t, nm.date)}日。`); }
-      else lines.push(ny.date === t && ny.years > 0 ? `今日でちょうど ${ny.years}年！` : `つぎは ${ny.years}年（${md(ny.date)}）まで、あと${daysBetween(t, ny.date)}日。`);
-      lines.push(`${(Math.floor(n / 100) + 1) * 100}日まで、あと${(Math.floor(n / 100) + 1) * 100 - n}日。`);
+      if (!e) {
+        const nm = nextMonthly(date, t), left = daysBetween(t, nm.date);
+        lines.push(nm.date === t ? tr(`今日は ${spanLabel(nm.months)} の記念日！`, `Today is our ${spanLabel(nm.months)} anniversary!`)
+          : tr(`つぎは ${spanLabel(nm.months)}（${md(nm.date)}）まで、あと${left}日。`, `${plural(left, 'day')} until ${spanLabel(nm.months)} (${md(nm.date)}).`));
+      } else {
+        const left = daysBetween(t, ny.date);
+        lines.push(ny.date === t && ny.years > 0 ? tr(`今日でちょうど ${ny.years}年！`, `Exactly ${plural(ny.years, 'year')} today!`)
+          : tr(`つぎは ${ny.years}年（${md(ny.date)}）まで、あと${left}日。`, `${plural(left, 'day')} until ${plural(ny.years, 'year')} (${md(ny.date)}).`));
+      }
+      lines.push(tr(`${hund}日まで、あと${hund - n}日。`, `${plural(hund - n, 'day')} until day ${hund}.`));
     }
     return h('article', { class: 'card' },
       h('h2', {}, title), h('div', { class: 'meta' }, dots(date)),
-      n >= 0 && h('div', { class: 'count' }, String(n), h('small', {}, '日')),
+      n >= 0 && h('div', { class: 'count' }, String(n), h('small', {}, tr('日', 'days'))),
       lines.map((l) => h('p', {}, l)),
       e && e.author === me() && h('div', { class: 'row' },
-        h('button', { class: 'link', onclick: () => openForm({ title: 'なおす', en: 'Days', fields: [F.title('なんの日？', '例：はじめて旅行した日'), { ...F.date(), required: true }], initial: e,
-          onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, date: v.date }) }) }, 'なおす'),
-        h('button', { class: 'link', onclick: () => removeEntry(e) }, '消す')));
+        h('button', { class: 'link', onclick: () => openForm({ title: 'Edit', en: 'Days', fields: annivFields(), initial: e,
+          onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, date: v.date }) }) }, 'EDIT'),
+        h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')));
   };
   const add = addAnniv;
   return h('div', {}, pageNav(true),
-    pageHead('Days', '記念日 ― 日数は毎日ひとりでに進みます', h('button', { class: 'btn', onclick: add }, '+ 記念日を足す')),
-    h('div', { class: 'cards' }, block('付き合いはじめた日', CONFIG.START_DATE), custom.map((e) => block(e.title, e.date, e))));
+    pageHead('Days', '', h('button', { class: 'btn', onclick: add }, '+ ADD DAY')),
+    h('div', { class: 'cards' }, block(tr('付き合いはじめた日', 'The day we started dating'), CONFIG.START_DATE), custom.map((e) => block(e.title, e.date, e))));
+}
+function annivFields() {
+  return [F.title(tr('なんの日？', 'What day?'), tr('例：はじめて旅行した日', 'e.g. Our first trip')), { ...F.date(), required: true }];
 }
 
 /* ---------- メンタルの記録 ---------- */
-const LEVEL_SHORT = ['とてもつらい', 'つらい', 'ふつう', 'いい', 'とてもいい'];
-const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+const levelShort = () => tr(['とてもつらい', 'つらい', 'ふつう', 'いい', 'とてもいい'], ['Very bad', 'Bad', 'Okay', 'Good', 'Very good']);
+const dow = () => tr(['日', '月', '火', '水', '木', '金', '土'], WEEK);
 let moodSel = null;
 let moodPop = null;     // 吹き出しを出している日
 let moodScale = 14;     // 1日あたりの幅（px）。ピンチや ＋− で変わる
@@ -823,6 +889,12 @@ function smoothPath(P) {
   return out;
 }
 const spanText = (days) => {
+  if (lang === 'en') {
+    if (days < 11) return `~${plural(Math.round(days), 'day')}`;
+    if (days < 45) return `~${plural(Math.round(days / 7), 'week')}`;
+    if (days < 330) return `~${plural(Math.round(days / 30.4), 'month')}`;
+    return `~${Math.round(days / 365 * 10) / 10} yrs`;
+  }
   if (days < 11) return `${Math.round(days)}日くらい`;
   if (days < 45) return `${Math.round(days / 7)}週間くらい`;
   if (days < 330) return `${Math.round(days / 30.4)}か月くらい`;
@@ -841,13 +913,13 @@ function moodChart(list, onEdit) {
   const x = (d) => PADL + daysBetween(start, d) * DAY;
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'mchart'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', '気分の移り変わり');
+  svg.setAttribute('class', 'mchart'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', tr('気分の移り変わり', 'Mood over time'));
   const pop = h('div', { class: 'mpop', hidden: true });
   const canvas = h('div', { class: 'mcanvas' }, svg, pop);
   const scroller = h('div', { class: 'mscroll' }, canvas);
   const spanLabelEl = h('span', { class: 'mspan' });
   const yax = h('div', { class: 'myax', 'aria-hidden': 'true' },
-    [5, 4, 3, 2, 1].map((lv) => h('span', { style: `top:${yOf(lv)}px` }, LEVELS[lv - 1])));
+    [5, 4, 3, 2, 1].map((lv) => h('span', { style: `top:${yOf(lv)}px` }, levels()[lv - 1])));
 
   const minDay = () => {
     const room = Math.max(200, (cw || 360) - PADL - PADR);
@@ -907,7 +979,7 @@ function moodChart(list, onEdit) {
     // 点（メモがある日は中に小さな印）
     for (const m of list) {
       const on = m.date === moodPop, cx = x(m.date), cy = yOf(m.level);
-      s += `<g class="pt${on ? ' on' : ''}" data-date="${m.date}" role="button" tabindex="0" aria-label="${dots(m.date)} ${LEVEL_SHORT[m.level - 1]}${m.note ? '（メモあり）' : ''}">`
+      s += `<g class="pt${on ? ' on' : ''}" data-date="${m.date}" role="button" tabindex="0" aria-label="${dots(m.date)} ${levelShort()[m.level - 1]}${m.note ? tr('（メモあり）', ' (with note)') : ''}">`
         + `<line x1="${cx}" x2="${cx}" y1="${BASE}" y2="${BASE + 9}" stroke="#16204F" stroke-width="2"/>`
         + `<circle cx="${cx}" cy="${cy}" r="20" fill="transparent"/>`
         + `<circle cx="${cx}" cy="${cy}" r="${on ? 9 : 7}" fill="${on ? '#16204F' : '#FBF1EF'}" stroke="#16204F" stroke-width="2.5"/>`
@@ -928,14 +1000,14 @@ function moodChart(list, onEdit) {
     if (!m) return;
     const { y: py, m: pm, d: pd } = parse(m.date);
     const editBtn = h('button', { type: 'button', class: 'mpop-edit', onclick: (ev) => { ev.stopPropagation(); onEdit(m.date); } },
-      '編集', h('span', { 'aria-hidden': 'true' }, '↓'));
+      'EDIT', h('span', { 'aria-hidden': 'true' }, '↓'));
     pop.replaceChildren(
       h('div', { class: 'mpop-head' },
-        h('span', { class: 'mpop-d' }, `${py === parse(t).y ? '' : `${py}.`}${pm}.${pd}`, h('small', {}, DOW[new Date(utc(m.date)).getUTCDay()])),
-        h('span', { class: 'mpop-lv' }, LEVEL_SHORT[m.level - 1])),
-      h('p', { class: m.note ? 'mpop-note' : 'mpop-note none' }, m.note || 'メモはありません'),
+        h('span', { class: 'mpop-d' }, `${py === parse(t).y ? '' : `${py}.`}${pm}.${pd}`, h('small', {}, dow()[new Date(utc(m.date)).getUTCDay()])),
+        h('span', { class: 'mpop-lv' }, levelShort()[m.level - 1])),
+      h('p', { class: m.note ? 'mpop-note' : 'mpop-note none' }, m.note || tr('メモはありません', 'No note')),
       h('div', { class: 'mpop-foot' }, editBtn));
-    pop.setAttribute('aria-label', `${md(m.date)}の記録`);
+    pop.setAttribute('aria-label', tr(`${md(m.date)}の記録`, `Entry for ${md(m.date)}`));
   }
   function placePop() {
     const m = moodPop && list.find((r) => r.date === moodPop);
@@ -1031,19 +1103,19 @@ function moodChart(list, onEdit) {
   const avg = recent.length ? recent.reduce((a, m) => a + m.level, 0) / recent.length : null;
   const stat = (k, v, sub, jp) => h('div', { class: 'mstat' }, h('span', { class: 'k' }, k), h('span', { class: jp ? 'v jp' : 'v' }, v), h('small', {}, sub));
   const stats = h('div', { class: 'mstats' },
-    stat('記録した日', String(list.length), '日ぶん'),
-    stat('いちばん最近', last ? LEVEL_SHORT[last.level - 1] : '—', last ? (parse(last.date).y === parse(t).y ? dots(last.date).slice(5) : dots(last.date)) : 'まだなし', true),
-    stat('この30日をならすと', avg ? avg.toFixed(1) : '—', avg ? `5段階で・${LEVEL_SHORT[Math.round(avg) - 1]}寄り` : '記録なし'));
+    stat(tr('記録した日', 'Days logged'), String(list.length), tr('日ぶん', 'days')),
+    stat(tr('いちばん最近', 'Latest'), last ? levelShort()[last.level - 1] : '—', last ? (parse(last.date).y === parse(t).y ? dots(last.date).slice(5) : dots(last.date)) : tr('まだなし', 'none yet'), true),
+    stat(tr('この30日をならすと', '30-day average'), avg ? avg.toFixed(1) : '—', avg ? tr(`5段階で・${levelShort()[Math.round(avg) - 1]}寄り`, `of 5 · mostly ${levelShort()[Math.round(avg) - 1].toLowerCase()}`) : tr('記録なし', 'no entries')));
 
   return h('div', { class: 'mood' }, stats,
     h('div', { class: 'mwrap' },
       h('div', { class: 'mbody' }, scroller, yax,
-        !list.length && h('p', { class: 'mempty' }, 'まだ記録がありません。', h('br'), '下の「気分を追加」から。')),
+        !list.length && h('p', { class: 'mempty' }, tr('まだ記録がありません。', 'No entries yet.'), h('br'), tr('下の「ADD MOOD」から。', 'Start with ADD MOOD below.'))),
       h('div', { class: 'mctrl' },
         h('div', { class: 'mzoom' },
-          h('button', { type: 'button', 'aria-label': '期間を広く（縮める）', onclick: () => zoomBy(1 / 1.6) }, '−'),
+          h('button', { type: 'button', 'aria-label': tr('期間を広く（縮める）', 'Show a longer period'), onclick: () => zoomBy(1 / 1.6) }, '−'),
           spanLabelEl,
-          h('button', { type: 'button', 'aria-label': '期間をせまく（広げる）', onclick: () => zoomBy(1.6) }, '+')),
+          h('button', { type: 'button', 'aria-label': tr('期間をせまく（広げる）', 'Show a shorter period'), onclick: () => zoomBy(1.6) }, '+')),
         h('button', { type: 'button', class: 'mnow', onclick: () => scroller.scrollTo({ left: W, behavior: 'smooth' }) }, 'TODAY →'))));
 }
 
@@ -1056,22 +1128,22 @@ function moodPage() {
   const v = {};
   const err = h('p', { class: 'err', role: 'alert' });
   const status = h('p', { class: 'mstatus' });
-  const levelBtns = LEVELS.map((label, i) => h('button', { type: 'button', onclick: () => { v.level = i + 1; paint(); } }, label));
+  const levelBtns = levels().map((label, i) => h('button', { type: 'button', onclick: () => { v.level = i + 1; paint(); } }, label));
   const paint = () => levelBtns.forEach((b, i) => { b.classList.toggle('on', v.level === i + 1); b.setAttribute('aria-pressed', String(v.level === i + 1)); });
-  const note = h('textarea', { placeholder: 'なにがあった？（なくてもいい）', oninput: (ev) => { v.note = ev.target.value; } });
+  const note = h('textarea', { placeholder: tr('なにがあった？（なくてもいい）', 'What happened? (optional)'), oninput: (ev) => { v.note = ev.target.value; } });
   const saveBtn = h('button', { class: 'btn', type: 'submit' });
-  const del = h('button', { type: 'button', class: 'link', onclick: () => { if (confirm('この日の記録を消しますか？')) act(() => store.removeMood(v.id)); } }, 'この日の記録を消す');
+  const del = h('button', { type: 'button', class: 'link', onclick: () => { if (confirm(tr('この日の記録を消しますか？', 'Delete the entry for this day?'))) act(() => store.removeMood(v.id)); } }, 'DELETE THIS DAY');
   const loadDay = (d) => {
     const m = byDay.get(d);
     v.id = m?.id; v.level = m?.level; v.note = m?.note || '';
     note.value = v.note; paint(); err.textContent = '';
-    status.textContent = m ? `${md(d)}の記録があります。なおせます。` : `${md(d)}は、どんな気分だった？`;
-    saveBtn.textContent = m ? 'なおす' : '記録する';
+    status.textContent = m ? tr(`${md(d)}の記録があります。なおせます。`, `You logged ${md(d)}. You can update it.`) : tr(`${md(d)}は、どんな気分だった？`, `How did you feel on ${md(d)}?`);
+    saveBtn.textContent = m ? 'UPDATE' : 'SAVE';
     del.hidden = !m;
   };
   const form = h('form', { class: 'madd', id: 'mood-add', onsubmit: (ev) => {
     ev.preventDefault();
-    if (!v.level) { err.textContent = '気分をえらんでください。'; return; }
+    if (!v.level) { err.textContent = tr('気分をえらんでください。', 'Please choose a mood.'); return; }
     const row = { date: moodSel, level: v.level, note: v.note || '', shared: false };
     act(() => store.saveMood(v.id ? { id: v.id, ...row } : row));
   } });
@@ -1081,18 +1153,18 @@ function moodPage() {
     requestAnimationFrame(() => document.getElementById('mood-add')?.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }));
   };
   form.append(
-    h('h2', { class: 'en madd-title' }, 'Add mood'), h('p', { class: 'jp' }, '気分を追加'),
+    h('h2', { class: 'en madd-title' }, 'Add mood'), h('p', { class: 'jp' }, tr('気分を追加', 'Log a mood')),
     strip, status,
     h('div', { class: 'levels' }, levelBtns),
-    h('label', { class: 'field' }, h('span', { class: 'flabel' }, 'メモ', h('span', { class: 'opt' }, 'なくてもOK')), note),
+    h('label', { class: 'field' }, h('span', { class: 'flabel' }, tr('メモ', 'Note'), h('span', { class: 'opt' }, tr('なくてもOK', 'optional'))), note),
     err, h('div', { class: 'row' }, saveBtn, del));
   loadDay(moodSel);
 
   return h('div', {}, pageNav(),
-    pageHead('Mood', 'メンタルの記録 ― 思い出したときに、印象に残っている日をざっくりと'),
+    pageHead('Mood', ''),
     moodChart(mine, editFromChart),
-    h('p', { class: 'muted mhint' }, '点をタップでメモ、2本指で広げると期間が変わります。ここは自分にしか見えません。'),
-    h('button', { class: 'down', type: 'button', onclick: () => form.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, '気分を追加', h('span', { 'aria-hidden': 'true' }, '↓')),
+    h('p', { class: 'muted mhint' }, tr('点をタップでメモ、2本指で広げると期間が変わります。ここは自分にしか見えません。', 'Tap a dot to see the note; pinch to change the period. Only you can see this.')),
+    h('button', { class: 'down', type: 'button', onclick: () => form.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, 'ADD MOOD', h('span', { 'aria-hidden': 'true' }, '↓')),
     form);
 }
 
@@ -1100,9 +1172,9 @@ function moodPage() {
 const b64ToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function enablePush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    throw new Error('このブラウザでは通知を受け取れません。iPhoneの場合は、共有ボタンから「ホーム画面に追加」して、そのアイコンから開いてください。');
+    throw new Error(tr('このブラウザでは通知を受け取れません。iPhoneの場合は、共有ボタンから「ホーム画面に追加」して、そのアイコンから開いてください。', "This browser can't receive notifications. On iPhone, use Share → Add to Home Screen and open the app from that icon."));
   }
-  if ((await Notification.requestPermission()) !== 'granted') throw new Error('通知が許可されませんでした。端末の設定で許可してください。');
+  if ((await Notification.requestPermission()) !== 'granted') throw new Error(tr('通知が許可されませんでした。端末の設定で許可してください。', 'Notifications were not allowed. Please allow them in your device settings.'));
   await navigator.serviceWorker.register('sw.js');
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(CONFIG.VAPID_PUBLIC_KEY) });
@@ -1135,7 +1207,7 @@ async function backup() {
     download(await zip.generateAsync({ type: 'blob' }), `our-odyssey-${stamp}.zip`);
   } catch {
     download(new Blob([json], { type: 'application/json' }), `our-odyssey-${stamp}.json`);
-    alert('写真をまとめられなかったので、文章だけを保存しました。');
+    alert(tr('写真をまとめられなかったので、文章だけを保存しました。', "Couldn't bundle the photos, so only the text was saved."));
   }
 }
 function settingsPage() {
@@ -1146,27 +1218,34 @@ function settingsPage() {
   if (canPush && my.notify && 'serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistration().then((r) => r?.pushManager.getSubscription()).then((s) => { toggle.checked = !!s; }).catch(() => {});
   }
-  const backupBtn = h('button', { class: 'btn ghost', onclick: async () => { backupBtn.disabled = true; try { await backup(); } finally { backupBtn.disabled = false; } } }, 'バックアップを保存する');
-  return h('div', {}, pageNav(true), pageHead('Settings', '設定'),
+  const backupBtn = h('button', { class: 'btn ghost', onclick: async () => { backupBtn.disabled = true; try { await backup(); } finally { backupBtn.disabled = false; } } }, 'SAVE BACKUP');
+  return h('div', {}, pageNav(true), pageHead('Settings', ''),
     h('div', { class: 'cards' },
-      h('section', { class: 'card' }, h('h2', {}, '名前'),
+      h('section', { class: 'card' }, h('h2', {}, tr('名前', 'Name')),
         h('div', { class: 'row', style: 'flex-wrap: nowrap' }, name,
-          h('button', { class: 'btn', onclick: () => act(() => store.saveProfile({ display_name: name.value.trim() })) }, '保存'))),
-      h('section', { class: 'card' }, h('h2', {}, '記念日の通知'),
-        h('label', { class: 'check' }, toggle, 'この端末で通知を受け取る'),
+          h('button', { class: 'btn', onclick: () => act(() => store.saveProfile({ display_name: name.value.trim() })) }, 'SAVE'))),
+      langCard(),
+      h('section', { class: 'card' }, h('h2', {}, tr('記念日の通知', 'Anniversary notifications')),
+        h('label', { class: 'check' }, toggle, tr('この端末で通知を受け取る', 'Get notifications on this device')),
         h('p', { class: 'muted' }, canPush
-          ? '月ごとの記念日・100日ごと・足した記念日の当日、朝8時ごろに届きます。iPhoneは「ホーム画面に追加」したアイコンから開いてオンにしてください。'
-          : '通知は、本番の保存先と通知の鍵を設定すると使えるようになります。')),
-      h('section', { class: 'card' }, h('h2', {}, 'バックアップ'),
-        h('p', {}, '書いた内容と写真を、ひとつのファイルにまとめてこの端末に保存します。'), backupBtn),
+          ? tr('月ごとの記念日・100日ごと・足した記念日の当日、朝8時ごろに届きます。iPhoneは「ホーム画面に追加」したアイコンから開いてオンにしてください。', 'Sent around 8 AM on monthly anniversaries, every 100 days, and on days you added. On iPhone, open the app from the Home Screen icon to turn this on.')
+          : tr('通知は、本番の保存先と通知の鍵を設定すると使えるようになります。', 'Notifications work once the live database and notification keys are set up.'))),
+      h('section', { class: 'card' }, h('h2', {}, tr('バックアップ', 'Backup')),
+        h('p', {}, tr('書いた内容と写真を、ひとつのファイルにまとめてこの端末に保存します。', 'Saves everything you wrote and all photos into one file on this device.')), backupBtn),
       store.mode === 'demo'
-        ? h('section', { class: 'card' }, h('h2', {}, 'お試しモード'),
-          h('p', {}, `いまは「${nameOf(me())}」として見ています。`),
+        ? h('section', { class: 'card' }, h('h2', {}, tr('お試しモード', 'Demo mode')),
+          h('p', {}, tr(`いまは「${nameOf(me())}」として見ています。`, `You're viewing as ${nameOf(me())}.`)),
           h('div', { class: 'row' },
-            h('button', { class: 'btn ghost', onclick: () => { store.switchUser(); refresh(); } }, `${partner() ? nameOf(partner().id) : 'あいて'}の画面に切りかえる`),
-            h('button', { class: 'link', onclick: () => { if (confirm('お試しで書いた内容をぜんぶ消しますか？')) { localStorage.removeItem('our-odyssey-demo'); location.reload(); } } }, 'お試しデータを消す')))
-        : h('section', { class: 'card' }, h('h2', {}, 'ログアウト'),
-          h('button', { class: 'btn ghost', onclick: async () => { await store.signOut(); location.hash = '#/'; start(); } }, 'ログアウトする'))));
+            h('button', { class: 'btn ghost', onclick: () => { store.switchUser(); refresh(); } }, `SWITCH TO ${partner() ? nameOf(partner().id) : 'PARTNER'}`),
+            h('button', { class: 'link', onclick: () => { if (confirm(tr('お試しで書いた内容をぜんぶ消しますか？', 'Delete everything written in demo mode?'))) { localStorage.removeItem('our-odyssey-demo'); location.reload(); } } }, 'CLEAR DEMO DATA')))
+        : h('section', { class: 'card' }, h('h2', {}, tr('ログアウト', 'Log out')),
+          h('button', { class: 'btn ghost', onclick: async () => { await store.signOut(); location.hash = '#/'; start(); } }, 'LOG OUT'))));
+}
+function langCard() {
+  const opt = (v, label) => h('button', { type: 'button', class: `chip${lang === v ? ' on' : ''}`, 'aria-pressed': String(lang === v), onclick: () => setLang(v) }, label);
+  return h('section', { class: 'card' }, h('h2', {}, tr('表示の言語', 'Language')),
+    h('div', { class: 'chips' }, opt('ja', 'JP + EN'), opt('en', 'ALL ENGLISH')),
+    h('p', { class: 'muted' }, tr('ふだんは日本語で、ボタンだけ英語。「ALL ENGLISH」にすると全部英語になります（この端末だけ）。', 'ALL ENGLISH shows every screen in English; JP + EN shows Japanese text with English buttons. Applies to this device only.')));
 }
 
 /* ---------- ログイン ---------- */
@@ -1176,14 +1255,14 @@ function loginPage() {
   const pw = h('input', { type: 'password', required: true, autocomplete: 'current-password' });
   const err = h('p', { class: 'err' });
   return h('div', {}, h('div', { class: 'nav' }, h('span'), h('span', { class: 'word' }, 'Our Odyssey'), h('span')),
-    h('div', { class: 'head' }, h('h1', {}, 'Login'), h('p', { class: 'jp' }, 'ふたりだけの場所です')),
+    h('div', { class: 'head' }, h('h1', {}, 'Login'), h('p', { class: 'jp' }, tr('ふたりだけの場所です', 'Just for the two of us'))),
     h('form', { style: 'display: flex; flex-direction: column; gap: 14px', onsubmit: async (ev) => {
       ev.preventDefault(); err.textContent = '';
       try { await store.signIn(toEmail(email.value), pw.value); await start(); }
-      catch { err.textContent = 'ログインできませんでした。名前とパスワードを確かめてください。'; }
+      catch { err.textContent = tr('ログインできませんでした。名前とパスワードを確かめてください。', "Couldn't log in. Check your name and password."); }
     } },
-      h('label', {}, '名前（半角の英数字）', email), h('label', {}, 'パスワード', pw), err,
-      h('button', { class: 'btn', type: 'submit' }, 'ログイン')));
+      h('label', {}, tr('名前（半角の英数字）', 'Name (letters and numbers)'), email), h('label', {}, tr('パスワード', 'Password'), pw), err,
+      h('button', { class: 'btn', type: 'submit' }, 'LOG IN')));
 }
 
 /* ---------- ネットがないときも書けるように ---------- */
@@ -1194,8 +1273,8 @@ function showSync() {
   const off = !navigator.onLine;
   syncPill.hidden = !(off || n);
   syncPill.textContent = off
-    ? (n ? `オフライン中・${n}件をあとで送ります` : 'オフライン中・書いたものはあとで送ります')
-    : `${n}件を送っています…`;
+    ? (n ? tr(`オフライン中・${n}件をあとで送ります`, `Offline · ${n} to send later`) : tr('オフライン中・書いたものはあとで送ります', 'Offline · new entries will be sent later'))
+    : tr(`${n}件を送っています…`, `Sending ${n}…`);
 }
 let syncReady = false;
 function setupSync() {
@@ -1204,7 +1283,7 @@ function setupSync() {
   document.body.append(syncPill);
   store.onChange = showSync;
   store.onSync = ({ sent, failed }) => {
-    if (failed.length) alert(`送れなかった記録がありました：${failed[0].error.message || failed[0].error}`);
+    if (failed.length) alert(tr('送れなかった記録がありました：', "Some entries couldn't be sent: ") + (failed[0].error.message || failed[0].error));
     // あずけていた分が送れたら、相手の更新もいっしょに取りなおす（書いている途中なら邪魔しない）
     if (sent && !document.querySelector('dialog[open]')) refresh().catch(() => {});
   };
@@ -1234,7 +1313,7 @@ async function start() {
     // 地図の部品は、最初の画面が出たあと手があいたときに先に読みこんでおく
     (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(() => leaflet().catch(() => {}).finally(setupOffline));
   } catch (e) {
-    app.replaceChildren(h('p', { class: 'empty' }, `読みこめませんでした：${e.message || e}`));
+    app.replaceChildren(h('p', { class: 'empty' }, tr('読みこめませんでした：', "Couldn't load: ") + (e.message || e)));
   }
 }
 start();

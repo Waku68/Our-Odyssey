@@ -1,7 +1,7 @@
 // Our Odyssey の Service Worker。
 // ・通知を受け取って表示する
 // ・ネットがなくても開けるように、画面の部品（HTML/CSS/JS/フォント）と見た写真を端末に覚えておく
-const SHELL = 'shell-v1';   // このサイトのファイル（つながっていれば毎回新しいものを取りにいく）
+const SHELL = 'shell-v2';   // このサイトのファイル（つながっていれば毎回新しいものを取りにいく）
 const LIBS = 'libs-v1';     // 外から読みこむ部品（Supabase のライブラリ、フォント、地図）
 const PHOTOS = 'photos-v1'; // 一度見た写真
 const LIB_HOSTS = ['esm.sh', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];

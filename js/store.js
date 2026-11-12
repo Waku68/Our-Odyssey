@@ -2,6 +2,8 @@
 import { CONFIG } from './config.js';
 
 const uuid = () => crypto.randomUUID();
+// 設定で「ALL ENGLISH」にしているときは英語のメッセージにする
+const tr = (ja, en) => { try { return localStorage.getItem('our-odyssey-lang') === 'en' ? en : ja; } catch { return ja; } };
 const nowIso = () => new Date().toISOString();
 
 export async function createStore() {
@@ -24,7 +26,7 @@ function demoStore() {
   try { db = JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch { db = fresh(); }
   const save = () => {
     try { localStorage.setItem(KEY, JSON.stringify(db)); }
-    catch { throw new Error('この端末の保存容量がいっぱいです。写真を減らすか、本番の保存先を設定してください。'); }
+    catch { throw new Error(tr('この端末の保存容量がいっぱいです。写真を減らすか、本番の保存先を設定してください。', 'This device is out of storage. Remove some photos or set up the live database.')); }
   };
   const blobToDataUrl = (blob) => new Promise((ok, ng) => {
     const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ng; r.readAsDataURL(blob);
@@ -131,7 +133,7 @@ async function supaStore() {
       for (const it of items) {
         const r = byPath.get(it.path);
         urls.delete(it.path);
-        if (r?.signedUrl) { urlCache[it.path] = { url: r.signedUrl, exp }; it.res(r.signedUrl); } else it.rej(new Error(r?.error || '写真を読みこめませんでした'));
+        if (r?.signedUrl) { urlCache[it.path] = { url: r.signedUrl, exp }; it.res(r.signedUrl); } else it.rej(new Error(r?.error || tr('写真を読みこめませんでした', "Couldn't load the photo")));
       }
       writeLS(URL_KEY, urlCache);
     } catch (e) {
@@ -148,13 +150,13 @@ async function supaStore() {
   let outbox = readLS(OUTBOX_KEY, []);
   for (const o of outbox) o.sending = false;
   const saveOutbox = () => {
-    if (!writeLS(OUTBOX_KEY, outbox)) throw new Error('この端末の保存容量がいっぱいで、記録をあずかれませんでした。');
+    if (!writeLS(OUTBOX_KEY, outbox)) throw new Error(tr('この端末の保存容量がいっぱいで、記録をあずかれませんでした。', "This device is out of storage, so the entry couldn't be kept."));
   };
   const pendingPhotos = new Set(outbox.filter((o) => o.kind === 'upload').map((o) => o.path));
   const localUrls = new Map();
   const localPhoto = (path) => {
     if (!localUrls.has(path)) {
-      localUrls.set(path, idb.get(path).then((b) => (b ? URL.createObjectURL(b) : Promise.reject(new Error('写真が見つかりません')))));
+      localUrls.set(path, idb.get(path).then((b) => (b ? URL.createObjectURL(b) : Promise.reject(new Error(tr('写真が見つかりません', 'Photo not found'))))));
     }
     return localUrls.get(path);
   };
@@ -270,7 +272,7 @@ async function supaStore() {
     if (f) throw f.error;
   }
   const needNet = () => {
-    if (!navigator.onLine) throw new Error('オフライン中は変えられません。つながってからもう一度ためしてください。');
+    if (!navigator.onLine) throw new Error(tr('オフライン中は変えられません。つながってからもう一度ためしてください。', "Can't change this while offline. Try again once you're connected."));
   };
 
   const api = {
