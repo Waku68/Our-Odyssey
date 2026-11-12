@@ -482,9 +482,17 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 /* 下もぼかすので、ズームボタンと地図の出典はぼかしの上に持ち上げる */
 .places-top > .map.big-map .leaflet-bottom { bottom: var(--fade-b); }
 /* 追加フォームの裏に写真を透かす（上に紙色の膜をかけて、文字と入力欄を読みやすく） */
-#place-add .mcard, #mood-add .mcard { background-color: var(--paper); background-size: cover; background-position: center top; background-repeat: no-repeat; }
-#place-add .mcard { background-image: linear-gradient(rgba(251, 241, 239, .58), rgba(251, 241, 239, .72)), url(../assets/form-places.webp); }
-#mood-add .mcard { background-image: linear-gradient(rgba(251, 241, 239, .42), rgba(251, 241, 239, .6)), url(../assets/form-mood.webp); }
+/* 背景は ::before に描いて、上下の端だけピンクの背景へぼかす（文字や入力欄はぼかさない） */
+#place-add .mcard, #mood-add .mcard { position: relative; isolation: isolate; background: none; }
+#place-add .mcard::before, #mood-add .mcard::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-color: var(--paper); background-size: cover; background-position: center top; background-repeat: no-repeat;
+  --fade-t: 64px; --fade-b: 72px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--fade-t) * .35), #000 var(--fade-t),
+    #000 calc(100% - var(--fade-b)), rgba(0, 0, 0, .4) calc(100% - var(--fade-b) * .35), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--fade-t) * .35), #000 var(--fade-t),
+    #000 calc(100% - var(--fade-b)), rgba(0, 0, 0, .4) calc(100% - var(--fade-b) * .35), transparent 100%); }
+#place-add .mcard::before { background-image: linear-gradient(rgba(251, 241, 239, .58), rgba(251, 241, 239, .72)), url(../assets/form-places.webp); }
+#mood-add .mcard::before { background-image: linear-gradient(rgba(251, 241, 239, .42), rgba(251, 241, 239, .6)), url(../assets/form-mood.webp); }
 #place-add .mcard input[type=text], #place-add .mcard textarea, #place-add .mcard .drop, #place-add .mcard .day,
 #mood-add .mcard textarea, #mood-add .mcard .day, #mood-add .mcard .levels button { background-color: rgba(255, 255, 255, .82); }
 #mood-add .mcard .levels button.on { background-color: var(--navy); }
