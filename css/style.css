@@ -98,7 +98,12 @@ img { max-width: 100%; display: block; }
 .acc-head .en { font-size: 40px; line-height: 1.05; }
 .acc-head .jp { font-size: 12px; font-weight: 800; white-space: nowrap; flex: 1; }
 .acc-head .chev { font-family: var(--en); font-size: 26px; line-height: 1; transition: transform .25s; }
-.acc li.open .chev { transform: rotate(45deg); }
+.acc-head .gear { align-self: center; width: 40px; height: 40px; flex: none; display: grid; place-items: center; }
+.acc-head .gear svg { width: 100%; height: 100%; display: block; transform: scale(.68) rotate(0deg); transition: transform .7s cubic-bezier(.3, 1.4, .5, 1), color .3s; }
+.acc li.open .gear svg { transform: scale(1) rotate(180deg); color: var(--pink-d); }
+.acc li.open .gear svg path { stroke: var(--navy); stroke-width: 1.2; paint-order: stroke; }
+.acc-head:active .gear svg { transform: scale(.6); }
+.acc li.open .acc-head:active .gear svg { transform: scale(.9) rotate(180deg); }
 .acc-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s cubic-bezier(.2, .8, .2, 1); }
 .acc li.open .acc-panel { grid-template-rows: 1fr; }
 .acc-inner { overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
@@ -318,7 +323,7 @@ textarea { min-height: 110px; resize: vertical; }
 .preview { width: 120px; height: 90px; object-fit: cover; }
 .err { color: #8E1230; font-weight: 800; font-size: 13px; }
 .err:empty { display: none; }
-@media (prefers-reduced-motion: reduce) { .view, .fade, .acc-panel, dialog, dialog::backdrop, .down span, .day, .levels button { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .view, .fade, .acc-panel, .gear svg, dialog, dialog::backdrop, .down span, .day, .levels button { animation: none !important; transition: none !important; } }
 
 @media (min-width: 481px) { .stage { width: 480px; } .big { font-size: 196px; } }
 

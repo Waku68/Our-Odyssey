@@ -941,6 +941,8 @@ const MORE = [
 const MORE_PAGES = { like: () => sectionPage('like'), gift: () => sectionPage('gift'), dislike: () => sectionPage('dislike'),
   values: valuesPage, anniv: annivPage, settings: settingsPage };
 const moreOpen = new Set();
+const GEAR = '<svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M19.96 10.02 L22.89 10.45 L22.89 13.55 L19.96 13.98 L19.03 16.23 L20.80 18.60 L18.60 20.80 L16.23 19.03 L13.98 19.96 L13.55 22.89 L10.45 22.89 L10.02 19.96 L7.77 19.03 L5.40 20.80 L3.20 18.60 L4.97 16.23 L4.04 13.98 L1.11 13.55 L1.11 10.45 L4.04 10.02 L4.97 7.77 L3.20 5.40 L5.40 3.20 L7.77 4.97 L10.02 4.04 L10.45 1.11 L13.55 1.11 L13.98 4.04 L16.23 4.97 L18.60 3.20 L20.80 5.40 L19.03 7.77Z M15.6 12a3.6 3.6 0 1 0-7.2 0a3.6 3.6 0 1 0 7.2 0Z"/></svg>';
+const gearIcon = () => { const i = h('span', { class: 'gear', 'aria-hidden': 'true' }); i.innerHTML = GEAR; return i; };
 function annivLines() {
   const t = today();
   const nm = nextMonthly(CONFIG.START_DATE, t);
@@ -987,7 +989,7 @@ function morePage() {
         const now = !li.classList.contains('open');
         li.classList.toggle('open', now); head.setAttribute('aria-expanded', String(now));
         if (now) moreOpen.add(m.key); else moreOpen.delete(m.key);
-      } }, h('span', { class: 'en' }, m.en), h('span', { class: 'jp' }, `${sub}・${p.n}`), h('span', { class: 'chev', 'aria-hidden': 'true' }, '+'));
+      } }, h('span', { class: 'en' }, m.en), h('span', { class: 'jp' }, `${sub}・${p.n}`), gearIcon());
       li.append(head, h('div', { class: 'acc-panel' }, h('div', { class: 'acc-inner' },
         p.items.length ? p.items : h('p', { class: 'muted' }, tr('まだ何もありません。', 'Nothing here yet.')),
         h('div', { class: 'row' },
