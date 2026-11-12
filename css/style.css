@@ -44,23 +44,26 @@ img { max-width: 100%; display: block; }
 .home .tag { margin-top: calc(6px + env(safe-area-inset-top)); }
 .big { font-family: var(--en); font-size: min(41vw, 196px); line-height: .94; text-align: center; white-space: nowrap; text-transform: uppercase; margin: 0; font-weight: 400; }
 .big.first { margin-top: 12px; }
-/* 数字の下の DAYS は数字より小さく（数字の約6割） */
-.big.unit { font-size: min(25vw, 120px); line-height: 1; margin-top: 2px; }
+/* 日数は縦に引きのばして背を高く（transform はレイアウトに効かないので、伸びたぶん下をあける） */
+.home .big.first { --fs: min(44vw, 212px); --sy: 1.32; font-size: var(--fs); transform: scaleY(var(--sy)); transform-origin: 50% 0;
+  margin-bottom: calc(var(--fs) * .94 * (var(--sy) - 1)); }
+/* 数字の下の DAYS */
+.big.unit { font-size: min(31vw, 150px); line-height: 1; margin-top: 4px; }
 .sub { margin: 18px 0 0; text-align: center; }
 /* 写真の台：画面の下端まで伸ばして、チューリップを下端から生やす */
-.stage { position: relative; width: 100vw; max-width: 480px; flex: 1 0 372px; margin-top: 8px; }
+.stage { position: relative; width: 100vw; max-width: 480px; flex: 1 0 400px; margin-top: 8px; }
 .slot { position: absolute; z-index: 2; border: none; padding: 0; background-size: cover; background-position: center; display: flex; align-items: flex-start; justify-content: center; font-size: 13px; font-weight: 500; line-height: 1.5; text-align: center; }
 .slot span { padding: 26px 12px 0; }
-.slot.a { left: 21.5%; top: 76px; width: 34%; height: 200px; background-color: var(--navy); color: var(--pink); transform: rotate(-4deg); }
-.slot.b { left: 48.5%; top: 110px; width: 31.5%; height: 178px; background-color: var(--pink-d); color: var(--navy); border: var(--line); transform: rotate(5deg); }
+.slot.a { left: 17%; top: 64px; width: 41%; height: 242px; background-color: var(--navy); color: var(--pink); transform: rotate(-4deg); }
+.slot.b { left: 47%; top: 104px; width: 38%; height: 216px; background-color: var(--pink-d); color: var(--navy); border: var(--line); transform: rotate(5deg); }
 .slot.has span { display: none; }
 /* 写真が入ったらポラロイドのように白いフチ（下だけほんの少し広め） */
 .slot.has { border: 6px solid #FBF9F4; border-bottom-width: 11px; background-color: #FBF9F4; box-shadow: 0 4px 10px rgba(22, 32, 79, .22), 0 0 1px rgba(22, 32, 79, .3); }
 .flower { position: absolute; pointer-events: none; height: auto; z-index: 1;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); }
-.flower.blue { left: -17%; bottom: 0; width: 62%; }
-.flower.pink { right: -17%; bottom: 0; width: 62%; }
+.flower.blue { left: -27%; bottom: 0; width: 62%; }
+.flower.pink { right: -27%; bottom: 0; width: 62%; }
 .home .banner { align-self: stretch; }
 .hero-pin.on { margin-bottom: -32vh; }
 .hero-pin.on > .home { position: sticky; will-change: opacity, transform; backface-visibility: hidden; }
@@ -361,7 +364,7 @@ textarea { min-height: 110px; resize: vertical; }
 .err:empty { display: none; }
 @media (prefers-reduced-motion: reduce) { .view, .fade, .acc-panel, .gear svg, dialog, dialog::backdrop, .down span, .day, .levels button { animation: none !important; transition: none !important; } }
 
-@media (min-width: 481px) { .stage { width: 480px; } .big { font-size: 196px; } }
+@media (min-width: 481px) { .stage { width: 480px; } }
 
 /* 写真の編集 */
 .photo-field { display: flex; flex-direction: column; gap: 6px; }
