@@ -16,7 +16,7 @@
 </defs>
 <rect width="400" height="400" fill="#DCE3EC"/>
 <g transform="translate(-30,-30) scale(1.15)" fill="none" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
-<use href="#m" stroke="#E46F8E" mask="url(#under-m)"/>
-<use href="#w" stroke="#1C2B7A" mask="url(#under-w)"/>
+<use href="#m" stroke="#F74D7E" mask="url(#under-m)"/>
+<use href="#w" stroke="#1630A6" mask="url(#under-w)"/>
 </g>
 </svg>
