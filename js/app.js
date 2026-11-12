@@ -854,7 +854,13 @@ function mapPage() {
   // shield がその帯を覆って、地図に指が届かないようにしている
   const shield = h('div', { class: 'places-shield', 'aria-hidden': 'true' });
   const topInset = () => shield.offsetHeight;
-  const syncInset = () => mapEl.style.setProperty('--inset', `${topInset()}px`);
+  // 地図の下端は凡例の行の裏まで伸ばし、その文字の高さでぼかす（凡例の上は触ってもページのスクロール）
+  const legend = h('p', { class: 'legend' },
+    h('span', { class: 'lgi' }, h('span', { class: 'lg place' }), tr('過ごした場所', 'Been there')),
+    h('span', { class: 'lgi' }, h('span', { class: 'lg wish' }), tr('行きたいところ', 'Want to go')),
+    h('span', { class: 'lgi' }, tr('・ピンをタップでひとこと', '・Tap a pin to peek')));
+  const botInset = () => legend.offsetHeight;
+  const syncInset = () => { mapEl.style.setProperty('--inset', `${topInset()}px`); mapEl.style.setProperty('--leg', `${botInset()}px`); };
   leaflet().then((L) => {
     const map = L.map(mapEl, { zoomControl: false });
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -863,7 +869,7 @@ function mapPage() {
     map.on('resize', syncInset);
     const bubble = mapBubble(L, map, mapEl, topInset);
     for (const e of pts) L.marker([e.lat, e.lng], { icon: pinIcon(L, e), title: e.title, keyboard: true }).addTo(map).on('click', () => bubble.show(e));
-    const fit = { paddingTopLeft: [40, topInset() + 40], paddingBottomRight: [40, 40 + 72] };
+    const fit = { paddingTopLeft: [40, topInset() + 40], paddingBottomRight: [40, botInset() + 40] };
     if (mapView) map.setView(mapView.c, mapView.z);
     else if (pts.length === 1) map.fitBounds([[pts[0].lat, pts[0].lng], [pts[0].lat, pts[0].lng]], { ...fit, maxZoom: 13 });
     else if (pts.length) map.fitBounds(pts.map((e) => [e.lat, e.lng]), { ...fit, maxZoom: 14 });
@@ -905,9 +911,7 @@ function mapPage() {
   renderAdd();
 
   return h('div', {}, pageNav(),
-    h('div', { class: 'places-top' }, pageHead('Places', ''), chips, mapEl, shield, h('div', { class: 'places-spacer' })),
-    h('p', { class: 'legend' }, h('span', { class: 'lg place' }), tr('過ごした場所　', 'Been there　'), h('span', { class: 'lg wish' }),
-      tr('行きたいところ　・ピンをタップでひとこと', 'Want to go　・Tap a pin to peek')),
+    h('div', { class: 'places-top' }, pageHead('Places', ''), chips, mapEl, shield, h('div', { class: 'places-spacer' }), legend),
     shownList.length ? h('div', { class: 'list' }, shownList.map(row)) : h('p', { class: 'empty' }, tr('まだ何もありません。下から最初のひとつを。', 'Nothing here yet. Add the first one below.')),
     h('section', { class: 'madd', id: 'place-add' },
       h('h2', { class: 'en madd-title' }, 'Add'), h('p', { class: 'jp' }, tr('場所を追加', 'Add a place')), addBox));
