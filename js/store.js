@@ -67,19 +67,42 @@ function demoStore() {
 
 /* ---------- 本番（Supabase） ---------- */
 async function supaStore() {
-  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.119.0');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
   let session = (await sb.auth.getSession()).data.session;
   sb.auth.onAuthStateChange((_e, s) => { session = s; });
   const ok = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
   const urls = new Map();
+  const URL_KEY = 'our-odyssey-photo-urls', URL_LIFE = 60 * 60 * 6;
+  let urlCache = {};
+  try { urlCache = JSON.parse(localStorage.getItem(URL_KEY)) || {}; } catch { urlCache = {}; }
+  for (const [k, v] of Object.entries(urlCache)) if (!(v.exp > Date.now() + 30 * 60e3)) delete urlCache[k];
+  let queue = [], flushTimer = 0;
+  const flushUrls = async () => {
+    const items = queue; queue = [];
+    if (!items.length) return;
+    try {
+      const list = ok(await sb.storage.from('photos').createSignedUrls(items.map((i) => i.path), URL_LIFE));
+      const exp = Date.now() + URL_LIFE * 1000;
+      const byPath = new Map(list.map((x) => [x.path, x]));
+      for (const it of items) {
+        const r = byPath.get(it.path);
+        urls.delete(it.path);
+        if (r?.signedUrl) { urlCache[it.path] = { url: r.signedUrl, exp }; it.res(r.signedUrl); } else it.rej(new Error(r?.error || '写真を読みこめませんでした'));
+      }
+      try { localStorage.setItem(URL_KEY, JSON.stringify(urlCache)); } catch { /* 保存できなくても動く */ }
+    } catch (e) { for (const it of items) { urls.delete(it.path); it.rej(e); } }
+  };
   return {
     mode: 'supabase',
     user: () => (session ? { id: session.user.id } : null),
     async signIn(email, password) {
       session = ok(await sb.auth.signInWithPassword({ email, password })).session;
     },
-    async signOut() { await sb.auth.signOut(); session = null; },
+    async signOut() {
+      await sb.auth.signOut(); session = null;
+      urlCache = {}; try { localStorage.removeItem(URL_KEY); } catch { /* なくてもいい */ }
+    },
     async profiles() { return ok(await sb.from('profiles').select('*')); },
     async saveProfile(patch) {
       ok(await sb.from('profiles').upsert({ id: session.user.id, ...patch }));
@@ -104,10 +127,14 @@ async function supaStore() {
       ok(await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' }));
       return path;
     },
-    async photoUrl(path) {
-      if (!path) return '';
+    // 写真のURLはまとめて1回で発行し、期限まで端末に覚えておく（開き直しても同じURL＝ブラウザのキャッシュが効く）
+    photoUrl(path) {
+      if (!path) return Promise.resolve('');
+      const hit = urlCache[path];
+      if (hit && hit.exp > Date.now() + 30 * 60e3) return Promise.resolve(hit.url);
       if (!urls.has(path)) {
-        urls.set(path, ok(await sb.storage.from('photos').createSignedUrl(path, 60 * 60 * 6)).signedUrl);
+        urls.set(path, new Promise((res, rej) => { queue.push({ path, res, rej }); }));
+        clearTimeout(flushTimer); flushTimer = setTimeout(flushUrls, 0);
       }
       return urls.get(path);
     },

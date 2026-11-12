@@ -67,7 +67,7 @@ const partner = () => data.profiles.find((p) => p.id !== me());
 const byCreated = (a, b) => (a.created_at < b.created_at ? -1 : 1);
 
 function photoImg(path, cls = 'photo') {
-  const img = h('img', { class: cls, alt: '', loading: 'lazy' });
+  const img = h('img', { class: cls, alt: '', loading: 'lazy', decoding: 'async' });
   store.photoUrl(path).then((u) => { img.src = u; }).catch(() => {});
   return img;
 }
@@ -1009,6 +1009,8 @@ async function start() {
     store ??= await createStore();
     if (!store.user()) { app.replaceChildren(loginPage()); return; }
     await refresh();
+    // 地図の部品は、最初の画面が出たあと手があいたときに先に読みこんでおく
+    (window.requestIdleCallback || ((f) => setTimeout(f, 2500)))(() => leaflet().catch(() => {}));
   } catch (e) {
     app.replaceChildren(h('p', { class: 'empty' }, `読みこめませんでした：${e.message || e}`));
   }
