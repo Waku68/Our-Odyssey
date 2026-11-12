@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=15';
-import { editPhoto } from './photo-editor.js?v=15';
+import { createStore } from './store.js?v=16';
+import { editPhoto } from './photo-editor.js?v=16';
 
 const app = document.getElementById('app');
 
@@ -664,13 +664,59 @@ function pinIcon(L, e) {
 // 画面の外にあるピンを、地図の端に「その方向に何かある」点として出す。
 // 遠すぎるものは出さない（画面の中心から、縦横それぞれ画面 EDGE_REACH 枚ぶんまで）。
 const EDGE_REACH = 3;
-function edgeDots(L, map, mapEl, pts) {
+// ピンをタップしたときの吹き出し。ピンを地図の下寄りに動かして、その真上に出す（ピンは隠さない）
+function mapBubble(L, map, mapEl) {
+  const pop = h('div', { class: 'mpop-bubble', hidden: true, role: 'dialog' });
+  mapEl.append(pop);
+  L.DomEvent.disableClickPropagation(pop);
+  L.DomEvent.disableScrollPropagation(pop);
+  let cur = null;
+  const place = () => {
+    if (!cur) return;
+    const { x: w } = map.getSize();
+    const p = map.latLngToContainerPoint([cur.lat, cur.lng]);
+    const bw = pop.offsetWidth;
+    const left = Math.min(Math.max(p.x - bw / 2, 10), w - bw - 10);
+    pop.style.left = `${left}px`;
+    pop.style.top = `${p.y - (cur.photo ? 64 : 18)}px`;   // ピンの頭の少し上
+    pop.style.setProperty('--tail', `${Math.min(Math.max(p.x - left, 22), bw - 22)}px`);
+  };
+  const hide = () => { cur = null; pop.hidden = true; };
+  const show = (e) => {
+    if (cur?.id === e.id) { hide(); return; }
+    cur = e;
+    const wish = e.section === 'wish';
+    const meta = [wish ? tr('行きたいところ', 'Want to go') : tr('過ごした場所', 'Been there'), e.date && dots(e.date), fromLabel(e)].filter(Boolean).join(' ・ ');
+    pop.className = `mpop-bubble ${e.section}`;
+    pop.replaceChildren(
+      h('button', { type: 'button', class: 'mpop-x', 'aria-label': 'Close', onclick: hide }, '×'),
+      h('div', { class: 'mpop-in' },
+        e.photo && photoImg(e.photo, 'mpop-ph'),
+        h('div', { class: 'mpop-txt' },
+          h('small', {}, meta),
+          h('b', {}, e.title),
+          e.body ? h('p', {}, e.body)
+            : h('p', { class: 'none' }, wish ? tr('行きたい理由はまだ書いてありません', 'No reason written yet') : tr('ひとことはまだありません', 'No note yet')))),
+      h('button', { type: 'button', class: 'mpop-more', onclick: () => openDetail(e.id) }, 'DETAILS →'));
+    pop.hidden = false;
+    // ピンが地図の下から 26% あたりに来るように動かす（吹き出しが上に収まる）
+    const { y: hgt } = map.getSize();
+    const target = map.unproject(map.project([e.lat, e.lng], map.getZoom()).subtract([0, hgt * 0.24]), map.getZoom());
+    map.panTo(target, { animate: !reduceMotion(), duration: 0.5 });
+    place();
+    pop.classList.remove('pop-in'); void pop.offsetWidth; pop.classList.add('pop-in');
+  };
+  map.on('move zoom resize', place);
+  map.on('click', hide);
+  return { show, hide };
+}
+function edgeDots(L, map, mapEl, pts, onPick) {
   const layer = h('div', { class: 'edge-dots' });
   mapEl.append(layer);
   L.DomEvent.disableClickPropagation(layer);
   const dots = pts.map((e) => h('button', { type: 'button', class: `edot ${e.section}`, hidden: true,
     'aria-label': tr(`${e.title}の方へ移動`, `Go to ${e.title}`), title: e.title,
-    onclick: () => map.flyTo([e.lat, e.lng], Math.max(map.getZoom(), 12), { duration: reduceMotion() ? 0 : 0.8 }) }));
+    onclick: () => onPick(e) }));
   layer.append(...dots);
   const PAD = 12;
   const update = () => {
@@ -709,13 +755,14 @@ function mapPage() {
     const map = L.map(mapEl, { zoomControl: false });
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19 }).addTo(map);
-    for (const e of pts) L.marker([e.lat, e.lng], { icon: pinIcon(L, e), title: e.title, keyboard: true }).addTo(map).on('click', () => openDetail(e.id));
+    const bubble = mapBubble(L, map, mapEl);
+    for (const e of pts) L.marker([e.lat, e.lng], { icon: pinIcon(L, e), title: e.title, keyboard: true }).addTo(map).on('click', () => bubble.show(e));
     if (mapView) map.setView(mapView.c, mapView.z);
     else if (pts.length === 1) map.setView([pts[0].lat, pts[0].lng], 13);
     else if (pts.length) map.fitBounds(pts.map((e) => [e.lat, e.lng]), { padding: [40, 40], maxZoom: 14 });
     else map.setView([36.2, 138.2], 5);
     map.on('moveend', () => { mapView = { c: map.getCenter(), z: map.getZoom() }; });
-    edgeDots(L, map, mapEl, pts);
+    edgeDots(L, map, mapEl, pts, bubble.show);
     setTimeout(() => map.invalidateSize(), 380);
   }).catch(() => { mapEl.textContent = tr('地図を読みこめませんでした。', "Couldn't load the map."); });
 
@@ -741,7 +788,7 @@ function mapPage() {
     pageHead('Places', ''),
     chips, mapEl,
     h('p', { class: 'legend' }, h('span', { class: 'lg place' }), tr('過ごした場所　', 'Been there　'), h('span', { class: 'lg wish' }),
-      tr('行きたいところ　・ピンをタップで詳しく', 'Want to go　・Tap a pin for details')),
+      tr('行きたいところ　・ピンをタップでひとこと', 'Want to go　・Tap a pin to peek')),
     shownList.length ? h('div', { class: 'list' }, shownList.map(row)) : h('p', { class: 'empty' }, tr('まだ何もありません。下から最初のひとつを。', 'Nothing here yet. Add the first one below.')),
     h('section', { class: 'madd', id: 'place-add' },
       h('h2', { class: 'en madd-title' }, 'Add'), h('p', { class: 'jp' }, tr('場所を追加', 'Add a place')), addBox));
