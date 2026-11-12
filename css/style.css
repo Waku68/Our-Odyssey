@@ -542,3 +542,21 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 /* PLACESの地図は左右の余白なしで画面いっぱいに（見るだけの帯も同じ幅に） */
 .places-top > .map.big-map, .places-top > .places-shield { justify-self: start; width: calc(100% + 48px); margin-left: -24px; margin-right: 0; }
 .places-top > .map.big-map { border-radius: 0; }
+
+/* NEW!：相手が足したり変えたりしたもの */
+.lrow.is-new, .card.is-new { position: relative; }
+.newtag { position: absolute; top: -8px; right: -6px; z-index: 3; pointer-events: none;
+  font-family: var(--en); font-size: 11px; font-weight: 400; letter-spacing: .06em; line-height: 1; padding: 4px 6px 3px;
+  background: #F74D7E; color: #fff; border-radius: 3px; transform: rotate(8deg); box-shadow: 0 2px 4px rgba(22, 32, 79, .3);
+  animation: new-pop .45s cubic-bezier(.3, 1.6, .5, 1) both; }
+.pol .newtag { top: -6px; right: -8px; font-size: 10px; }
+.tl .it .newtag { top: -2px; right: 0; }
+@keyframes new-pop { from { transform: rotate(8deg) scale(.4); opacity: 0; } to { transform: rotate(8deg) scale(1); opacity: 1; } }
+.newchip { display: inline-block; margin-left: 6px; padding: 2px 6px 1px; border-radius: 3px; background: #F74D7E; color: #fff;
+  font-family: var(--en); font-size: 11px; font-weight: 400; letter-spacing: .06em; line-height: 1.3; vertical-align: 2px; }
+.newinline { font-style: normal; font-family: var(--en); font-size: 10px; letter-spacing: .06em; color: #fff; background: #F74D7E; border-radius: 3px; padding: 1px 4px; margin-right: 6px; vertical-align: 1px; }
+.tabbar a { position: relative; }
+.tabbar a.has-new::after { content: ''; position: absolute; top: 6px; left: calc(50% + 8px); width: 8px; height: 8px; border-radius: 50%;
+  background: #F74D7E; box-shadow: 0 0 0 2px var(--navy); }
+.tabbar a.on.has-new::after { box-shadow: 0 0 0 2px var(--pink); }
+@media (prefers-reduced-motion: reduce) { .newtag { animation: none; } }

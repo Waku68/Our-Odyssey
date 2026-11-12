@@ -119,7 +119,7 @@ async function refresh() {
   document.querySelectorAll('dialog[open]').forEach((d) => d.refresh?.());
 }
 /* 相手の更新を取りこむ：アプリに戻ったとき・相手が書いたとき・開いている間はときどき取りなおし、
-   変わっていたときだけ描き直す（開いている間は30秒ごと）。書いている途中なら描き直さず、あとでもう一度ためす */
+   変わっていたときだけ描き直す（すぐ届く Realtime の保険として、開いている間は5分ごとにも）。書いている途中なら描き直さず、あとでもう一度ためす */
 let liveBusy = false, liveAgain = false, liveTimer = 0;
 const liveSig = (d) => JSON.stringify([d.entries, d.moods, d.comments, d.profiles]);
 function isEditing() {
@@ -145,17 +145,90 @@ async function liveRefresh() {
     if (liveAgain) { liveAgain = false; setTimeout(liveRefresh, 800); }
   }
 }
+/* ---------- NEW! のしるし ----------
+   相手が足したり変えたりしたもの（ひとことも）に「NEW!」を貼る。画面に0.7秒ほど映ったら「見た」ことにして、
+   次に画面を描き直したときにはずす（見ている最中に消えないように）。記録は端末ごと・人ごとに残す */
+let seen = null;
+const seenLater = {};
+const selfEdited = new Set();
+const seenKey = () => `our-odyssey-seen:${me()}`;
+function hashStr(str) {
+  let a = 0xdeadbeef, b = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); }
+  a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909);
+  b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
+  return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36);
+}
+const entrySig = (e) => hashStr(JSON.stringify([e.section, e.title, e.body, e.date, e.category, e.lat, e.lng, e.photo]));
+const moodSig = (m) => hashStr(JSON.stringify([m.date, m.level, m.note, m.shared]));
+function partnerPairs() {
+  const out = [];
+  for (const e of data.entries) if (e.author !== me()) out.push([`e:${e.id}`, entrySig(e)]);
+  for (const c of data.comments) if (c.author !== me()) out.push([`c:${c.id}`, '1']);
+  for (const m of data.moods) if (m.user_id !== me()) out.push([`m:${m.id}`, moodSig(m)]);
+  return out;
+}
+function saveSeen() { try { localStorage.setItem(seenKey(), JSON.stringify(seen)); } catch { /* 入らなくても動く */ } }
+function commitSeen() {
+  if (store?.mode !== 'supabase' || !store.user()) return;
+  if (!seen) {
+    try { seen = JSON.parse(localStorage.getItem(seenKey())); } catch { seen = null; }
+    // はじめて使うときは、いまあるものは全部「見た」ことにする
+    if (!seen) { seen = Object.fromEntries(partnerPairs()); saveSeen(); return; }
+  }
+  Object.assign(seen, seenLater);
+  for (const k of Object.keys(seenLater)) delete seenLater[k];
+  // 自分が相手のものを変えたとき（行きたい→行った など）は NEW にしない
+  for (const id of selfEdited) { const e = data.entries.find((x) => x.id === id); if (e) seen[`e:${id}`] = entrySig(e); }
+  selfEdited.clear();
+  // もうないものの記録は捨てる
+  const alive = new Set([...data.entries.map((e) => `e:${e.id}`), ...data.comments.map((c) => `c:${c.id}`), ...data.moods.map((m) => `m:${m.id}`)]);
+  for (const k of Object.keys(seen)) if (!alive.has(k)) delete seen[k];
+  saveSeen();
+}
+const unseen = ([k, sig]) => seen && seen[k] !== sig;
+function entryNew(e) {
+  if (!e || !seen) return [];
+  const out = [];
+  if (e.author !== me()) out.push([`e:${e.id}`, entrySig(e)]);
+  for (const c of data.comments) if (c.entry_id === e.id && c.author !== me()) out.push([`c:${c.id}`, '1']);
+  return out.filter(unseen);
+}
+const sectionNew = (sections) => data.entries.some((e) => sections.includes(e.section) && entryNew(e).length);
+const moodsNew = () => !!seen && data.moods.some((m) => m.user_id !== me() && unseen([`m:${m.id}`, moodSig(m)]));
+let seenObs = null;
+function newMark(el, pairs) {
+  if (!pairs?.length) return el;
+  el.classList.add('is-new');
+  el.append(h('span', { class: 'newtag', 'aria-label': 'NEW' }, 'NEW!'));
+  el.newPairs = pairs;
+  seenObs ??= new IntersectionObserver((list) => {
+    for (const it of list) {
+      const t = it.target;
+      clearTimeout(t.seenTimer);
+      if (it.isIntersecting && it.intersectionRatio >= .5) t.seenTimer = setTimeout(() => {
+        for (const [k, sig] of t.newPairs || []) seenLater[k] = sig;
+        seenObs.unobserve(t);
+      }, 700);
+    }
+  }, { threshold: [0, .5] });
+  seenObs.observe(el);
+  return el;
+}
+function markSeenNow(pairs) { for (const [k, sig] of pairs) seenLater[k] = sig; }
 function liveSoon() { clearTimeout(liveTimer); liveTimer = setTimeout(liveRefresh, 400); }
 let liveReady = false;
 function setupLive() {
   if (liveReady || store.mode !== 'supabase') return;
   liveReady = true;
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') liveSoon(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') liveSoon(); else commitSeen(); });
   window.addEventListener('focus', liveSoon);
   window.addEventListener('pageshow', liveSoon);
   window.addEventListener('online', liveSoon);
-  setInterval(() => { if (document.visibilityState === 'visible') liveRefresh(); }, 30000);
+  setInterval(() => { if (document.visibilityState === 'visible') liveRefresh(); }, 300000);
   store.watch?.(liveSoon);
+  const save = store.saveEntry.bind(store);
+  store.saveEntry = async (e) => { const r = await save(e); if (e.id) selfEdited.add(e.id); return r; };
 }
 const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -187,14 +260,18 @@ function draw() {
   let dir = 0;
   if (shown && (shown.tab !== r.tab || shown.depth !== r.depth)) dir = r.tab !== shown.tab ? Math.sign(r.tab - shown.tab) : Math.sign(r.depth - shown.depth);
   shown = r;
+  commitSeen();
+  seenObs?.disconnect(); seenObs = null;
   const view = h('main', { class: 'view' }, r.page());
   app.replaceChildren(view, tabBar(r.tab));
   if (dir && !reduceMotion()) view.classList.add(dir > 0 ? 'in-r' : 'in-l');
 }
 window.addEventListener('hashchange', () => { if (store?.user()) { draw(); window.scrollTo(0, 0); } });
 
+const TAB_NEW = [() => sectionNew(['place', 'gift', 'anniversary', 'hero']), () => sectionNew(['place', 'wish']), moodsNew,
+  () => sectionNew(['like', 'gift', 'value', 'dislike', 'anniversary'])];
 const tabBar = (active) => h('nav', { class: 'tabbar', 'aria-label': 'Tabs' }, TABS.map((t, i) =>
-  h('a', { href: t.href, class: i === active ? 'on' : '', 'aria-current': i === active ? 'page' : null,
+  h('a', { href: t.href, class: [i === active && 'on', TAB_NEW[i]?.() && 'has-new'].filter(Boolean).join(' '), 'aria-current': i === active ? 'page' : null,
     onclick: (ev) => { if (i === active && shown?.depth === 0) { ev.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } } },
   tabIcon(t.icon), h('span', { class: 'en' }, t.en))));
 
@@ -232,7 +309,7 @@ function home() {
     const b = h('button', { class: `slot ${k}${e ? ' has' : ''}`, 'aria-label': `${label}`, onclick: () => setHero(k, e) },
       h('span', {}, `[${label}]`));
     if (e) store.photoUrl(e.photo).then((u) => { b.style.backgroundImage = `url("${u}")`; });
-    return b;
+    return newMark(b, entryNew(e));
   };
   const heroEl = h('div', { class: 'home' },
       h('div', { class: 'tag' }, `Since ${dots(CONFIG.START_DATE)}`),
@@ -299,9 +376,9 @@ function timeline() {
   for (const it of items) {
     const y = it.date.slice(0, 4);
     if (y !== year) { year = y; group = h('div', { class: 'tl' }); out.push(h('div', { class: 'year fade' }, y), group); }
-    group.append(h(it.id ? 'button' : 'div', { class: 'it fade', type: it.id ? 'button' : null, onclick: it.id ? () => (it.section === 'anniversary' ? (location.hash = '#/more/anniv') : openDetail(it.id)) : null },
+    group.append(newMark(h(it.id ? 'button' : 'div', { class: 'it fade', type: it.id ? 'button' : null, onclick: it.id ? () => (it.section === 'anniversary' ? (location.hash = '#/more/anniv') : openDetail(it.id)) : null },
       h('div', { class: 'd' }, dots(it.date).slice(5)), h('div', { class: 't' }, it.title),
-      h('div', { class: 'muted' }, it.k), it.photo && photoImg(it.photo, '')));
+      h('div', { class: 'muted' }, it.k), it.photo && photoImg(it.photo, '')), it.id && entryNew(data.entries.find((x) => x.id === it.id))));
   }
   return h('section', { class: 'home-tl' },
     h('div', { class: 'head fade' }, h('h1', {}, 'Timeline')), out);
@@ -720,12 +797,14 @@ const likeCats = () => [...new Set([...LIKE_CATS, ...data.entries.filter((e) => 
   .filter((c) => c !== OTHER_CAT).concat(OTHER_CAT);
 const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(e.author)}から`, `from ${nameOf(e.author)}`) : nameOf(e.author));
 
-function talk(e) {
+function talk(e, fresh = new Set()) {
   const list = data.comments.filter((c) => c.entry_id === e.id).sort(byCreated);
+  const anyNew = list.some((c) => fresh.has(`c:${c.id}`));
+  if (anyNew) openTalks.add(e.id);
   const input = h('input', { type: 'text', placeholder: tr('ひとこと書く', 'Write a comment'), 'aria-label': tr('ひとこと', 'Comment') });
   return h('details', { class: 'talk', open: openTalks.has(e.id), ontoggle: (ev) => { ev.target.open ? openTalks.add(e.id) : openTalks.delete(e.id); } },
     h('summary', {}, `COMMENTS (${list.length})`),
-    list.map((c) => h('div', { class: 'c' }, h('span', {}, `${nameOf(c.author)}${tr('：', ': ')}${c.body}`),
+    list.map((c) => h('div', { class: 'c' }, h('span', {}, fresh.has(`c:${c.id}`) && h('i', { class: 'newinline' }, 'NEW!'), `${nameOf(c.author)}${tr('：', ': ')}${c.body}`),
       c.author === me() && h('button', { class: 'link', onclick: () => act(() => store.removeComment(c.id)) }, 'DELETE'))),
     h('form', { onsubmit: (ev) => { ev.preventDefault(); if (input.value.trim()) act(() => store.addComment(e.id, input.value.trim())); } },
       input, h('button', { class: 'btn small', type: 'submit' }, 'SEND')));
@@ -744,7 +823,7 @@ function entryCard(e, key) {
     act(async () => store.saveEntry({ id: e.id, photo: await store.uploadPhoto(blob) }));
   };
   const went = () => entryWent(e);
-  return h('article', { class: 'card' },
+  return newMark(h('article', { class: 'card' },
     e.photo && photoImg(e.photo),
     h('h2', {}, e.title), h('div', { class: 'meta' }, meta),
     e.body && h('p', {}, e.body),
@@ -753,7 +832,7 @@ function entryCard(e, key) {
       mine && !e.photo && S.fields().some((f) => f.type === 'photo') && h('button', { class: 'btn ghost small', onclick: addPhoto }, 'ADD PHOTO'),
       mine && h('button', { class: 'link', onclick: edit }, 'EDIT'),
       mine && h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
-    talk(e));
+    talk(e)), entryNew(e));
 }
 function addEntry(key) {
   const S = SECTIONS[key];
@@ -795,9 +874,12 @@ function entryWent(e) {
 }
 function openDetail(id) {
   const dlg = h('dialog', { class: 'modal detail', 'aria-label': tr('詳細', 'Details') });
+  // 開いた時点の NEW を覚えておいて、ひとことに印をつける。開いたら「見た」ことにする
+  const fresh = new Set(entryNew(data.entries.find((x) => x.id === id)).map(([k]) => k));
   const render = () => {
     const e = data.entries.find((x) => x.id === id);
     if (!e) { closeDialog(dlg, true); return; }
+    markSeenNow(entryNew(e));
     const mine = e.author === me();
     const meta = [e.date && dots(e.date), e.category && catLabel(e.category), fromLabel(e)].filter(Boolean).join(' ・ ');
     dlg.replaceChildren(h('div', { class: 'sheet' },
@@ -811,7 +893,7 @@ function openDetail(id) {
         mine && h('div', { class: 'row' },
           h('button', { class: 'btn ghost small', onclick: () => entryEdit(e) }, 'EDIT'),
           h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
-        talk(e))));
+        talk(e, fresh))));
   };
   dlg.refresh = render;
   render();
@@ -933,11 +1015,11 @@ function mapPage() {
     setTimeout(fitSize, 380);
   }).catch(() => { mapEl.textContent = tr('地図を読みこめませんでした。', "Couldn't load the map."); });
 
-  const row = (e) => h('button', { class: 'lrow', type: 'button', onclick: () => openDetail(e.id) },
+  const row = (e) => newMark(h('button', { class: 'lrow', type: 'button', onclick: () => openDetail(e.id) },
     e.photo ? photoImg(e.photo, 'lthumb') : h('span', { class: `lthumb dot ${e.section}` }),
     h('span', { class: 'ltext' }, h('b', {}, e.title),
       h('small', {}, [e.section === 'place' ? 'PLACES' : 'WISHES', e.date && dots(e.date), e.lat == null && tr('地図なし', 'no pin')].filter(Boolean).join(' ・ '))),
-    h('span', { 'aria-hidden': 'true' }, '›'));
+    h('span', { 'aria-hidden': 'true' }, '›')), entryNew(e));
 
   const addBox = h('div', { class: 'addbox mcard' });
   const renderAdd = () => {
@@ -978,8 +1060,8 @@ function annivLines() {
   const lines = [{ title: tr(`${spanLabel(nm.months)}の記念日`, `${spanLabel(nm.months)} anniversary`), left: daysBetween(t, nm.date), date: nm.date }];
   for (const e of data.entries.filter((x) => x.section === 'anniversary' && x.date)) {
     const n = daysBetween(t, e.date);
-    if (n >= 0) lines.push({ title: e.title, left: n, date: e.date });
-    else { const ny = nextYearly(e.date, t); lines.push({ title: tr(`${e.title}（${ny.years}年）`, `${e.title} (${plural(ny.years, 'year')})`), left: daysBetween(t, ny.date), date: ny.date }); }
+    if (n >= 0) lines.push({ title: e.title, left: n, date: e.date, entry: e });
+    else { const ny = nextYearly(e.date, t); lines.push({ title: tr(`${e.title}（${ny.years}年）`, `${e.title} (${plural(ny.years, 'year')})`), left: daysBetween(t, ny.date), date: ny.date, entry: e }); }
   }
   return lines.sort((a, b) => a.left - b.left);
 }
@@ -997,11 +1079,12 @@ function corkBoard(cards) {
     const r = seeded(String(c.seed));
     const style = `--s:${between(r, .88, 1.06).toFixed(3)};--r:${between(r, -4, 4).toFixed(2)}deg;--x:${between(r, -3, 4).toFixed(1)}px;--y:${between(r, -3, 10).toFixed(1)}px;--z:${between(r, 1, 3).toFixed(2)}`;
     const pin = h('img', { class: 'tack', src: `assets/pin-${r() < .5 ? 'pink' : 'navy'}.webp`, alt: '' });
-    return h('button', { class: ['pol', !c.photo && 'memo', c.cls].filter(Boolean).join(' '), type: 'button', style, onclick: c.onclick },
-      pin, c.photo ? h('span', { class: 'pim' }, photoImg(c.photo, '')) : null, c.big || null, h('b', {}, c.title), h('small', {}, c.sub));
+    return newMark(h('button', { class: ['pol', !c.photo && 'memo', c.cls].filter(Boolean).join(' '), type: 'button', style, onclick: c.onclick },
+      pin, c.photo ? h('span', { class: 'pim' }, photoImg(c.photo, '')) : null, c.big || null, h('b', {}, c.title), h('small', {}, c.sub)), c.fresh);
   }))));
 }
 const MAX_PINNED = 6;
+const MORE_SECTIONS = { like: ['like'], gift: ['gift'], values: ['value'], dislike: ['dislike'], anniv: ['anniversary'] };
 function morePreview(key) {
   const go = (k) => { location.hash = `#/more/${k}`; };
   const board = (n, cards, add) => ({ n, items: cards.length ? [corkBoard(cards)] : [], add });
@@ -1010,19 +1093,19 @@ function morePreview(key) {
     const topics = [...new Set(all.map((e) => e.title))];
     return board(topics.length, topics.slice(-MAX_PINNED).reverse().map((tp) => {
       const both = new Set(all.filter((e) => e.title === tp).map((e) => e.author)).size >= 2;
-      return { seed: `value:${tp}`, title: tp, sub: both ? tr('ふたりとも答えた', 'Both answered') : tr('まだ片方だけ', 'One answer so far'), onclick: () => go('values') };
+      return { seed: `value:${tp}`, title: tp, fresh: all.filter((e) => e.title === tp).flatMap(entryNew), sub: both ? tr('ふたりとも答えた', 'Both answered') : tr('まだ片方だけ', 'One answer so far'), onclick: () => go('values') };
     }), () => writeValue());
   }
   if (key === 'anniv') {
     const lines = annivLines();
     return board(lines.length, lines.slice(0, MAX_PINNED).map((l) => ({
-      seed: `anniv:${l.title}:${l.date}`, cls: 'days', title: l.title, sub: md(l.date), onclick: () => go('anniv'),
+      seed: `anniv:${l.title}:${l.date}`, cls: 'days', title: l.title, sub: md(l.date), onclick: () => go('anniv'), fresh: entryNew(l.entry),
       big: h('span', { class: 'big' }, l.left === 0 ? 'TODAY' : String(l.left), l.left === 0 ? null : h('i', {}, l.left === 1 ? 'DAY' : 'DAYS')),
     })), addAnniv);
   }
   const items = data.entries.filter((e) => e.section === key).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return board(items.length, items.slice(0, MAX_PINNED).map((e) => ({
-    seed: e.id, photo: e.photo, title: e.title, onclick: () => openDetail(e.id),
+    seed: e.id, photo: e.photo, title: e.title, onclick: () => openDetail(e.id), fresh: entryNew(e),
     sub: [e.category && catLabel(e.category), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・'),
   })), () => addEntry(key));
 }
@@ -1041,7 +1124,7 @@ function morePage() {
         const now = !li.classList.contains('open');
         li.classList.toggle('open', now); head.setAttribute('aria-expanded', String(now));
         if (now) moreOpen.add(m.key); else moreOpen.delete(m.key);
-      } }, h('span', { class: 'en' }, m.en), h('span', { class: 'jp' }, `${sub}・${p.n}`), gearIcon());
+      } }, h('span', { class: 'en' }, m.en), h('span', { class: 'jp' }, `${sub}・${p.n}`, MORE_SECTIONS[m.key] && sectionNew(MORE_SECTIONS[m.key]) ? h('span', { class: 'newchip' }, 'NEW') : null), gearIcon());
       li.append(head, h('div', { class: 'acc-panel' }, h('div', { class: 'acc-inner' },
         p.items.length ? p.items : h('p', { class: 'muted' }, tr('まだ何もありません。', 'Nothing here yet.')),
         h('div', { class: 'row' },
@@ -1392,6 +1475,7 @@ function moodChart(list, onEdit) {
 
 function moodPage() {
   const t = today();
+  markSeenNow(data.moods.filter((m) => m.user_id !== me()).map((m) => [`m:${m.id}`, moodSig(m)]));
   // 同じ日に何件かあっても（保存を2回押したときなど）、いちばん新しい1件だけを使う
   const own = data.moods.filter((m) => m.user_id === me());
   const latest = new Map();
