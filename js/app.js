@@ -1376,8 +1376,7 @@ function moodPage() {
   loadDay(moodSel);
 
   return h('div', {}, pageNav(),
-    pageHead('Mood', ''),
-    moodChart(mine, editFromChart),
+    h('div', { class: 'mood-top' }, pageHead('Mood', ''), moodChart(mine, editFromChart)),
     h('p', { class: 'muted mhint' }, tr('点をタップでメモ、2本指で広げると期間が変わります。ここは自分にしか見えません。', 'Tap a dot to see the note; pinch to change the period. Only you can see this.')),
     h('button', { class: 'down', type: 'button', onclick: () => form.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, 'ADD MOOD', h('span', { 'aria-hidden': 'true' }, '↓')),
     form);
