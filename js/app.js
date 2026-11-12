@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=14';
-import { editPhoto } from './photo-editor.js?v=14';
+import { createStore } from './store.js?v=15';
+import { editPhoto } from './photo-editor.js?v=15';
 
 const app = document.getElementById('app');
 
@@ -661,6 +661,40 @@ function pinIcon(L, e) {
     ? L.divIcon({ html: el, className: 'pin-wrap', iconSize: [50, 58], iconAnchor: [25, 58] })
     : L.divIcon({ html: el, className: 'pin-wrap', iconSize: [24, 24], iconAnchor: [12, 12] });
 }
+// 画面の外にあるピンを、地図の端に「その方向に何かある」点として出す。
+// 遠すぎるものは出さない（画面の中心から、縦横それぞれ画面 EDGE_REACH 枚ぶんまで）。
+const EDGE_REACH = 3;
+function edgeDots(L, map, mapEl, pts) {
+  const layer = h('div', { class: 'edge-dots' });
+  mapEl.append(layer);
+  L.DomEvent.disableClickPropagation(layer);
+  const dots = pts.map((e) => h('button', { type: 'button', class: `edot ${e.section}`, hidden: true,
+    'aria-label': tr(`${e.title}の方へ移動`, `Go to ${e.title}`), title: e.title,
+    onclick: () => map.flyTo([e.lat, e.lng], Math.max(map.getZoom(), 12), { duration: reduceMotion() ? 0 : 0.8 }) }));
+  layer.append(...dots);
+  const PAD = 12;
+  const update = () => {
+    const { x: w, y: hgt } = map.getSize();
+    const cx = w / 2, cy = hgt / 2;
+    pts.forEach((e, i) => {
+      const d = dots[i];
+      const p = map.latLngToContainerPoint([e.lat, e.lng]);
+      const dx = p.x - cx, dy = p.y - cy;
+      const inside = p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= hgt;
+      const far = Math.abs(dx) > cx * EDGE_REACH || Math.abs(dy) > cy * EDGE_REACH;
+      d.hidden = inside || far;
+      if (d.hidden) return;
+      const t = Math.min((cx - PAD) / Math.abs(dx || 1e-9), (cy - PAD) / Math.abs(dy || 1e-9));
+      // 近いほどはっきり、遠いほど薄く
+      const near = Math.max(Math.abs(dx) / cx, Math.abs(dy) / cy); // 1（すぐ外）〜 EDGE_REACH
+      d.style.left = `${cx + dx * t}px`;
+      d.style.top = `${cy + dy * t}px`;
+      d.style.opacity = String(1 - 0.55 * (near - 1) / (EDGE_REACH - 1));
+    });
+  };
+  map.on('move zoom resize', update);
+  map.whenReady(update);
+}
 function mapPage() {
   const all = data.entries.filter((e) => e.section === 'place' || e.section === 'wish')
     .sort((a, b) => ((b.date || b.created_at) < (a.date || a.created_at) ? -1 : 1));
@@ -681,6 +715,7 @@ function mapPage() {
     else if (pts.length) map.fitBounds(pts.map((e) => [e.lat, e.lng]), { padding: [40, 40], maxZoom: 14 });
     else map.setView([36.2, 138.2], 5);
     map.on('moveend', () => { mapView = { c: map.getCenter(), z: map.getZoom() }; });
+    edgeDots(L, map, mapEl, pts);
     setTimeout(() => map.invalidateSize(), 380);
   }).catch(() => { mapEl.textContent = tr('地図を読みこめませんでした。', "Couldn't load the map."); });
 

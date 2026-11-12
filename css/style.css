@@ -375,3 +375,9 @@ dialog.modal.editor { max-width: 520px; max-height: min(94vh, 980px); }
 .mcard textarea { min-height: 76px; }
 .mcard .drop.is-empty { height: 64px; }
 .mcard .drop.is-empty .drop-txt { flex-direction: row; gap: 8px; align-items: baseline; }
+/* 地図の端の点（画面の外にあるピンの方向） */
+.edge-dots { position: absolute; inset: 0; z-index: 650; pointer-events: none; }
+.edot { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; padding: 0; border: none; background: none; pointer-events: auto; display: grid; place-items: center; transition: opacity .2s; }
+.edot::before { content: ''; width: 12px; height: 12px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(22, 32, 79, .45); }
+.edot.place::before { background: var(--navy); }
+.edot.wish::before { background: var(--pink-d); }
