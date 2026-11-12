@@ -487,3 +487,7 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 /* 写真を透かした追加フォームは、左右の余白なしで画面いっぱいに */
 #place-add .mcard, #mood-add .mcard { margin: 0 -24px; padding-left: 24px; padding-right: 24px; border-radius: 0; box-shadow: none; }
 #place-add .mcard .strip, #mood-add .mcard .strip { margin: 0 -24px; padding-left: 24px; padding-right: 24px; scroll-padding: 0 24px; }
+/* PLACES・MOOD：いちばん下までスクロールしたとき、ADDのボタンがタブのすぐ上に来るように。
+   写真のカードはページの最後（タブの裏）まで伸ばして、下にピンクの背景が見えないように */
+#place-add, #mood-add { min-height: 0; }
+#place-add .mcard, #mood-add .mcard { padding-bottom: calc(78px + env(safe-area-inset-bottom)); margin-bottom: calc(-110px - env(safe-area-inset-bottom)); }
