@@ -179,7 +179,6 @@ function home() {
     return b;
   };
   const heroEl = h('div', { class: 'home' },
-      pageNav(),
       h('div', { class: 'tag' }, `Since ${dots(CONFIG.START_DATE)}`),
       h('p', { class: 'big first' }, String(days)),
       h('p', { class: 'big' }, 'Days'),

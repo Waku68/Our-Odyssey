@@ -40,7 +40,7 @@ img { max-width: 100%; display: block; }
 /* ホーム */
 .home { display: flex; flex-direction: column; align-items: center; margin: 0 -24px; padding: 0 24px; overflow: hidden; }
 .home .nav { width: 100%; }
-.home .tag { margin-top: 26px; }
+.home .tag { margin-top: calc(6px + env(safe-area-inset-top)); }
 .big { font-family: var(--en); font-size: min(41vw, 196px); line-height: .94; text-align: center; white-space: nowrap; text-transform: uppercase; margin: 0; font-weight: 400; }
 .big.first { margin-top: 12px; }
 .sub { margin: 18px 0 0; text-align: center; }
