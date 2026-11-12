@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=26';
-import { editPhoto } from './photo-editor.js?v=26';
-import { ask, notice } from './ask.js?v=26';
+import { createStore } from './store.js?v=27';
+import { editPhoto } from './photo-editor.js?v=27';
+import { ask, notice } from './ask.js?v=27';
 
 const app = document.getElementById('app');
 
@@ -790,9 +790,6 @@ function pinIcon(L, e) {
     ? L.divIcon({ html: box, className: 'pin-wrap', iconSize: [50, 58], iconAnchor: [25, 58] })
     : L.divIcon({ html: box, className: 'pin-wrap', iconSize: [24, 24], iconAnchor: [12, 12] });
 }
-// 画面の外にあるピンを、地図の端に「その方向に何かある」点として出す。
-// 遠すぎるものは出さない（画面の中心から、縦横それぞれ画面 EDGE_REACH 枚ぶんまで）。
-const EDGE_REACH = 3;
 // ピンをタップしたときの吹き出し。地図は動かさず、ピンの上に出す（上に入りきらないときは下に出す。ピンは隠さない）
 function mapBubble(L, map, mapEl, topInset = () => 0) {
   const pop = h('div', { class: 'mpop-bubble', hidden: true, role: 'dialog' });
@@ -816,8 +813,7 @@ function mapBubble(L, map, mapEl, topInset = () => 0) {
     pop.style.setProperty('--tail', `${Math.min(Math.max(p.x - left, 16), bw - 16)}px`);
   };
   const hide = () => { cur = null; pop.hidden = true; };
-  // bring：画面の外のピン（端の点）のときだけ、見えるところまで最小限動かす
-  const show = (e, bring = false) => {
+  const show = (e) => {
     if (cur?.id === e.id) { hide(); return; }
     cur = e;
     const wish = e.section === 'wish';
@@ -834,45 +830,12 @@ function mapBubble(L, map, mapEl, topInset = () => 0) {
             : h('p', { class: 'none' }, wish ? tr('行きたい理由はまだ書いてありません', 'No reason written yet') : tr('ひとことはまだありません', 'No note yet')))),
       h('button', { type: 'button', class: 'mpop-more', onclick: () => openDetail(e.id) }, 'DETAILS →'));
     pop.hidden = false;
-    if (bring) map.panInside([e.lat, e.lng], { paddingTopLeft: [48, topInset() + 48], paddingBottomRight: [48, 48], animate: !reduceMotion() });
     place();
     pop.classList.remove('pop-in'); void pop.offsetWidth; pop.classList.add('pop-in');
   };
   map.on('move zoom resize', place);
   map.on('click', hide);
   return { show, hide };
-}
-function edgeDots(L, map, mapEl, pts, onPick, topInset = () => 0) {
-  const layer = h('div', { class: 'edge-dots' });
-  mapEl.append(layer);
-  L.DomEvent.disableClickPropagation(layer);
-  const dots = pts.map((e) => h('button', { type: 'button', class: `edot ${e.section}`, hidden: true,
-    'aria-label': tr(`${e.title}の方へ移動`, `Go to ${e.title}`), title: e.title,
-    onclick: () => onPick(e) }));
-  layer.append(...dots);
-  const PAD = 12;
-  const update = () => {
-    const { x: w, y: hgt } = map.getSize();
-    const top = Math.min(topInset(), hgt - 40);
-    const cx = w / 2, hy = (hgt - top) / 2, cy = top + hy;
-    pts.forEach((e, i) => {
-      const d = dots[i];
-      const p = map.latLngToContainerPoint([e.lat, e.lng]);
-      const dx = p.x - cx, dy = p.y - cy;
-      const inside = p.x >= 0 && p.x <= w && p.y >= top && p.y <= hgt;
-      const far = Math.abs(dx) > cx * EDGE_REACH || Math.abs(dy) > hy * EDGE_REACH;
-      d.hidden = inside || far;
-      if (d.hidden) return;
-      const t = Math.min((cx - PAD) / Math.abs(dx || 1e-9), (hy - PAD) / Math.abs(dy || 1e-9));
-      // 近いほどはっきり、遠いほど薄く
-      const near = Math.max(Math.abs(dx) / cx, Math.abs(dy) / hy); // 1（すぐ外）〜 EDGE_REACH
-      d.style.left = `${cx + dx * t}px`;
-      d.style.top = `${cy + dy * t}px`;
-      d.style.opacity = String(1 - 0.55 * (near - 1) / (EDGE_REACH - 1));
-    });
-  };
-  map.on('move zoom resize', update);
-  map.whenReady(update);
 }
 function mapPage() {
   const all = data.entries.filter((e) => e.section === 'place' || e.section === 'wish')
@@ -903,7 +866,6 @@ function mapPage() {
     else if (pts.length) map.fitBounds(pts.map((e) => [e.lat, e.lng]), { ...fit, maxZoom: 14 });
     else map.setView([36.2, 138.2], 5);
     map.on('moveend', () => { mapView = { c: map.getCenter(), z: map.getZoom() }; });
-    edgeDots(L, map, mapEl, pts, (e) => bubble.show(e, true), topInset);
     // 日本全体が見えるくらい引いたときは、名前が重なるので出さない
     const labels = () => mapEl.classList.toggle('labels-off', map.getZoom() < 7);
     map.on('zoomend', labels); labels();
