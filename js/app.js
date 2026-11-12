@@ -584,17 +584,18 @@ function settingsPage() {
 
 /* ---------- ログイン ---------- */
 function loginPage() {
-  const email = h('input', { type: 'email', required: true, autocomplete: 'username' });
+  const email = h('input', { type: 'text', required: true, autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' });
+  const toEmail = (v) => (v.includes('@') ? v.trim() : `${v.trim().toLowerCase()}@${CONFIG.LOGIN_DOMAIN}`);
   const pw = h('input', { type: 'password', required: true, autocomplete: 'current-password' });
   const err = h('p', { class: 'err' });
   return h('div', {}, h('div', { class: 'nav' }, h('span'), h('span', { class: 'word' }, 'Our Odyssey'), h('span')),
     pageHead('Login', 'ふたりだけの場所です'),
     h('form', { style: 'display: flex; flex-direction: column; gap: 14px', onsubmit: async (ev) => {
       ev.preventDefault(); err.textContent = '';
-      try { await store.signIn(email.value, pw.value); await start(); }
-      catch { err.textContent = 'ログインできませんでした。メールアドレスとパスワードを確かめてください。'; }
+      try { await store.signIn(toEmail(email.value), pw.value); await start(); }
+      catch { err.textContent = 'ログインできませんでした。名前とパスワードを確かめてください。'; }
     } },
-      h('label', {}, 'メールアドレス', email), h('label', {}, 'パスワード', pw), err,
+      h('label', {}, '名前（半角の英数字）', email), h('label', {}, 'パスワード', pw), err,
       h('button', { class: 'btn', type: 'submit' }, 'ログイン')));
 }
 

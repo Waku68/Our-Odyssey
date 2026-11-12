@@ -24,7 +24,7 @@
 
 1. https://supabase.com でアカウントを作り、新しいプロジェクトを作る（Region は Tokyo）。
 2. SQL Editor に `supabase/schema.sql` をぜんぶ貼って実行する。
-3. Authentication > Users > Add user で、2人分のメールアドレスとパスワードを作る（Auto Confirm User にチェック）。
+3. Authentication > Users > Add user で、2人分を作る（Auto Confirm User にチェック）。Email には `ログイン名@waku68.github.io`（例：`waku@waku68.github.io`）を入れる。サイトでは `waku` とパスワードだけでログインできる。
 4. Authentication の設定で「Allow new users to sign up」をオフにする。**これをしないと、URLを知った他人が登録して中身を読めてしまいます。**
 5. Project Settings > API にある Project URL と anon public key を `js/config.js` に入れる。
 
