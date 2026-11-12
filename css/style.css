@@ -392,7 +392,7 @@ dialog.modal.editor { max-width: 520px; max-height: min(94vh, 980px); }
 .edot.place::before { background: var(--navy); }
 .edot.wish::before { background: var(--pink-d); }
 /* 地図の吹き出し（紺の線＋ずらした影） */
-.mpop-bubble { position: absolute; z-index: 700; width: min(268px, calc(100% - 20px)); transform: translateY(calc(-100% - 14px)); background: var(--paper); color: var(--navy);
+.mpop-bubble { position: absolute; z-index: 1100; width: min(268px, calc(100% - 20px)); transform: translateY(calc(-100% - 14px)); background: var(--paper); color: var(--navy);
   border: 1.5px solid var(--navy); border-radius: 18px; box-shadow: 5px 5px 0 var(--pink-d); padding: 12px 14px 8px; font-family: var(--jp); }
 .mpop-bubble.place { box-shadow: 5px 5px 0 var(--navy); }
 .mpop-bubble::before, .mpop-bubble::after { content: ''; position: absolute; left: var(--tail, 50%); transform: translateX(-50%); border-style: solid; border-color: transparent; }
@@ -440,3 +440,9 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 .ask-btns .btn { width: 100%; min-height: 48px; border-radius: 10px; letter-spacing: .06em; }
 .ask-btns .btn.danger { background: #8E1230; border-color: #8E1230; color: #fff; }
 @media (prefers-reduced-motion: reduce) { dialog.ask, dialog.ask::backdrop { animation: none !important; } }
+/* 吹き出しをピンの下に出すとき（上に入りきらないとき） */
+.mpop-bubble.below { transform: translateY(14px); }
+.mpop-bubble.below::before { bottom: auto; top: -13px; border-width: 0 9px 13px; border-bottom-color: var(--navy); }
+.mpop-bubble.below::after { bottom: auto; top: -10px; border-width: 0 7.5px 11px; border-bottom-color: var(--paper); }
+.mpop-bubble.below.pop-in { animation-name: bubbleBelow; transform-origin: var(--tail, 50%) 0; }
+@keyframes bubbleBelow { from { opacity: 0; transform: translateY(6px) scale(.85); } }

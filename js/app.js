@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=19';
-import { editPhoto } from './photo-editor.js?v=19';
-import { ask, notice } from './ask.js?v=19';
+import { createStore } from './store.js?v=20';
+import { editPhoto } from './photo-editor.js?v=20';
+import { ask, notice } from './ask.js?v=20';
 
 const app = document.getElementById('app');
 
@@ -793,7 +793,7 @@ function pinIcon(L, e) {
 // 画面の外にあるピンを、地図の端に「その方向に何かある」点として出す。
 // 遠すぎるものは出さない（画面の中心から、縦横それぞれ画面 EDGE_REACH 枚ぶんまで）。
 const EDGE_REACH = 3;
-// ピンをタップしたときの吹き出し。ピンを地図の下寄りに動かして、その真上に出す（ピンは隠さない）
+// ピンをタップしたときの吹き出し。地図は動かさず、ピンの上に出す（上に入りきらないときは下に出す。ピンは隠さない）
 function mapBubble(L, map, mapEl) {
   const pop = h('div', { class: 'mpop-bubble', hidden: true, role: 'dialog' });
   mapEl.append(pop);
@@ -802,16 +802,22 @@ function mapBubble(L, map, mapEl) {
   let cur = null;
   const place = () => {
     if (!cur) return;
-    const { x: w } = map.getSize();
+    const { x: w, y: hgt } = map.getSize();
     const p = map.latLngToContainerPoint([cur.lat, cur.lng]);
-    const bw = pop.offsetWidth;
+    const bw = pop.offsetWidth, bh = pop.offsetHeight;
     const left = Math.min(Math.max(p.x - bw / 2, 10), w - bw - 10);
+    const head = p.y - (cur.photo ? 64 : 18);   // ピンの頭の少し上
+    const foot = p.y + (cur.photo ? 6 : 14);    // ピンの少し下
+    const room = head - 14 - 8, roomBelow = hgt - foot - 14 - 8;
+    const below = bh > room && roomBelow > room;
+    pop.classList.toggle('below', below);
     pop.style.left = `${left}px`;
-    pop.style.top = `${p.y - (cur.photo ? 64 : 18)}px`;   // ピンの頭の少し上
+    pop.style.top = `${below ? foot : head}px`;
     pop.style.setProperty('--tail', `${Math.min(Math.max(p.x - left, 22), bw - 22)}px`);
   };
   const hide = () => { cur = null; pop.hidden = true; };
-  const show = (e) => {
+  // bring：画面の外のピン（端の点）のときだけ、見えるところまで最小限動かす
+  const show = (e, bring = false) => {
     if (cur?.id === e.id) { hide(); return; }
     cur = e;
     const wish = e.section === 'wish';
@@ -828,10 +834,7 @@ function mapBubble(L, map, mapEl) {
             : h('p', { class: 'none' }, wish ? tr('行きたい理由はまだ書いてありません', 'No reason written yet') : tr('ひとことはまだありません', 'No note yet')))),
       h('button', { type: 'button', class: 'mpop-more', onclick: () => openDetail(e.id) }, 'DETAILS →'));
     pop.hidden = false;
-    // ピンが地図の下から 26% あたりに来るように動かす（吹き出しが上に収まる）
-    const { y: hgt } = map.getSize();
-    const target = map.unproject(map.project([e.lat, e.lng], map.getZoom()).subtract([0, hgt * 0.24]), map.getZoom());
-    map.panTo(target, { animate: !reduceMotion(), duration: 0.5 });
+    if (bring) map.panInside([e.lat, e.lng], { padding: [48, 48], animate: !reduceMotion() });
     place();
     pop.classList.remove('pop-in'); void pop.offsetWidth; pop.classList.add('pop-in');
   };
@@ -891,7 +894,7 @@ function mapPage() {
     else if (pts.length) map.fitBounds(pts.map((e) => [e.lat, e.lng]), { padding: [40, 40], maxZoom: 14 });
     else map.setView([36.2, 138.2], 5);
     map.on('moveend', () => { mapView = { c: map.getCenter(), z: map.getZoom() }; });
-    edgeDots(L, map, mapEl, pts, bubble.show);
+    edgeDots(L, map, mapEl, pts, (e) => bubble.show(e, true));
     // 日本全体が見えるくらい引いたときは、名前が重なるので出さない
     const labels = () => mapEl.classList.toggle('labels-off', map.getZoom() < 7);
     map.on('zoomend', labels); labels();
