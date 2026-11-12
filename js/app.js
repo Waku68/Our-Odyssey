@@ -105,11 +105,12 @@ const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matche
 
 /* ---------- タブと画面の切りかえ ---------- */
 const TABS = [
-  { href: '#/', en: 'Days', jp: 'ホーム' },
-  { href: '#/map', en: 'Places', jp: '場所' },
-  { href: '#/mood', en: 'Mood', jp: 'きもち' },
-  { href: '#/more', en: 'More', jp: 'その他' },
+  { href: '#/', en: 'Days', jp: 'ホーム', icon: '<path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
+  { href: '#/map', en: 'Places', jp: '場所', icon: '<path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9.8" r="2.4" fill="currentColor"/>' },
+  { href: '#/mood', en: 'Mood', jp: 'きもち', icon: '<path d="M2.5 15c2.5 0 2.5-7 5-7s2.5 9 5 9 2.5-11 5-11 2.5 7 4 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  { href: '#/more', en: 'More', jp: 'その他', icon: '<circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/>' },
 ];
+const tabIcon = (paths) => { const i = h('span', { class: 'ticon', 'aria-hidden': 'true' }); i.innerHTML = `<svg viewBox="0 0 24 24">${paths}</svg>`; return i; };
 // 前の画面の場所から、新しい場所へ転送する
 const LEGACY = {
   '#/s/place': '#/map', '#/s/wish': '#/map', '#/timeline': '#/',
@@ -139,7 +140,7 @@ window.addEventListener('hashchange', () => { if (store?.user()) { draw(); windo
 const tabBar = (active) => h('nav', { class: 'tabbar', 'aria-label': 'タブ' }, TABS.map((t, i) =>
   h('a', { href: t.href, class: i === active ? 'on' : '', 'aria-current': i === active ? 'page' : null,
     onclick: (ev) => { if (i === active && shown?.depth === 0) { ev.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); } } },
-  h('span', { class: 'en' }, t.en), h('span', { class: 'jp' }, t.jp))));
+  tabIcon(t.icon), h('span', { class: 'en' }, t.en))));
 
 const pageNav = (back) => h('div', { class: 'nav' },
   back ? h('a', { class: 'link', href: '#/more' }, '← その他') : h('span'),
