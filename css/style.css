@@ -491,3 +491,6 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
    写真のカードはページの最後（タブの裏）まで伸ばして、下にピンクの背景が見えないように */
 #place-add, #mood-add { min-height: 0; }
 #place-add .mcard, #mood-add .mcard { padding-bottom: calc(78px + env(safe-area-inset-bottom)); margin-bottom: calc(-110px - env(safe-area-inset-bottom)); }
+/* PLACESの地図は左右の余白なしで画面いっぱいに（見るだけの帯も同じ幅に） */
+.places-top > .map.big-map, .places-top > .places-shield { justify-self: start; width: calc(100% + 48px); margin-left: -24px; margin-right: 0; }
+.places-top > .map.big-map { border-radius: 0; }
