@@ -7,16 +7,16 @@
 <clipPath id="strips-w-over"><rect x="140" y="0" width="60" height="400"/><rect x="260" y="0" width="60" height="400"/></clipPath>
 <mask id="under-w" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="400">
 <rect width="400" height="400" fill="#fff"/>
-<g clip-path="url(#strips-m-over)"><use href="#m" fill="none" stroke="#000" stroke-width="36" stroke-linecap="round"/></g>
+<g clip-path="url(#strips-m-over)"><use href="#m" fill="none" stroke="#000" stroke-width="54" stroke-linecap="round"/></g>
 </mask>
 <mask id="under-m" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="400">
 <rect width="400" height="400" fill="#fff"/>
-<g clip-path="url(#strips-w-over)"><use href="#w" fill="none" stroke="#000" stroke-width="36" stroke-linecap="round"/></g>
+<g clip-path="url(#strips-w-over)"><use href="#w" fill="none" stroke="#000" stroke-width="54" stroke-linecap="round"/></g>
 </mask>
 </defs>
 <rect width="400" height="400" fill="#DCE3EC"/>
-<g transform="translate(-30,-30) scale(1.15)" fill="none" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
-<use href="#m" stroke="#D98BA0" mask="url(#under-m)"/>
-<use href="#w" stroke="#24305E" mask="url(#under-w)"/>
+<g transform="translate(-30,-30) scale(1.15)" fill="none" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+<use href="#m" stroke="#E46F8E" mask="url(#under-m)"/>
+<use href="#w" stroke="#1C2B7A" mask="url(#under-w)"/>
 </g>
 </svg>
