@@ -863,7 +863,7 @@ function mapPage() {
     map.on('resize', syncInset);
     const bubble = mapBubble(L, map, mapEl, topInset);
     for (const e of pts) L.marker([e.lat, e.lng], { icon: pinIcon(L, e), title: e.title, keyboard: true }).addTo(map).on('click', () => bubble.show(e));
-    const fit = { paddingTopLeft: [40, topInset() + 40], paddingBottomRight: [40, 40] };
+    const fit = { paddingTopLeft: [40, topInset() + 40], paddingBottomRight: [40, 40 + 72] };
     if (mapView) map.setView(mapView.c, mapView.z);
     else if (pts.length === 1) map.fitBounds([[pts[0].lat, pts[0].lng], [pts[0].lat, pts[0].lng]], { ...fit, maxZoom: 13 });
     else if (pts.length) map.fitBounds(pts.map((e) => [e.lat, e.lng]), { ...fit, maxZoom: 14 });

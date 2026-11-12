@@ -474,8 +474,13 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 .places-top > .places-shield { grid-row: 1 / 3; grid-column: 1; position: relative; z-index: 2; }
 .places-top > .places-spacer { grid-row: 3; grid-column: 1; height: calc(min(calc(100vw - 48px), 432px) - 40px); margin-top: 12px; }
 .places-top > .map.big-map { grid-row: 1 / 4; grid-column: 1; aspect-ratio: auto; height: auto; margin: 0; z-index: 1; border: none; border-radius: 16px;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px));
-  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px)); }
+  --fade-b: 72px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px),
+    #000 calc(100% - var(--fade-b)), rgba(0, 0, 0, .4) calc(100% - var(--fade-b) * .35), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .4) calc(var(--inset, 200px) * .35), #000 var(--inset, 200px),
+    #000 calc(100% - var(--fade-b)), rgba(0, 0, 0, .4) calc(100% - var(--fade-b) * .35), transparent 100%); }
+/* 下もぼかすので、ズームボタンと地図の出典はぼかしの上に持ち上げる */
+.places-top > .map.big-map .leaflet-bottom { bottom: var(--fade-b); }
 /* 追加フォームの裏に写真を透かす（上に紙色の膜をかけて、文字と入力欄を読みやすく） */
 #place-add .mcard, #mood-add .mcard { background-color: var(--paper); background-size: cover; background-position: center top; background-repeat: no-repeat; }
 #place-add .mcard { background-image: linear-gradient(rgba(251, 241, 239, .58), rgba(251, 241, 239, .72)), url(../assets/form-places.webp); }
