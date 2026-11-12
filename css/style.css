@@ -400,3 +400,11 @@ dialog.modal.editor { max-width: 520px; max-height: min(94vh, 980px); }
 .mpop-txt p.none { opacity: .55; font-size: 12px; }
 .mpop-more { display: block; margin: 6px 0 0 auto; min-height: 32px; padding: 0 2px; border: none; background: none; font-family: var(--en); font-size: 13px; letter-spacing: .08em; }
 @media (prefers-reduced-motion: reduce) { .mpop-bubble.pop-in { animation: none; } }
+/* ピンの横の小さな名前 */
+.pin-box { position: relative; width: 100%; height: 100%; }
+.pin-label { position: absolute; left: calc(100% + 3px); top: 50%; transform: translateY(-50%); max-width: 10em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--jp); font-size: 11px; font-weight: 500; line-height: 1.3; color: var(--navy); pointer-events: none;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff; }
+.pin-box.ph .pin-label { top: 25px; }
+.labels-off .pin-label { display: none; }
+.photo-credit { line-height: 1.5; }

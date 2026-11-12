@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=16';
-import { editPhoto } from './photo-editor.js?v=16';
+import { createStore } from './store.js?v=17';
+import { editPhoto } from './photo-editor.js?v=17';
 
 const app = document.getElementById('app');
 
@@ -295,23 +295,61 @@ const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStree
 const pin = (L, lat, lng, fill = '#16204F') =>
   L.circleMarker([lat, lng], { radius: 9, color: '#16204F', weight: 2, fillColor: fill, fillOpacity: 1 });
 
-function geoField(v) {
+/* ---------- 場所から写真をさがす（Wikipedia の記事の写真） ---------- */
+async function wikiThumb(lc, title) {
+  const u = `https://${lc}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=1400&titles=${encodeURIComponent(title)}`;
+  const pg = Object.values((await (await fetch(u)).json()).query?.pages || {})[0];
+  return pg?.thumbnail?.source ? { url: pg.thumbnail.source, title: pg.title } : null;
+}
+const wikiTag = (tag) => { const i = tag.indexOf(':'); return i > 0 && i < 4 ? [tag.slice(0, i), tag.slice(i + 1)] : ['ja', tag]; };
+async function wikiNear(lat, lng, name) {
+  const u = `https://ja.wikipedia.org/w/api.php?action=query&format=json&origin=*&list=geosearch&gscoord=${lat}|${lng}&gsradius=1000&gslimit=20`;
+  const list = (await (await fetch(u)).json()).query?.geosearch || [];
+  const norm = (x) => x.replace(/[\s　・()（）「」]/g, '').toLowerCase();
+  const n = name ? norm(name) : '';
+  // 書いた名前と記事名が重なるものを優先。なければ、すぐそば（150m以内）の記事
+  const cands = [...(n ? list.filter((g) => { const t = norm(g.title); return t.length > 1 && (n.includes(t) || t.includes(n)); }) : []),
+    ...list.filter((g) => g.dist <= 150)];
+  for (const g of cands) { const t = await wikiThumb('ja', g.title); if (t) return t; }
+  return null;
+}
+async function placePhoto({ lat, lng, wiki, name }) {
+  try {
+    if (!wiki && lat != null) {
+      const r = await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&extratags=1&lat=${lat}&lon=${lng}`)).json();
+      wiki = r?.extratags?.wikipedia;
+    }
+    if (wiki) { const t = await wikiThumb(...wikiTag(wiki)); if (t) return t; }
+    return lat != null ? await wikiNear(lat, lng, name) : null;
+  } catch { return null; }
+}
+async function fitImage(blob) {
+  const bmp = await createImageBitmap(blob);
+  const k = Math.min(1, maxSide() / Math.max(bmp.width, bmp.height));
+  const c = h('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
+}
+
+function geoField(v, onSet = () => {}) {
   const box = h('div', { hidden: true });
   const picked = () => tr('場所をえらんであります', 'Location set');
   const status = h('span', { class: 'muted' }, v.lat != null ? picked() : '');
   let map, marker, L;
-  const put = (lat, lng) => {
+  const put = (lat, lng, wiki) => {
     v.lat = lat; v.lng = lng; status.textContent = picked();
     if (marker) marker.remove();
     marker = pin(L, lat, lng).addTo(map);
+    onSet({ lat, lng, wiki });
   };
   const q = h('input', { type: 'text', placeholder: tr('場所の名前でさがす', 'Search by place name') });
   const search = async () => {
     if (!q.value.trim()) return;
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=${lang}&q=${encodeURIComponent(q.value)}`);
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&extratags=1&accept-language=${lang}&q=${encodeURIComponent(q.value)}`);
     const [hit] = await r.json();
     if (!hit) { status.textContent = tr('見つかりませんでした。地図をタップしてえらべます。', 'Not found. You can tap the map instead.'); return; }
-    map.setView([+hit.lat, +hit.lon], 14); put(+hit.lat, +hit.lon);
+    map.setView([+hit.lat, +hit.lon], 14); put(+hit.lat, +hit.lon, hit.extratags?.wikipedia);
   };
   q.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); search(); } });
   const mapEl = h('div', { class: 'map pick' });
@@ -326,7 +364,7 @@ function geoField(v) {
     map.on('click', (ev) => put(ev.latlng.lat, ev.latlng.lng));
     setTimeout(() => map.invalidateSize(), 60);
   };
-  const clear = () => { v.lat = null; v.lng = null; status.textContent = ''; if (marker) marker.remove(); };
+  const clear = () => { v.lat = null; v.lng = null; status.textContent = ''; if (marker) marker.remove(); onSet(null); };
   return h('div', {},
     h('div', { class: 'row' },
       h('button', { type: 'button', class: 'btn ghost small', onclick: open }, 'PICK ON MAP'),
@@ -417,13 +455,14 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
   let newPhoto = null;
   let draft = null; // 保存前の写真は、元の写真と編集の内容を持っておく（何度でもやり直せる）
   let dirty = false;
+  let onGeo = () => {};   // 地図の場所が決まったとき（写真の欄が自動で写真を入れるのに使う）
   const touch = () => { dirty = true; };
   const err = h('p', { class: 'err', role: 'alert' });
   const field = (f, inner, tag = 'div') => h(tag, { class: 'field' },
     f.label && h('span', { class: 'flabel' }, f.label, f.required && !f.readonly && h('span', { class: 'req' }, tr('必須', 'required'))),
     inner, f.hint && h('span', { class: 'hint' }, f.hint));
   const control = (f) => {
-    if (f.type === 'geo') return field(f, geoField(v));
+    if (f.type === 'geo') return field(f, geoField(v, (info) => onGeo(info)));
     if (f.type === 'date') {
       return field(f, dayStrip({ value: v[f.name], allowNone: !f.required, onChange: (d) => { v[f.name] = d; touch(); } }));
     }
@@ -434,10 +473,35 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
         newPhoto = blob; draft = d;
         img.src = URL.createObjectURL(blob); img.hidden = false; txt.hidden = true; rm.hidden = false; ed.hidden = false; drop.classList.remove('is-empty'); touch();
       };
+      const clearPhoto = () => {
+        newPhoto = null; draft = null; v.photo = null; img.hidden = true; img.removeAttribute('src'); txt.hidden = false; rm.hidden = true; ed.hidden = true; drop.classList.add('is-empty');
+      };
+      // 自分で写真をえらんだら、自動の写真には二度と置きかえない
+      let mine = !!v.photo, auto = false, seq = 0;
+      const credit = h('span', { class: 'hint photo-credit', hidden: true });
+      onGeo = async (info) => {
+        if (mine) return;
+        const my = ++seq;
+        if (!info) { if (auto) { clearPhoto(); auto = false; } credit.hidden = true; return; }
+        credit.hidden = false; credit.textContent = tr('この場所の写真をさがしています…', 'Looking for a photo of this place…');
+        const t = await placePhoto({ ...info, name: v.title });
+        if (my !== seq || mine) return;
+        let blob = null;
+        if (t) { try { blob = await fitImage(await (await fetch(t.url)).blob()); } catch { blob = null; } }
+        if (my !== seq || mine) return;
+        if (!blob) {
+          if (auto) { clearPhoto(); auto = false; }
+          credit.textContent = tr('この場所の写真は見つかりませんでした', 'No photo found for this place');
+          return;
+        }
+        show(blob, { file: blob }); auto = true;
+        credit.textContent = tr(`Wikipedia「${t.title}」の写真を仮に入れました。ちがったら外すか、えらび直してください`,
+          `Added a photo from Wikipedia "${t.title}". Remove or replace it if it's not right.`);
+      };
       const choose = async () => {
         const file = await pickFile(); if (!file) return;
         const out = await editPhoto(file, { maxSide: maxSide(), lang, withState: true });
-        if (out) show(out.blob, { file, state: out.state });
+        if (out) { show(out.blob, { file, state: out.state }); mine = true; auto = false; seq++; credit.hidden = true; }
       };
       // 今の写真をもう一度ひらいて直す
       const reedit = async () => {
@@ -447,14 +511,14 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
         }
         if (!src) return;
         const out = await editPhoto(src, { maxSide: maxSide(), lang, withState: true, state });
-        if (out) show(out.blob, { file: src, state: out.state });
+        if (out) { show(out.blob, { file: src, state: out.state }); mine = true; auto = false; credit.hidden = true; }
       };
       const rm = h('button', { type: 'button', class: 'link', hidden: !v.photo, onclick: () => {
-        newPhoto = null; draft = null; v.photo = null; img.hidden = true; img.removeAttribute('src'); txt.hidden = false; rm.hidden = true; ed.hidden = true; drop.classList.add('is-empty'); touch();
+        clearPhoto(); touch(); mine = false; auto = false; seq++; credit.hidden = true;
       } }, 'REMOVE PHOTO');
       const ed = h('button', { type: 'button', class: 'btn ghost small', hidden: !v.photo, onclick: reedit }, 'EDIT PHOTO');
       const drop = h('button', { type: 'button', class: v.photo ? 'drop' : 'drop is-empty', onclick: choose }, img, txt);
-      return field(f, h('div', { class: 'photo-field' }, drop, h('div', { class: 'row' }, ed, rm)));
+      return field(f, h('div', { class: 'photo-field' }, drop, credit, h('div', { class: 'row' }, ed, rm)));
     }
     if (f.type === 'level') {
       const btns = levels().map((label, i) => h('button', { type: 'button', class: v.level === i + 1 ? 'on' : '',
@@ -657,9 +721,10 @@ function pinIcon(L, e) {
     el.append(img);
     store.photoUrl(e.photo).then((u) => { img.src = u; }).catch(() => {});
   }
+  const box = h('div', { class: `pin-box${e.photo ? ' ph' : ''}` }, el, h('span', { class: 'pin-label' }, e.title));
   return e.photo
-    ? L.divIcon({ html: el, className: 'pin-wrap', iconSize: [50, 58], iconAnchor: [25, 58] })
-    : L.divIcon({ html: el, className: 'pin-wrap', iconSize: [24, 24], iconAnchor: [12, 12] });
+    ? L.divIcon({ html: box, className: 'pin-wrap', iconSize: [50, 58], iconAnchor: [25, 58] })
+    : L.divIcon({ html: box, className: 'pin-wrap', iconSize: [24, 24], iconAnchor: [12, 12] });
 }
 // 画面の外にあるピンを、地図の端に「その方向に何かある」点として出す。
 // 遠すぎるものは出さない（画面の中心から、縦横それぞれ画面 EDGE_REACH 枚ぶんまで）。
@@ -763,6 +828,9 @@ function mapPage() {
     else map.setView([36.2, 138.2], 5);
     map.on('moveend', () => { mapView = { c: map.getCenter(), z: map.getZoom() }; });
     edgeDots(L, map, mapEl, pts, bubble.show);
+    // 日本全体が見えるくらい引いたときは、名前が重なるので出さない
+    const labels = () => mapEl.classList.toggle('labels-off', map.getZoom() < 7);
+    map.on('zoomend', labels); labels();
     setTimeout(() => map.invalidateSize(), 380);
   }).catch(() => { mapEl.textContent = tr('地図を読みこめませんでした。', "Couldn't load the map."); });
 
