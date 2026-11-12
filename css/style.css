@@ -113,6 +113,30 @@ img { max-width: 100%; display: block; }
 .prow b { font-weight: 800; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prow small { font-size: 11px; font-weight: 800; opacity: .7; white-space: nowrap; }
 .pthumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: 0 0 40px; }
+/* MORE のコルクボード（Likes・Gifts・Dislikes） */
+.cork-board { position: relative; margin: 2px 0 4px; border: 14px solid transparent; border-image: url(../assets/cork-frame.webp) 64 stretch; border-radius: 3px;
+  background: #3B2414; box-shadow: 0 8px 16px rgba(22, 32, 79, .25), 0 2px 3px rgba(40, 20, 5, .35); }
+.cork { position: relative; padding: 20px 12px 18px; background: url(../assets/cork.webp) 0 0 / 300px 300px;
+  box-shadow: inset 0 2px 6px rgba(40, 20, 5, .55), inset 0 0 0 1px rgba(40, 20, 5, .35); }
+.cork::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 30% 20%, rgba(255, 240, 215, .16), transparent 55%), radial-gradient(140% 120% at 50% 50%, transparent 60%, rgba(40, 20, 5, .25)); }
+.cork-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; align-items: start; }
+.pol { --s: 1; --r: 0deg; --x: 0px; --y: 0px; --z: 1; position: relative; z-index: 1; display: block; width: 100%; border: none; margin: 0; text-align: left; color: var(--navy);
+  padding: 5px 5px 8px; background-color: #FBF9F4; background-image: linear-gradient(160deg, rgba(255, 255, 255, .6), transparent 40%, rgba(0, 0, 0, .05) 85%);
+  transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(var(--s)); transition: transform .2s;
+  box-shadow: calc(var(--z) * 1px) calc(var(--z) * 2px) calc(var(--z) * 2.5px) rgba(35, 18, 4, calc(.18 + var(--z) * .07)), 0 0 1px rgba(0, 0, 0, .25); }
+.pol::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(135deg, transparent 72%, rgba(0, 0, 0, .06) 88%, rgba(255, 255, 255, .4) 100%); }
+.pol:active { transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(calc(var(--s) * .96)); }
+.pol .pim { display: block; width: 86%; margin: 3px auto 0; aspect-ratio: 1; position: relative; background: #e8ddd6; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
+.pol .pim img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pol .pim::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .25); }
+.pol b { display: block; font-size: 10.5px; line-height: 1.3; margin-top: 5px; font-weight: 800; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.pol small { display: block; font-size: 8.5px; font-weight: 800; opacity: .6; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pol.memo { background-color: #FBF3EC; padding: 14px 7px 9px;
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, .5), transparent 45%), repeating-linear-gradient(transparent 0 15px, rgba(22, 32, 79, .13) 15px 16px);
+  background-position: 0 0, 0 12px; }
+.pol.memo b { margin-top: 0; font-size: 11px; line-height: 16px; }
+.pol .tack { position: absolute; top: -9px; left: 50%; width: 17px; height: auto; margin-left: -7px; z-index: 2; pointer-events: none; filter: drop-shadow(3px 4px 2.5px rgba(30, 12, 2, .5)); }
 
 /* 地図のタブ */
 .map.big-map { height: auto; aspect-ratio: 1 / 1; border-radius: 16px; overflow: hidden; margin-top: 12px; }
