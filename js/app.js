@@ -1320,7 +1320,7 @@ function moodChart(list, onEdit) {
   const avg = recent.length ? recent.reduce((a, m) => a + m.level, 0) / recent.length : null;
   const stat = (k, v, sub, jp) => h('div', { class: 'mstat' }, h('span', { class: 'k' }, k), h('span', { class: jp ? 'v jp' : 'v' }, v), h('small', {}, sub));
   const stats = h('div', { class: 'mstats' },
-    stat(tr('記録した日', 'Days logged'), String(list.length), tr('日ぶん', 'days')),
+    stat(tr('記録した日', 'Days logged'), String(new Set(list.map((m) => m.date)).size), tr('日ぶん', 'days')),
     stat(tr('いちばん最近', 'Latest'), last ? levelShort()[last.level - 1] : '—', last ? (parse(last.date).y === parse(t).y ? dots(last.date).slice(5) : dots(last.date)) : tr('まだなし', 'none yet'), true),
     stat(tr('この30日をならすと', '30-day average'), avg ? avg.toFixed(1) : '—', avg ? tr(`5段階で・${levelShort()[Math.round(avg) - 1]}寄り`, `of 5 · mostly ${levelShort()[Math.round(avg) - 1].toLowerCase()}`) : tr('記録なし', 'no entries')));
 
@@ -1338,8 +1338,14 @@ function moodChart(list, onEdit) {
 
 function moodPage() {
   const t = today();
-  const mine = data.moods.filter((m) => m.user_id === me()).sort((a, b) => (a.date < b.date ? -1 : 1));
+  // 同じ日に何件かあっても（保存を2回押したときなど）、いちばん新しい1件だけを使う
+  const own = data.moods.filter((m) => m.user_id === me());
+  const latest = new Map();
+  for (const m of own) { const p = latest.get(m.date); if (!p || (m.created_at || '') >= (p.created_at || '')) latest.set(m.date, m); }
+  const mine = [...latest.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
   const byDay = new Map(mine.map((m) => [m.date, m]));
+  // その日のほかの（かくれている）記録
+  const extras = (d, keep) => own.filter((m) => m.date === d && m.id !== keep).map((m) => m.id);
   if (!moodSel || moodSel > t) moodSel = t;
 
   const v = {};
@@ -1349,7 +1355,7 @@ function moodPage() {
   const paint = () => levelBtns.forEach((b, i) => { b.classList.toggle('on', v.level === i + 1); b.setAttribute('aria-pressed', String(v.level === i + 1)); });
   const note = h('textarea', { placeholder: tr('なにがあった？（なくてもいい）', 'What happened? (optional)'), oninput: (ev) => { v.note = ev.target.value; } });
   const saveBtn = h('button', { class: 'btn', type: 'submit' });
-  const del = h('button', { type: 'button', class: 'link', onclick: async () => { if (await ask(tr('この日の記録を消しますか？', 'Delete the entry for this day?'), { ok: 'DELETE', danger: true })) act(() => store.removeMood(v.id)); } }, 'DELETE THIS DAY');
+  const del = h('button', { type: 'button', class: 'link', onclick: async () => { if (await ask(tr('この日の記録を消しますか？', 'Delete the entry for this day?'), { ok: 'DELETE', danger: true })) act(async () => { for (const id of [v.id, ...extras(moodSel, v.id)]) await store.removeMood(id); }); } }, 'DELETE THIS DAY');
   const loadDay = (d) => {
     const m = byDay.get(d);
     v.id = m?.id; v.level = m?.level; v.note = m?.note || '';
@@ -1361,8 +1367,13 @@ function moodPage() {
   const form = h('form', { class: 'madd', id: 'mood-add', onsubmit: (ev) => {
     ev.preventDefault();
     if (!v.level) { err.textContent = tr('気分をえらんでください。', 'Please choose a mood.'); return; }
-    const row = { date: moodSel, level: v.level, note: v.note || '', shared: false };
-    act(() => store.saveMood(v.id ? { id: v.id, ...row } : row));
+    if (saveBtn.disabled) return;
+    saveBtn.disabled = true;
+    const d = moodSel, row = { date: d, level: v.level, note: v.note || '', shared: false };
+    act(async () => {
+      await store.saveMood(v.id ? { id: v.id, ...row } : row);
+      if (v.id) for (const id of extras(d, v.id)) await store.removeMood(id);
+    }).finally(() => { saveBtn.disabled = false; });
   } });
   const strip = dayStrip({ value: moodSel, max: t, marks: new Set(byDay.keys()), onChange: (d) => { moodSel = d; loadDay(d); } });
   const editFromChart = (d) => {
