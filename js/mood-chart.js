@@ -129,8 +129,8 @@ function moodChart(list, onEdit) {
       s += `<g class="pt${on ? ' on' : ''}" data-date="${m.date}" role="button" tabindex="0" aria-label="${dots(m.date)} ${levelShort()[m.level - 1]}${m.note ? tr('（メモあり）', ' (with note)') : ''}">`
         + `<line x1="${cx}" x2="${cx}" y1="${BASE}" y2="${BASE + 9}" stroke="${TH.navy}" stroke-width="2"/>`
         + `<circle cx="${cx}" cy="${cy}" r="20" fill="transparent"/>`
-        + `<circle cx="${cx}" cy="${cy}" r="${on ? 9 : 7}" fill="${on ? '${TH.navy}' : '${TH.paper}'}" stroke="${TH.navy}" stroke-width="2.5"/>`
-        + (m.note ? `<circle cx="${cx}" cy="${cy}" r="2.4" fill="${on ? '${TH.pink}' : '${TH.navy}'}"/>` : '')
+        + `<circle cx="${cx}" cy="${cy}" r="${on ? 9 : 7}" fill="${on ? TH.navy : TH.paper}" stroke="${TH.navy}" stroke-width="2.5"/>`
+        + (m.note ? `<circle cx="${cx}" cy="${cy}" r="2.4" fill="${on ? TH.pink : TH.navy}"/>` : '')
         + '</g>';
     }
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H);
