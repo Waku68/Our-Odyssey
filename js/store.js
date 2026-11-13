@@ -54,6 +54,8 @@ function demoStore() {
       save();
     },
     async removeMood(id) { db.moods = db.moods.filter(x => x.id !== id); save(); },
+    // バックアップから戻す：もとの id と日時のまま入れる
+    async restore(table, row) { if (!db[table].some(x => x.id === row.id)) db[table].push(row); save(); },
     async comments() { return db.comments; },
     async addComment(entry_id, body) {
       db.comments.push({ id: uuid(), entry_id, body, author: db.me, created_at: nowIso() }); save();
@@ -351,6 +353,8 @@ async function supaStore() {
       await write({ kind: 'insert', table: 'comments', id: row.id, row });
     },
     async removeComment(id) { await write({ kind: 'delete', table: 'comments', id }); },
+    // バックアップから戻す：もとの id と日時のまま入れる（すでにあれば何もしない）
+    async restore(table, row) { await write({ kind: 'insert', table, id: row.id, row }); },
     // 写真はまず端末にあずけて、つながったら送る
     async uploadPhoto(blob) {
       const path = `${uid()}/${uuid()}.jpg`;
