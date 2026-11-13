@@ -1,0 +1,515 @@
+<!-- hash=#/more/gift htmlclass=locked htmlstyle=--pink: #C4F2DB; --pink-d: #9AE7C0; --navy: #16204F; --paper: #EFFBFA; --accent: #4DF796; --navy-rgb: 22 32 79; --paper-rgb: 239 251 250; lang=ja -->
+
+<div id="app">
+<main class="view in-r">
+<div>
+<div class="nav">
+<a class="link" href="#/more">← MORE</a>
+<span class="word">Our Odyssey</span>
+<span class="nav-spacer">
+</span>
+</div>
+<div class="head">
+<h1>Gifts</h1>
+<button class="btn">+ ADD</button>
+</div>
+<div class="cards">
+<article class="card">
+<h2>腕時計</h2>
+<div class="meta">2025.01.28 ・ みくから</div>
+<p>2周年</p>
+<div class="row">
+<button class="btn ghost small">ADD PHOTO</button>
+<button class="link">EDIT</button>
+<button class="link">DELETE</button>
+</div>
+<details class="talk">
+<summary>COMMENTS (0)</summary>
+<form>
+<input type="text" placeholder="ひとこと書く" aria-label="ひとこと">
+<button class="btn small" type="submit">SEND</button>
+</form>
+</details>
+</article>
+<article class="card">
+<img class="photo" alt="" loading="lazy" decoding="async" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVQIW2P8z8Dwn4GBgYGJAQoAHxcCAr7cHFIAAAAASUVORK5CYII=">
+<h2>手編みのマフラー</h2>
+<div class="meta">2024.12.24 ・ わっくんから</div>
+<div class="row">
+</div>
+<details class="talk">
+<summary>COMMENTS (0)</summary>
+<form>
+<input type="text" placeholder="ひとこと書く" aria-label="ひとこと">
+<button class="btn small" type="submit">SEND</button>
+</form>
+</details>
+</article>
+</div>
+</div>
+</main>
+<nav class="tabbar" aria-label="Tabs">
+<a href="#/" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+</path>
+</svg>
+</span>
+<span class="en">Days</span>
+</a>
+<a href="#/map" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+</path>
+<circle cx="12" cy="9.8" r="2.4" fill="currentColor">
+</circle>
+</svg>
+</span>
+<span class="en">Places</span>
+</a>
+<a href="#/mood" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M2.5 15c2.5 0 2.5-7 5-7s2.5 9 5 9 2.5-11 5-11 2.5 7 4 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+</path>
+</svg>
+</span>
+<span class="en">Mood</span>
+</a>
+<a href="#/more" class="on" aria-current="page">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<circle cx="5" cy="12" r="2" fill="currentColor">
+</circle>
+<circle cx="12" cy="12" r="2" fill="currentColor">
+</circle>
+<circle cx="19" cy="12" r="2" fill="currentColor">
+</circle>
+</svg>
+</span>
+<span class="en">More</span>
+</a>
+</nav>
+</div>
+<script type="module" src="js/app.js?v=37">
+</script>
+
+
+<dialog class="modal" aria-label="Add" open="">
+<form class="sheet" novalidate="">
+<div class="mhead">
+<div>
+<div class="tag">Gifts</div>
+<h2>Add</h2>
+<p class="lead">贈ったもの・もらったもの</p>
+</div>
+<button type="button" class="x" aria-label="Close">×</button>
+</div>
+<div class="mbody">
+<label class="field">
+<span class="flabel">贈ったもの<span class="req">必須</span>
+</span>
+<input type="text" required="" placeholder="例：手編みのマフラー">
+</label>
+<div class="field">
+<span class="flabel">贈った日</span>
+<div class="daypick">
+<div class="month">
+<button type="button" class="mnav" aria-label="前の月">‹</button>
+<span class="pill">
+<span class="pill-text">Nov  2026</span>
+<input type="date" class="month-native" aria-label="カレンダーから日付をえらぶ">
+</span>
+<button type="button" class="mnav" aria-label="次の月">›</button>
+</div>
+<div class="strip">
+<button type="button" class="day" aria-pressed="false" aria-label="11月1日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sun</span>
+<span class="dn">01</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月2日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Mon</span>
+<span class="dn">02</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月3日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Tue</span>
+<span class="dn">03</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月4日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Wed</span>
+<span class="dn">04</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月5日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Thu</span>
+<span class="dn">05</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月6日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Fri</span>
+<span class="dn">06</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月7日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sat</span>
+<span class="dn">07</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月8日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sun</span>
+<span class="dn">08</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月9日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Mon</span>
+<span class="dn">09</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月10日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Tue</span>
+<span class="dn">10</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月11日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Wed</span>
+<span class="dn">11</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月12日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Thu</span>
+<span class="dn">12</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月13日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Fri</span>
+<span class="dn">13</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月14日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sat</span>
+<span class="dn">14</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月15日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sun</span>
+<span class="dn">15</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月16日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Mon</span>
+<span class="dn">16</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月17日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Tue</span>
+<span class="dn">17</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月18日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Wed</span>
+<span class="dn">18</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月19日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Thu</span>
+<span class="dn">19</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月20日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Fri</span>
+<span class="dn">20</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月21日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sat</span>
+<span class="dn">21</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月22日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sun</span>
+<span class="dn">22</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月23日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Mon</span>
+<span class="dn">23</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月24日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Tue</span>
+<span class="dn">24</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月25日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Wed</span>
+<span class="dn">25</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月26日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Thu</span>
+<span class="dn">26</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月27日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Fri</span>
+<span class="dn">27</span>
+</button>
+<button type="button" class="day today" aria-pressed="false" aria-label="11月28日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sat</span>
+<span class="dn">28</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月29日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Sun</span>
+<span class="dn">29</span>
+</button>
+<button type="button" class="day" aria-pressed="false" aria-label="11月30日">
+<i class="bm">
+<svg viewBox="0 0 10 13" aria-hidden="true">
+<path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor">
+</path>
+</svg>
+</i>
+<span class="wd">Mon</span>
+<span class="dn">30</span>
+</button>
+</div>
+<div class="row daypick-foot">
+<button type="button" class="chip">TODAY</button>
+<button type="button" class="chip on">NO DATE</button>
+<span class="muted">月の部分をタップするとカレンダー</span>
+</div>
+</div>
+</div>
+<label class="field">
+<span class="flabel">ひとこと</span>
+<textarea placeholder="そのときのこと、思ったことを自由に">
+</textarea>
+</label>
+<div class="field">
+<span class="flabel">写真</span>
+<div class="photo-field">
+<button type="button" class="drop is-empty">
+<img class="drop-img" alt="" hidden="">
+<span class="drop-txt">+ ADD PHOTO<small>タップして端末の写真から</small>
+</span>
+</button>
+<span class="hint photo-credit" hidden="">
+</span>
+<div class="cands" hidden="">
+</div>
+<div class="row">
+<button type="button" class="btn ghost small" hidden="">EDIT PHOTO</button>
+<button type="button" class="link" hidden="">REMOVE PHOTO</button>
+</div>
+</div>
+</div>
+</div>
+<div class="mfoot">
+<p class="err" role="alert">
+</p>
+<div class="row">
+<button class="btn" type="submit">SAVE</button>
+<button class="btn ghost" type="button">CANCEL</button>
+</div>
+</div>
+</form>
+</dialog>
+<dialog class="modal editor" aria-label="Edit photo" open="">
+<div class="sheet ed-sheet">
+<div class="ed-head">
+<button type="button" class="link">CANCEL</button>
+<span class="ed-title">Edit</span>
+<button type="button" class="btn small">DONE</button>
+</div>
+<div class="ed-stage">
+<canvas class="ed-canvas" aria-label="編集中の写真" width="221" height="371" style="width: 221.166px; height: 371.36px;">
+</canvas>
+</div>
+<div class="ed-tabs" role="tablist">
+<button type="button" role="tab" class="ed-tab on" aria-selected="true">CROP</button>
+<button type="button" role="tab" class="ed-tab" aria-selected="false">FILTER</button>
+<button type="button" role="tab" class="ed-tab" aria-selected="false">DECO</button>
+</div>
+<div class="ed-panel">
+<div class="ed-sec">
+<div class="chips">
+<button type="button" class="chip on" aria-pressed="true">ORIGINAL</button>
+<button type="button" class="chip" aria-pressed="false">1:1</button>
+<button type="button" class="chip" aria-pressed="false">4:5</button>
+<button type="button" class="chip" aria-pressed="false">3:4</button>
+<button type="button" class="chip" aria-pressed="false">4:3</button>
+<button type="button" class="chip" aria-pressed="false">16:9</button>
+</div>
+<div class="row">
+<button type="button" class="btn ghost small">⟲ ROTATE</button>
+<button type="button" class="btn ghost small">ROTATE ⟳</button>
+<button type="button" class="link">RESET</button>
+</div>
+<label class="ed-slider">
+<span class="ed-lab">ZOOM</span>
+<input type="range" min="1" max="5" step="0.01" aria-label="ZOOM">
+<span class="ed-val">1.0×</span>
+</label>
+<label class="ed-slider">
+<span class="ed-lab">TILT</span>
+<input type="range" min="-20" max="20" step="0.5" aria-label="TILT">
+<span class="ed-val">0°</span>
+</label>
+<p class="muted ed-hint">写真をドラッグで位置合わせ、2本指で拡大</p>
+</div>
+</div>
+</div>
+</dialog>

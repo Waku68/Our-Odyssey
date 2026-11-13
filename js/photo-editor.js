@@ -1,7 +1,8 @@
 // 写真の編集画面。えらんだ写真を、切り取り・回転・色味・飾り（スタンプ、文字、日付、ふち）してから使う。
 // editPhoto(file) → JPEG の Blob（やめたら null）。withState のときは { blob, state } を返し、state を渡すと続きから直せる。
 
-import { ask, notice } from './ask.js?v=37';
+import { h as el } from './dom.js?v=38';
+import { ask, notice } from './ask.js?v=38';
 
 const NAVY = '#16204F', PINK = '#F2C4CE', PINK_D = '#E79AAB', PAPER = '#FBF1EF';
 const COLORS = [NAVY, PINK_D, PINK, '#FFFFFF'];
@@ -28,19 +29,6 @@ const P_STAR = (() => {
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const uid = () => Math.random().toString(36).slice(2, 9);
 const pad2 = (n) => String(n).padStart(2, '0');
-
-function el(tag, attrs = {}, ...kids) {
-  const e = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v == null || v === false) continue;
-    if (k === 'class') e.className = v;
-    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
-    else if (k === 'value') e.value = v;
-    else e.setAttribute(k, v === true ? '' : v);
-  }
-  for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : String(k));
-  return e;
-}
 
 /* ---------- 読みこみ ---------- */
 async function loadSource(src) {

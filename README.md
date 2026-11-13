@@ -51,4 +51,28 @@
 
 ## つくり
 
-ビルドなしの静的サイト。`index.html` / `css/style.css` / `js/app.js`（画面）/ `js/store.js`（保存先の切りかえ）/ `sw.js`（通知の受け取り）。
+ビルドなしの静的サイト。`index.html` / `css/style.css` / `js/` / `sw.js`（通知の受け取りと、オフライン用の控え）。
+
+`js/` の中身：
+
+| ファイル | 役割 |
+|---|---|
+| `app.js` | 入口。ページを登録して起動する |
+| `shell.js` | 骨組み：読みこみ、タブと画面の切りかえ、相手の更新の取りこみ、オフラインの送信待ち、ログイン |
+| `pages/` | 画面ごと：`home` `map` `mood` `more` `values` `anniv` `settings` |
+| `entries.js` | 記録（場所・好きなもの・贈りもの など）の欄の決まり、カード、詳細、足す・なおす・消す |
+| `forms.js` | ダイアログと入力フォーム（日付の帯、写真の欄など） |
+| `places.js` `songs.js` `mood-chart.js` `photo-editor.js` | 地図と場所さがし／曲の試聴／気分のグラフ／写真の編集 |
+| `seen.js` | NEW! のしるし |
+| `state.js` `store.js` | 読みこんだデータ／保存先（Supabase か、お試しモード） |
+| `dom.js` `i18n.js` `dates.js` `cats.js` `photos.js` `theme.js` `ask.js` `config.js` | 小さな道具と設定 |
+
+### 更新するとき（`?v=` の数字）
+
+`index.html` と `js/` の中で `.js` `.css` についている `?v=37` は、スマホに新しいファイルを取りに行かせるための番号です。**全部同じ数字にそろえます**（一部だけちがうと、同じファイルが2回読みこまれて中身が食いちがいます）。何か変えたら、まとめて1つ上げます。
+
+```sh
+grep -rl '?v=' index.html js | xargs sed -i -E 's/\.(js|css)\?v=[0-9]+/.\1?v=39/g'
+```
+
+`js/` にファイルを足したときは、`index.html` の `modulepreload` の並びにも足します。

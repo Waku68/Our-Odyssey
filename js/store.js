@@ -1,9 +1,8 @@
 // データ層。Supabase が設定されていればそちら、なければこの端末だけに保存するお試しモード。
-import { CONFIG } from './config.js';
+import { CONFIG } from './config.js?v=38';
+import { tr } from './i18n.js?v=38';
 
 const uuid = () => crypto.randomUUID();
-// 設定で「ALL ENGLISH」にしているときは英語のメッセージにする
-const tr = (ja, en) => { try { return localStorage.getItem('our-odyssey-lang') === 'en' ? en : ja; } catch { return ja; } };
 const nowIso = () => new Date().toISOString();
 
 export async function createStore() {

@@ -1,0 +1,136 @@
+<!-- hash=#/more/settings htmlclass= htmlstyle=--pink: #F2C4CE; --pink-d: #E79AAB; --navy: #16204F; --paper: #FBF1EF; --accent: #F74D7E; --navy-rgb: 22 32 79; --paper-rgb: 251 241 239; lang=en -->
+
+<div id="app">
+<main class="view">
+<div>
+<div class="nav">
+<a class="link" href="#/more">← MORE</a>
+<span class="word">Our Odyssey</span>
+<span class="nav-spacer">
+</span>
+</div>
+<div class="head">
+<h1>Settings</h1>
+</div>
+<div class="cards">
+<section class="card">
+<h2>Name</h2>
+<div class="row" style="flex-wrap: nowrap">
+<input type="text">
+<button class="btn">SAVE</button>
+</div>
+</section>
+<section class="card">
+<h2>Language</h2>
+<div class="chips">
+<button type="button" class="chip" aria-pressed="false">JP + EN</button>
+<button type="button" class="chip on" aria-pressed="true">ALL ENGLISH</button>
+</div>
+<p class="muted">ALL ENGLISH shows every screen in English; JP + EN shows Japanese text with English buttons. Applies to this device only.</p>
+</section>
+<section class="card">
+<h2>Color theme</h2>
+<div class="chips theme-chips">
+<button type="button" class="chip on" aria-pressed="true">
+<span class="sw" style="background:#F2C4CE;box-shadow:inset 0 0 0 6px #FBF1EF, 0 0 0 1.5px #16204F">
+</span>ORIGINAL</button>
+<button type="button" class="chip" aria-pressed="false">
+<span class="sw" style="background:#F2D2C4;box-shadow:inset 0 0 0 6px #FBF7EF, 0 0 0 1.5px #16204F">
+</span>PEACH</button>
+<button type="button" class="chip" aria-pressed="false">
+<span class="sw" style="background:#F2E9C4;box-shadow:inset 0 0 0 6px #F9FBEF, 0 0 0 1.5px #16204F">
+</span>LEMON</button>
+<button type="button" class="chip" aria-pressed="false">
+<span class="sw" style="background:#C4F2DB;box-shadow:inset 0 0 0 6px #EFFBFA, 0 0 0 1.5px #16204F">
+</span>MINT</button>
+<button type="button" class="chip" aria-pressed="false">
+<span class="sw" style="background:#C4DFF2;box-shadow:inset 0 0 0 6px #EFF1FB, 0 0 0 1.5px #16204F">
+</span>SKY</button>
+<button type="button" class="chip" aria-pressed="false">
+<span class="sw" style="background:#D9C4F2;box-shadow:inset 0 0 0 6px #F9EFFB, 0 0 0 1.5px #16204F">
+</span>LAVENDER</button>
+</div>
+<label class="hue-row">Fine-tune hue<input type="range" min="0" max="359" step="1" class="hue" aria-label="Hue">
+</label>
+<label class="check">
+<input type="checkbox">Shift the navy text color too</label>
+<div class="row">
+<button type="button" class="link">RESET</button>
+</div>
+<p class="muted">Photos, flowers and the cork board keep their colors. Applies to this device only.</p>
+</section>
+<section class="card">
+<h2>Anniversary notifications</h2>
+<label class="check">
+<input type="checkbox" disabled="">Get notifications on this device</label>
+<p class="muted">Notifications work once the live database and notification keys are set up.</p>
+</section>
+<section class="card">
+<h2>Backup</h2>
+<p>Saves everything you wrote and all photos into one file on this device.</p>
+<p class="muted">RESTORE brings back only your own items that are missing, from a saved file. Mood records are saved per person, so each of you should save a backup.</p>
+<div class="row">
+<button class="btn ghost">SAVE BACKUP</button>
+<button class="btn ghost">RESTORE</button>
+</div>
+</section>
+<section class="card">
+<h2>Demo mode</h2>
+<p>You're viewing as わく.</p>
+<div class="row">
+<button class="btn ghost">SWITCH TO みく</button>
+<button class="link">CLEAR DEMO DATA</button>
+</div>
+</section>
+</div>
+</div>
+</main>
+<nav class="tabbar" aria-label="Tabs">
+<a href="#/" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+</path>
+</svg>
+</span>
+<span class="en">Days</span>
+</a>
+<a href="#/map" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+</path>
+<circle cx="12" cy="9.8" r="2.4" fill="currentColor">
+</circle>
+</svg>
+</span>
+<span class="en">Places</span>
+</a>
+<a href="#/mood" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M2.5 15c2.5 0 2.5-7 5-7s2.5 9 5 9 2.5-11 5-11 2.5 7 4 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+</path>
+</svg>
+</span>
+<span class="en">Mood</span>
+</a>
+<a href="#/more" class="on" aria-current="page">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<circle cx="5" cy="12" r="2" fill="currentColor">
+</circle>
+<circle cx="12" cy="12" r="2" fill="currentColor">
+</circle>
+<circle cx="19" cy="12" r="2" fill="currentColor">
+</circle>
+</svg>
+</span>
+<span class="en">More</span>
+</a>
+</nav>
+</div>
+<script type="module" src="js/app.js?v=37">
+</script>
+
+

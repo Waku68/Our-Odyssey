@@ -1,0 +1,165 @@
+<!-- hash=#/more/values htmlclass=locked htmlstyle=--pink: #F2C4CE; --pink-d: #E79AAB; --navy: #16204F; --paper: #FBF1EF; --accent: #F74D7E; --navy-rgb: 22 32 79; --paper-rgb: 251 241 239; lang=ja -->
+
+<div id="app">
+<main class="view">
+<div>
+<div class="nav">
+<a class="link" href="#/more">← MORE</a>
+<span class="word">Our Odyssey</span>
+<span class="nav-spacer">
+</span>
+</div>
+<div class="head">
+<h1>Values</h1>
+<button class="btn">+ ADD TOPIC</button>
+</div>
+<div class="cards">
+<article class="card">
+<h2>理想の休日</h2>
+<div class="pair">
+<div>
+<div class="who">わく</div>
+<p>家でゆっくり</p>
+<div class="row">
+<button class="link">EDIT</button>
+<button class="link">DELETE</button>
+</div>
+</div>
+<div>
+<div class="who">みく</div>
+<p>外に出かけたい</p>
+</div>
+</div>
+</article>
+<article class="card">
+<h2>お金の使い方</h2>
+<div class="pair">
+<div>
+<div class="who">わく</div>
+<p class="muted">まだ書いていません</p>
+<button class="btn small">WRITE</button>
+</div>
+<div>
+<div class="who">みく</div>
+<p>体験に使う</p>
+</div>
+</div>
+</article>
+<article class="card">
+<h2>連絡の頻度</h2>
+<div class="pair">
+<div>
+<div class="who">わく</div>
+<p>毎日すこし</p>
+<div class="row">
+<button class="link">EDIT</button>
+<button class="link">DELETE</button>
+</div>
+</div>
+<div>
+<div class="who">みく</div>
+<p class="muted">まだ書いていないみたい</p>
+</div>
+</div>
+</article>
+<article class="card">
+<h2>将来住みたい場所</h2>
+<div class="pair">
+<div>
+<div class="who">わく</div>
+<p>海の近く</p>
+<div class="row">
+<button class="link">EDIT</button>
+<button class="link">DELETE</button>
+</div>
+</div>
+<div>
+<div class="who">みく</div>
+<p class="muted">まだ書いていないみたい</p>
+</div>
+</div>
+</article>
+</div>
+</div>
+</main>
+<nav class="tabbar" aria-label="Tabs">
+<a href="#/" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+</path>
+</svg>
+</span>
+<span class="en">Days</span>
+</a>
+<a href="#/map" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+</path>
+<circle cx="12" cy="9.8" r="2.4" fill="currentColor">
+</circle>
+</svg>
+</span>
+<span class="en">Places</span>
+</a>
+<a href="#/mood" class="">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<path d="M2.5 15c2.5 0 2.5-7 5-7s2.5 9 5 9 2.5-11 5-11 2.5 7 4 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+</path>
+</svg>
+</span>
+<span class="en">Mood</span>
+</a>
+<a href="#/more" class="on" aria-current="page">
+<span class="ticon" aria-hidden="true">
+<svg viewBox="0 0 24 24">
+<circle cx="5" cy="12" r="2" fill="currentColor">
+</circle>
+<circle cx="12" cy="12" r="2" fill="currentColor">
+</circle>
+<circle cx="19" cy="12" r="2" fill="currentColor">
+</circle>
+</svg>
+</span>
+<span class="en">More</span>
+</a>
+</nav>
+</div>
+<script type="module" src="js/app.js?v=37">
+</script>
+
+
+<dialog class="modal" aria-label="My answer" open="">
+<form class="sheet" novalidate="">
+<div class="mhead">
+<div>
+<div class="tag">Values</div>
+<h2>My answer</h2>
+<p class="lead">このお題への自分の考え</p>
+</div>
+<button type="button" class="x" aria-label="Close">×</button>
+</div>
+<div class="mbody">
+<label class="field">
+<span class="flabel">お題</span>
+<input type="text" required="" readonly="" placeholder="例：理想の休日の過ごし方">
+</label>
+<label class="field">
+<span class="flabel">自分の考え<span class="req">必須</span>
+</span>
+<textarea required="" placeholder="思っていることをそのまま">
+</textarea>
+</label>
+</div>
+<div class="mfoot">
+<p class="err" role="alert">
+</p>
+<div class="row">
+<button class="btn" type="submit">SAVE</button>
+<button class="btn ghost" type="button">CANCEL</button>
+</div>
+</div>
+</form>
+</dialog>
