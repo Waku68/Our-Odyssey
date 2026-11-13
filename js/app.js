@@ -1,8 +1,8 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=35';
-import { editPhoto } from './photo-editor.js?v=35';
-import { ask, notice } from './ask.js?v=35';
-import * as theme from './theme.js?v=35';
+import { createStore } from './store.js?v=36';
+import { editPhoto } from './photo-editor.js?v=36';
+import { ask, notice } from './ask.js?v=36';
+import * as theme from './theme.js?v=36';
 const { TH } = theme;
 theme.apply();
 
@@ -419,9 +419,9 @@ function leaflet() {
 }
 const TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-// 地図を引きすぎないようにする：世界地図の高さが画面の高さより小さくなる手前（最低でもアジアが見えるくらい）で止め、
+// 地図を引きすぎないようにする：世界地図の高さが地図の枠の高さより小さくなる手前（世界がほぼ見えるくらい）で止め、
 // 上下は地図の端（北極・南極の手前）より外へ動かせないようにする（外の灰色が見えないように）
-const MIN_ZOOM = 3;
+const MIN_ZOOM = 1;
 function limitMap(L, map, el) {
   map.setMaxBounds(L.latLngBounds([-85, -540], [85, 540]));
   map.options.maxBoundsViscosity = 1;
