@@ -49,6 +49,60 @@ async function backup() {
     notice(tr('写真をまとめられなかったので、文章だけを保存しました', "Couldn't bundle the photos, so only the text was saved"));
   }
 }
+// バックアップのファイル（.zip か .json）から、なくなった記録を戻す。いまある記録は変えない。
+// 戻せるのは自分が書いた分だけ（相手の分は、相手の端末から戻す）。
+const ENTRY_COLS = ['id', 'section', 'category', 'title', 'body', 'date', 'lat', 'lng', 'author', 'created_at'];
+const MOOD_COLS = ['id', 'user_id', 'date', 'level', 'note', 'shared', 'created_at'];
+const COMMENT_COLS = ['id', 'entry_id', 'body', 'author', 'created_at'];
+const only = (row, cols) => Object.fromEntries(cols.filter((c) => row[c] !== undefined).map((c) => [c, row[c]]));
+function pickBackup() {
+  return new Promise((res) => {
+    const i = h('input', { type: 'file', accept: '.zip,.json,application/zip,application/json' });
+    i.onchange = () => res(i.files[0] || null);
+    i.click();
+  });
+}
+async function restore() {
+  const file = await pickBackup(); if (!file) return;
+  let b, photoOf = async () => null;
+  try {
+    if (/\.json$/i.test(file.name)) b = JSON.parse(await file.text());
+    else {
+      const JSZip = (await import('https://esm.sh/jszip@3.10.1')).default;
+      const zip = await JSZip.loadAsync(file);
+      b = JSON.parse(await zip.file('our-odyssey.json').async('string'));
+      photoOf = async (id) => { const f = zip.file(`photos/${id}.jpg`); return f ? new Blob([await f.async('arraybuffer')], { type: 'image/jpeg' }) : null; };
+    }
+    if (!Array.isArray(b?.entries)) throw new Error('entries');
+  } catch {
+    notice(tr('バックアップを読めませんでした', "Couldn't read the backup"), { text: tr('SAVE BACKUP で保存したファイル（.zip か .json）をえらんでください。', 'Choose a file saved with SAVE BACKUP (.zip or .json).') });
+    return;
+  }
+  const has = (list) => new Set(list.map((x) => x.id));
+  const hadE = has(data.entries), hadM = has(data.moods), hadC = has(data.comments);
+  const lostE = b.entries.filter((e) => e?.id && !hadE.has(e.id));
+  const lostM = (b.moods || []).filter((m) => m?.id && !hadM.has(m.id) && m.user_id === me());
+  const myE = lostE.filter((e) => e.author === me());
+  const alive = new Set([...hadE, ...myE.map((e) => e.id)]);
+  const lostC = (b.comments || []).filter((c) => c?.id && !hadC.has(c.id));
+  const myC = lostC.filter((c) => c.author === me() && alive.has(c.entry_id));
+  const others = lostE.length - myE.length + lostC.filter((c) => c.author !== me()).length;
+  const othersNote = others ? tr(`相手が書いた ${others}件は、相手の端末から戻してください。`, `${others} item(s) written by your partner have to be restored from their device.`) : '';
+  if (!myE.length && !lostM.length && !myC.length) {
+    notice(tr('戻すものはありませんでした', 'Nothing to restore'), { text: othersNote || tr('このバックアップの中身は、ぜんぶいまもあります。', 'Everything in this backup is still here.') });
+    return;
+  }
+  const count = tr(`記録 ${myE.length}件、気分 ${lostM.length}件、ひとこと ${myC.length}件`, `${myE.length} entries, ${lostM.length} moods, ${myC.length} comments`);
+  if (!(await ask(tr('なくなった記録を戻しますか？', 'Restore the missing items?'), { text: `${count}${tr('を戻します。いまある記録は変わりません。', ' will be restored. Nothing that exists now will change.')}${othersNote ? ` ${othersNote}` : ''}`, ok: 'RESTORE' }))) return;
+  await act(async () => {
+    for (const e of myE) {
+      const blob = e.photo ? await photoOf(e.id) : null;
+      await store.restore('entries', { ...only(e, ENTRY_COLS), photo: blob ? await store.uploadPhoto(blob) : null });
+    }
+    for (const m of lostM) await store.restore('moods', only(m, MOOD_COLS));
+    for (const c of myC) await store.restore('comments', only(c, COMMENT_COLS));
+  });
+}
 function settingsPage() {
   const my = data.profiles.find((p) => p.id === me()) || {};
   const name = h('input', { type: 'text', value: my.display_name || '' });
@@ -58,6 +112,7 @@ function settingsPage() {
     navigator.serviceWorker.getRegistration().then((r) => r?.pushManager.getSubscription()).then((s) => { toggle.checked = !!s; }).catch(() => {});
   }
   const backupBtn = h('button', { class: 'btn ghost', onclick: async () => { backupBtn.disabled = true; try { await backup(); } finally { backupBtn.disabled = false; } } }, 'SAVE BACKUP');
+  const restoreBtn = h('button', { class: 'btn ghost', onclick: async () => { restoreBtn.disabled = true; try { await restore(); } finally { restoreBtn.disabled = false; } } }, 'RESTORE');
   return h('div', {}, pageNav(true), pageHead('Settings'),
     h('div', { class: 'cards' },
       h('section', { class: 'card' }, h('h2', {}, tr('名前', 'Name')),
@@ -72,7 +127,9 @@ function settingsPage() {
           ? tr('月ごとの記念日・100日ごと・足した記念日の当日、朝8時ごろに届きます。iPhoneは「ホーム画面に追加」したアイコンから開いてオンにしてください。', 'Sent around 8 AM on monthly anniversaries, every 100 days, and on days you added. On iPhone, open the app from the Home Screen icon to turn this on.')
           : tr('通知は、本番の保存先と通知の鍵を設定すると使えるようになります。', 'Notifications work once the live database and notification keys are set up.'))),
       h('section', { class: 'card' }, h('h2', {}, tr('バックアップ', 'Backup')),
-        h('p', {}, tr('書いた内容と写真を、ひとつのファイルにまとめてこの端末に保存します。', 'Saves everything you wrote and all photos into one file on this device.')), backupBtn),
+        h('p', {}, tr('書いた内容と写真を、ひとつのファイルにまとめてこの端末に保存します。', 'Saves everything you wrote and all photos into one file on this device.')),
+        h('p', { class: 'muted' }, tr('RESTORE は、保存したファイルから、消えてしまった自分の記録だけを戻します。気分の記録は本人の分しか入らないので、ふたりそれぞれ保存してください。', 'RESTORE brings back only your own items that are missing, from a saved file. Mood records are saved per person, so each of you should save a backup.')),
+        h('div', { class: 'row' }, backupBtn, restoreBtn)),
       store.mode === 'demo'
         ? h('section', { class: 'card' }, h('h2', {}, tr('お試しモード', 'Demo mode')),
           h('p', {}, tr(`いまは「${nameOf(me())}」として見ています。`, `You're viewing as ${nameOf(me())}.`)),

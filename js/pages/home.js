@@ -106,8 +106,16 @@ async function setHero(k, e) {
   const blob = await pickPhoto({ aspect: k === 'a' ? '3:4' : '4:5' }); if (!blob) return;
   act(async () => {
     const photo = await store.uploadPhoto(blob);
+    const mine = data.entries.filter((x) => x.section === 'hero' && x.category === k && x.author === me());
     if (e && e.author === me()) await store.saveEntry({ id: e.id, photo });
     else await store.saveEntry({ section: 'hero', category: k, title: '', photo });
+    // 入れかえる前の写真は、保存先に残さない（消せるのは自分が載せた分だけ）
+    for (const old of mine) {
+      try {
+        if (!(e && old.id === e.id)) await store.removeEntry(old.id);
+        if (old.photo && old.photo !== photo) await store.removePhoto(old.photo);
+      } catch { /* 片づけに失敗しても、新しい写真はもう入っている */ }
+    }
   });
 }
 
