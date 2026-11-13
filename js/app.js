@@ -1314,7 +1314,7 @@ function annivLines() {
   }
   return lines.sort((a, b) => a.left - b.left);
 }
-/* MORE はぜんぶコルクボード：ポラロイド（写真あり）とメモ（写真なし）を画鋲で留める。
+/* MORE はぜんぶコルクボード（開くと全部を貼る）：ポラロイド（写真あり）とメモ（写真なし）を画鋲で留める。
    大きさ・傾き・ずれ・浮き具合は項目ごとに id から決めるので、開くたびに変わらない */
 function seeded(str) {
   let x = 2166136261;
@@ -1333,7 +1333,6 @@ function corkBoard(cards) {
       !c.photo && c.badge ? c.badge : null), c.fresh);
   }))));
 }
-const MAX_PINNED = 6;
 const MORE_SECTIONS = { like: ['like'], gift: ['gift'], values: ['value'], dislike: ['dislike'], anniv: ['anniversary'] };
 function morePreview(key) {
   const go = (k) => { location.hash = `#/more/${k}`; };
@@ -1341,20 +1340,20 @@ function morePreview(key) {
   if (key === 'values') {
     const all = data.entries.filter((e) => e.section === 'value');
     const topics = [...new Set(all.map((e) => e.title))];
-    return board(topics.length, topics.slice(-MAX_PINNED).reverse().map((tp) => {
+    return board(topics.length, [...topics].reverse().map((tp) => {
       const both = new Set(all.filter((e) => e.title === tp).map((e) => e.author)).size >= 2;
       return { seed: `value:${tp}`, title: tp, fresh: all.filter((e) => e.title === tp).flatMap(entryNew), sub: both ? tr('ふたりとも答えた', 'Both answered') : tr('まだ片方だけ', 'One answer so far'), onclick: () => go('values') };
     }), () => writeValue());
   }
   if (key === 'anniv') {
     const lines = annivLines();
-    return board(lines.length, lines.slice(0, MAX_PINNED).map((l) => ({
+    return board(lines.length, lines.map((l) => ({
       seed: `anniv:${l.title}:${l.date}`, cls: 'days', title: l.title, sub: md(l.date), onclick: () => go('anniv'), fresh: entryNew(l.entry),
       big: h('span', { class: 'big' }, l.left === 0 ? 'TODAY' : String(l.left), l.left === 0 ? null : h('i', {}, l.left === 1 ? 'DAY' : 'DAYS')),
     })), addAnniv);
   }
   const items = data.entries.filter((e) => e.section === key).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-  return board(items.length, items.slice(0, MAX_PINNED).map((e) => ({
+  return board(items.length, items.map((e) => ({
     seed: e.id, photo: e.photo, title: e.title, onclick: () => openDetail(e.id), fresh: entryNew(e), badge: isSong(e) ? songBadge(e) : null,
     sub: [e.category && catLabel(e.category), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・'),
   })), () => addEntry(key));
