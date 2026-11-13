@@ -233,17 +233,14 @@ async function supaStore() {
       : t.delete().eq('id', op.id).select('id'));
     // 前に送ったときに届いていた（返事だけ受け取れなかった）なら、それで送れたことにする
     if (res.error && !(op.kind === 'insert' && res.error.code === '23505')) {
-      const msg = /column .*link|link.*column|schema cache/i.test(res.error.message)
-        ? tr('リンクを保存する欄がまだありません。supabase/2026-11-13.sql を Supabase で実行してください。', 'The database has no place for links yet. Run supabase/2026-11-13.sql in Supabase.')
-        : res.error.message;
-      const e = new Error(msg); e.status = res.status; throw e;
+      const e = new Error(res.error.message); e.status = res.status; throw e;
     }
-    // 1件も変わらなかったのに、その行がまだあるなら、変える権利がない（データベースの設定が古い）
+    // 1件も変わらなかったのに、その行がまだあるなら、変える権利がない（なおす・消すのは書いた本人だけ）
     if (op.kind !== 'insert' && Array.isArray(res.data) && !res.data.length) {
       const still = await sb.from(op.table).select('id').eq('id', op.id);
       if (!still.error && still.data?.length) {
-        const e = new Error(tr('相手の記録を変えられませんでした。supabase/2026-11-13.sql を Supabase で実行すると、2人とも編集・削除できるようになります。',
-          "Couldn't change your partner's entry. Run supabase/2026-11-13.sql in Supabase so both of you can edit and delete."));
+        const e = new Error(tr('この記録は変えられませんでした。なおす・消すのは、書いた本人だけができます。',
+          "Couldn't change this entry. Only the person who wrote it can edit or delete it."));
         e.status = 403; throw e;
       }
     }
