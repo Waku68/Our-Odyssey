@@ -1,8 +1,8 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=32';
-import { editPhoto } from './photo-editor.js?v=32';
-import { ask, notice } from './ask.js?v=32';
-import * as theme from './theme.js?v=32';
+import { createStore } from './store.js?v=35';
+import { editPhoto } from './photo-editor.js?v=35';
+import { ask, notice } from './ask.js?v=35';
+import * as theme from './theme.js?v=35';
 const { TH } = theme;
 theme.apply();
 
@@ -419,6 +419,19 @@ function leaflet() {
 }
 const TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+// 地図を引きすぎないようにする：世界地図の高さが画面の高さより小さくなる手前（最低でもアジアが見えるくらい）で止め、
+// 上下は地図の端（北極・南極の手前）より外へ動かせないようにする（外の灰色が見えないように）
+const MIN_ZOOM = 3;
+function limitMap(L, map, el) {
+  map.setMaxBounds(L.latLngBounds([-85, -540], [85, 540]));
+  map.options.maxBoundsViscosity = 1;
+  const fit = () => {
+    const h = el.clientHeight || 0;
+    map.setMinZoom(Math.max(MIN_ZOOM, Math.ceil(Math.log2(Math.max(1, h) / 256))));
+  };
+  fit();
+  return fit;
+}
 const pin = (L, lat, lng, fill = TH.navy) =>
   L.circleMarker([lat, lng], { radius: 9, color: TH.navy, weight: 2, fillColor: fill, fillOpacity: 1 });
 
@@ -539,11 +552,12 @@ function geoField(v, onSet = () => {}) {
     box.hidden = false;
     if (map) return;
     try { L = await leaflet(); } catch (e) { status.textContent = e.message; return; }
-    map = L.map(mapEl).setView(v.lat != null ? [v.lat, v.lng] : [36.2, 138.2], v.lat != null ? 14 : 4);
+    map = L.map(mapEl, { maxBoundsViscosity: 1 }).setView(v.lat != null ? [v.lat, v.lng] : [36.2, 138.2], v.lat != null ? 14 : 4);
+    const refit = limitMap(L, map, mapEl);
     L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19 }).addTo(map);
     if (v.lat != null) marker = pin(L, v.lat, v.lng).addTo(map);
     map.on('click', (ev) => put(ev.latlng.lat, ev.latlng.lng));
-    setTimeout(() => map.invalidateSize(), 60);
+    setTimeout(() => { map.invalidateSize(); refit(); }, 60);
     // まだ場所がなければ、書いてある名前でそのままさがす
     if (v.lat == null && (v.title || '').trim()) { q.value = v.title.trim(); search(); }
   };
@@ -1234,7 +1248,8 @@ function mapPage() {
     mapEl.style.setProperty('--fstart', `${fadeStart()}px`);
   };
   leaflet().then((L) => {
-    const map = L.map(mapEl, { zoomControl: false });
+    const map = L.map(mapEl, { zoomControl: false, maxBoundsViscosity: 1 });
+    const refit = limitMap(L, map, mapEl);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19 }).addTo(map);
     syncInset();
@@ -1258,6 +1273,7 @@ function mapPage() {
       if (key === lastSize || !mapEl.clientWidth) return;
       lastSize = key;
       map.invalidateSize({ pan: false });
+      refit();
       syncInset();
     };
     if ('ResizeObserver' in window) new ResizeObserver(fitSize).observe(mapEl);
