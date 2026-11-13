@@ -1,8 +1,8 @@
 import { CONFIG } from './config.js';
-import { createStore } from './store.js?v=36';
-import { editPhoto } from './photo-editor.js?v=36';
-import { ask, notice } from './ask.js?v=36';
-import * as theme from './theme.js?v=36';
+import { createStore } from './store.js?v=37';
+import { editPhoto } from './photo-editor.js?v=37';
+import { ask, notice } from './ask.js?v=37';
+import * as theme from './theme.js?v=37';
 const { TH } = theme;
 theme.apply();
 
@@ -422,6 +422,8 @@ const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStree
 // 地図を引きすぎないようにする：世界地図の高さが地図の枠の高さより小さくなる手前（世界がほぼ見えるくらい）で止め、
 // 上下は地図の端（北極・南極の手前）より外へ動かせないようにする（外の灰色が見えないように）
 const MIN_ZOOM = 1;
+// 地図の感度：ピンチやホイールで細かく反応させ（整数の段にはまらないように）、指を離したあとも少し長めにすべらせる
+const MAP_FEEL = { zoomSnap: 0.25, zoomDelta: 0.75, wheelPxPerZoomLevel: 40, wheelDebounceTime: 20, inertiaDeceleration: 2000, maxBoundsViscosity: 1 };
 function limitMap(L, map, el) {
   map.setMaxBounds(L.latLngBounds([-85, -540], [85, 540]));
   map.options.maxBoundsViscosity = 1;
@@ -552,7 +554,7 @@ function geoField(v, onSet = () => {}) {
     box.hidden = false;
     if (map) return;
     try { L = await leaflet(); } catch (e) { status.textContent = e.message; return; }
-    map = L.map(mapEl, { maxBoundsViscosity: 1 }).setView(v.lat != null ? [v.lat, v.lng] : [36.2, 138.2], v.lat != null ? 14 : 4);
+    map = L.map(mapEl, { ...MAP_FEEL }).setView(v.lat != null ? [v.lat, v.lng] : [36.2, 138.2], v.lat != null ? 14 : 4);
     const refit = limitMap(L, map, mapEl);
     L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19 }).addTo(map);
     if (v.lat != null) marker = pin(L, v.lat, v.lng).addTo(map);
@@ -1248,7 +1250,7 @@ function mapPage() {
     mapEl.style.setProperty('--fstart', `${fadeStart()}px`);
   };
   leaflet().then((L) => {
-    const map = L.map(mapEl, { zoomControl: false, maxBoundsViscosity: 1 });
+    const map = L.map(mapEl, { ...MAP_FEEL, zoomControl: false });
     const refit = limitMap(L, map, mapEl);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer(TILE, { attribution: ATTR, maxZoom: 19 }).addTo(map);
