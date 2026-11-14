@@ -1,6 +1,6 @@
 // ブラウザ標準の confirm / alert のかわりに出す、サイトの見た目に合わせた小さなポップ。
 // ask(...) → OK なら true、やめたら false（Promise）。notice(...) → 閉じたら終わる（Promise）。
-import { h as el, reduceMotion } from './dom.js?v=38';
+import { h as el, reduceMotion } from './dom.js?v=39';
 
 function open({ title, text, ok, cancel, danger }) {
   return new Promise((resolve) => {

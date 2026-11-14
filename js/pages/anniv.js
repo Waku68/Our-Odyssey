@@ -1,12 +1,12 @@
 // DAYS：記念日。付き合った日と、足した記念日のカウント。
-import { CONFIG } from '../config.js?v=38';
-import { h } from '../dom.js?v=38';
-import { tr } from '../i18n.js?v=38';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=38';
-import { store, data } from '../state.js?v=38';
-import { openForm, F } from '../forms.js?v=38';
-import { canEdit, removeEntry } from '../entries.js?v=38';
-import { pageNav, pageHead } from '../shell.js?v=38';
+import { CONFIG } from '../config.js?v=39';
+import { h } from '../dom.js?v=39';
+import { tr } from '../i18n.js?v=39';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=39';
+import { store, data } from '../state.js?v=39';
+import { openForm, F } from '../forms.js?v=39';
+import { canEdit, removeEntry } from '../entries.js?v=39';
+import { pageNav, pageHead } from '../shell.js?v=39';
 
 // つぎに来る記念日を、近い順に並べる（MORE のコルクボード用）
 function annivLines() {

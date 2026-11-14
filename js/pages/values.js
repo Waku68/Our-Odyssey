@@ -1,10 +1,10 @@
 // VALUES：同じお題に、ふたりそれぞれの答えを並べる。
-import { h } from '../dom.js?v=38';
-import { tr } from '../i18n.js?v=38';
-import { store, data, me, nameOf, partner, byCreated } from '../state.js?v=38';
-import { openForm, F } from '../forms.js?v=38';
-import { removeEntry } from '../entries.js?v=38';
-import { pageNav, pageHead } from '../shell.js?v=38';
+import { h } from '../dom.js?v=39';
+import { tr } from '../i18n.js?v=39';
+import { store, data, me, nameOf, partner, byCreated } from '../state.js?v=39';
+import { openForm, F } from '../forms.js?v=39';
+import { removeEntry } from '../entries.js?v=39';
+import { pageNav, pageHead } from '../shell.js?v=39';
 
 function writeValue(topic, mine) {
   openForm({ title: topic ? 'My answer' : 'New topic', en: 'Values',

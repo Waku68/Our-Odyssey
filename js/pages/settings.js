@@ -1,12 +1,13 @@
 // SETTINGS：名前、言語、色のテーマ、パスワード、通知、バックアップ、ログアウト。
-import { CONFIG } from '../config.js?v=38';
-import { h } from '../dom.js?v=38';
-import { lang, tr, setLang } from '../i18n.js?v=38';
-import { today } from '../dates.js?v=38';
-import { store, data, me, nameOf, partner } from '../state.js?v=38';
-import { ask, notice } from '../ask.js?v=38';
-import * as theme from '../theme.js?v=38';
-import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=38';
+import { CONFIG } from '../config.js?v=39';
+import { h } from '../dom.js?v=39';
+import { lang, tr, setLang } from '../i18n.js?v=39';
+import { today } from '../dates.js?v=39';
+import { store, data, me, nameOf, partner } from '../state.js?v=39';
+import { ask, notice } from '../ask.js?v=39';
+import { localKey } from '../store.js?v=39';
+import * as theme from '../theme.js?v=39';
+import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=39';
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function enablePush() {
@@ -135,7 +136,7 @@ function settingsPage() {
           h('p', {}, tr(`いまは「${nameOf(me())}」として見ています。`, `You're viewing as ${nameOf(me())}.`)),
           h('div', { class: 'row' },
             h('button', { class: 'btn ghost', onclick: () => { store.switchUser(); refresh(); } }, `SWITCH TO ${partner() ? nameOf(partner().id) : 'PARTNER'}`),
-            h('button', { class: 'link', onclick: async () => { if (await ask(tr('お試しで書いた内容をぜんぶ消しますか？', 'Delete everything written in demo mode?'), { ok: 'DELETE ALL', danger: true })) { localStorage.removeItem('our-odyssey-demo'); location.reload(); } } }, 'CLEAR DEMO DATA')))
+            h('button', { class: 'link', onclick: async () => { if (await ask(tr('お試しで書いた内容をぜんぶ消しますか？', 'Delete everything written in demo mode?'), { ok: 'DELETE ALL', danger: true })) { localStorage.removeItem(localKey('our-odyssey-demo')); location.reload(); } } }, 'CLEAR DEMO DATA')))
         : h('section', { class: 'card' }, h('h2', {}, tr('ログアウト', 'Log out')),
           h('button', { class: 'btn ghost', onclick: async () => { await store.signOut(); location.hash = '#/'; start(); } }, 'LOG OUT'))));
 }

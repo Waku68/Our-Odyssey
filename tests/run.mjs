@@ -1,5 +1,6 @@
 // 使い方: node run.mjs <サイトのフォルダ> <出力フォルダ>
 // 全画面を順に開いて操作し、そのときの画面の中身（DOM）をファイルに書き出す。リファクタ前後で diff を取る。
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import http from 'node:http';
 import fs from 'node:fs';
@@ -11,7 +12,7 @@ try { ({ chromium } = require('playwright')); } catch { ({ chromium } = createRe
 const CHROME = process.env.CHROME || (fs.existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : undefined);
 
 const [root, out] = process.argv.slice(2).map((p) => path.resolve(p));
-const here = path.dirname(new URL(import.meta.url).pathname);
+const here = path.dirname(fileURLToPath(import.meta.url));
 fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 const PORT = Number(process.env.PORT || 8123), BASE = `http://localhost:${PORT}/`;
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };

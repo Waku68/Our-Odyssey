@@ -1,6 +1,9 @@
 // データ層。Supabase が設定されていればそちら、なければこの端末だけに保存するお試しモード。
-import { CONFIG } from './config.js?v=38';
-import { tr } from './i18n.js?v=38';
+import { CONFIG } from './config.js?v=39';
+import { tr } from './i18n.js?v=39';
+
+// この端末に覚えておくデータの名前。SITE_ID があるときだけうしろに付けて、同じドメインの別のサイトと混ざらないようにする
+export const localKey = (name) => (CONFIG.SITE_ID ? `${name}@${CONFIG.SITE_ID}` : name);
 
 const uuid = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
@@ -12,7 +15,7 @@ export async function createStore() {
 
 /* ---------- お試しモード（localStorage） ---------- */
 function demoStore() {
-  const KEY = 'our-odyssey-demo';
+  const KEY = localKey('our-odyssey-demo');
   const fresh = () => ({
     me: 'a',
     profiles: [
@@ -72,7 +75,7 @@ function demoStore() {
 const idb = (() => {
   let dbp;
   const open = () => (dbp ??= new Promise((res, rej) => {
-    const r = indexedDB.open('our-odyssey', 1);
+    const r = indexedDB.open(localKey('our-odyssey'), 1);
     r.onupgradeneeded = () => r.result.createObjectStore('blobs');
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -119,7 +122,7 @@ async function supaStore() {
 
   /* 写真のURL */
   const urls = new Map();
-  const URL_KEY = 'our-odyssey-photo-urls', URL_LIFE = 60 * 60 * 6;
+  const URL_KEY = localKey('our-odyssey-photo-urls'), URL_LIFE = 60 * 60 * 6;
   let urlCache = readLS(URL_KEY, {});
   // 期限切れのURLも、オフラインのときは端末に残った写真を出すのに使うので、しばらく取っておく
   for (const [k, v] of Object.entries(urlCache)) if (!(v.exp > Date.now() - 30 * 864e5)) delete urlCache[k];
@@ -146,7 +149,7 @@ async function supaStore() {
   };
 
   /* 最後に取れた内容と、まだ送っていない分 */
-  const CACHE_KEY = 'our-odyssey-cache', OUTBOX_KEY = 'our-odyssey-outbox';
+  const CACHE_KEY = localKey('our-odyssey-cache'), OUTBOX_KEY = localKey('our-odyssey-outbox');
   let snap = readLS(CACHE_KEY, {});
   let outbox = readLS(OUTBOX_KEY, []);
   for (const o of outbox) o.sending = false;
