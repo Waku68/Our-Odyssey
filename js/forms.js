@@ -1,15 +1,15 @@
 // ダイアログと入力フォーム（日付の帯、写真の欄、地図の欄など）。
-import { h, reduceMotion } from './dom.js?v=48';
-import { lang, tr } from './i18n.js?v=48';
-import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=48';
-import { store } from './state.js?v=48';
-import { ask, notice } from './ask.js?v=48';
-import { editPhoto } from './photo-editor.js?v=48';
-import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=48';
-import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=48';
-import { songPhotos } from './songs.js?v=48';
-import { SONG_CAT, catLabel } from './cats.js?v=48';
-import { refresh } from './shell.js?v=48';
+import { h, reduceMotion } from './dom.js?v=50';
+import { lang, tr } from './i18n.js?v=50';
+import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=50';
+import { store } from './state.js?v=50';
+import { ask, notice } from './ask.js?v=50';
+import { editPhoto } from './photo-editor.js?v=50';
+import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=50';
+import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=50';
+import { songPhotos, songPicker, songRow } from './songs.js?v=50';
+import { SONG_CAT, catLabel } from './cats.js?v=50';
+import { refresh } from './shell.js?v=50';
 
 const BOOKMARK = '<svg viewBox="0 0 10 13" aria-hidden="true"><path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor"/></svg>';
 
@@ -97,6 +97,10 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
   let dirty = false;
   let onGeo = () => {};   // 地図の場所が決まったとき（写真の欄が自動で写真を入れるのに使う）
   let onTitle = () => {}; // 名前が変わったとき（写真の欄が名前から写真をさがすのに使う）
+  let onSongQuery = () => {}; // 名前が変わったとき（曲の欄が、その名前で曲をさがし直すのに使う）
+  let onSong = () => {};  // 曲をえらんだとき（写真の欄がジャケット写真を入れるのに使う）
+  let onCat = () => {};   // 種類が変わったとき（曲の欄は「曲」のときだけ出す）
+  let titleEl = null;
   const touch = () => { dirty = true; };
   const err = h('p', { class: 'err', role: 'alert' });
   const field = (f, inner, tag = 'div') => h(tag, { class: 'field' },
@@ -121,6 +125,9 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
       // 自分で写真をえらんだら（mine）、自動では置きかえない。候補の列はそのまま出しておくので、あとから選べる
       let mine = !!v.photo, auto = false, seq = 0, picked = -1;
       let geoCand = null, textCands = [], cands = [];
+      // えらんだ曲のジャケット写真は、いつも候補の先頭にする
+      let songCand = v.song?.art ? { url: v.song.art, title: `${v.song.name} / ${v.song.artist}`, from: v.song.from } : null;
+      const withSong = (list) => (songCand ? [songCand, ...list.filter((c) => c.url !== songCand.url)] : list);
       const credit = h('span', { class: 'hint photo-credit', hidden: true });
       const strip = h('div', { class: 'cands', hidden: true });
       const fromDevice = h('button', { type: 'button', class: 'cand dev', onclick: () => choose() }, h('span', {}, '+'), h('small', {}, tr('端末から', 'Device')));
@@ -152,7 +159,7 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
       }
       const refresh = () => {
         const seen = new Set();
-        cands = [geoCand, ...textCands].filter((c) => c && !seen.has(c.url) && seen.add(c.url)).slice(0, 10);
+        cands = [geoCand, ...withSong(textCands)].filter((c) => c && !seen.has(c.url) && seen.add(c.url)).slice(0, 10);
         picked = -1; paintStrip();
         if (mine) { say(cands.length ? tr('ほかの写真の候補です。タップすると入れかわります', 'Other photos you can use — tap to swap') : ''); return; }
         if (cands.length) pick(0, false);
@@ -182,6 +189,11 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
           textCands = found; refresh();
         }, 900);
       };
+      if (!f.manual) onSong = (t) => {
+        seq++;
+        songCand = t?.art ? { url: t.art, title: `${t.name} / ${t.artist}`, from: t.from } : null;
+        refresh();
+      };
       async function choose() {
         const file = await pickFile(); if (!file) return;
         const out = await editPhoto(file, { maxSide: maxSide(), lang, withState: true });
@@ -205,15 +217,32 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
       return field(f, h('div', { class: 'photo-field' }, drop, credit, strip, h('div', { class: 'row' }, ed, rm)));
     }
     const common = { value: v[f.name] ?? '', required: f.required, readonly: f.readonly, placeholder: f.ph,
-      oninput: (ev) => { v[f.name] = ev.target.value; touch(); if (f.name === 'title') onTitle(ev.target.value); } };
+      oninput: (ev) => { v[f.name] = ev.target.value; touch(); if (f.name === 'title') { onTitle(ev.target.value); onSongQuery(ev.target.value); } } };
     if (f.type === 'textarea') return field(f, h('textarea', common), 'label');
     if (f.type === 'category') {
       // 種類はえらぶだけ。決まった種類は日本語のまま保存し、表示だけ言語に合わせる
       const chips = h('div', { class: 'chips' }, f.options.map((o) => h('button', { type: 'button', class: `chip${v[f.name] === o ? ' on' : ''}`,
-        onclick: (ev) => { v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c === ev.currentTarget)); } }, catLabel(o))));
+        onclick: (ev) => { v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c === ev.currentTarget)); onCat(); } }, catLabel(o))));
       return field(f, h('div', { class: 'cat' }, chips));
     }
-    return field(f, h('input', { type: f.type, ...common }), 'label');
+    if (f.type === 'song') {
+      // 曲をえらんでおくと、ふたりとも同じ曲を聴ける。名前が空なら、えらんだ曲名を入れる
+      const picker = songPicker({ value: v.song, query: v.category === SONG_CAT ? v.title || '' : '', onPick: (t) => {
+        v.song = songRow(t); touch();
+        if (t && titleEl && !String(v.title ?? '').trim()) { titleEl.value = t.name; v.title = t.name; }
+        onSong(t);
+      } });
+      const box = field(f, picker);
+      // 曲をさがすのは、種類が「曲」のときだけ
+      onSongQuery = (text) => { if (v.category === SONG_CAT) picker.setQuery(text.trim()); };
+      const showBox = () => { box.hidden = v.category !== SONG_CAT; };
+      onCat = () => { showBox(); onSong(box.hidden ? null : v.song); if (!box.hidden) picker.setQuery(String(v.title ?? '').trim()); };
+      showBox();
+      return box;
+    }
+    const input = h('input', { type: f.type, ...common });
+    if (f.name === 'title') titleEl = input;
+    return field(f, input, 'label');
   };
   const submit = h('button', { class: 'btn', type: 'submit' }, submitLabel);
   const handle = async (ev) => {

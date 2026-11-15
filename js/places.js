@@ -1,7 +1,7 @@
 // 地図（Leaflet）と、場所さがし・場所の写真さがし。
-import { h } from './dom.js?v=48';
-import { lang, tr } from './i18n.js?v=48';
-import { TH } from './theme.js?v=48';
+import { h } from './dom.js?v=50';
+import { lang, tr } from './i18n.js?v=50';
+import { TH } from './theme.js?v=50';
 
 let leafletP;
 function leaflet() {

@@ -615,6 +615,18 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
 .song-bar i { display: block; height: 100%; width: 0; background: var(--navy); transition: width .25s linear; }
 .song-links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
 .song-links .chip { min-height: 30px; font-size: 11px; padding: 0 10px; display: inline-flex; align-items: center; text-decoration: none; letter-spacing: .04em; }
+/* 足すときに曲をえらぶ欄 */
+.song-pick .song-status { margin: 6px 0 0; }
+.song-pick .song-status:empty { display: none; }
+.song-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-top: 8px; max-height: 340px; overflow-y: auto; }
+.song-list:empty { display: none; }
+.song-row { display: flex; align-items: center; gap: 10px; padding: 6px; border: 1.5px solid rgb(var(--navy-rgb) / .18); border-radius: 10px; background: #fff; }
+.song-row .song-art, .song-chosen .song-art { flex-basis: 52px; width: 52px; height: 52px; box-shadow: none; }
+.song-row .song-btn, .song-chosen .song-btn { width: 30px; height: 30px; padding: 7px; }
+.song-choose { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; }
+.song-choose .chip { flex: none; min-height: 30px; display: inline-flex; align-items: center; font-size: 11px; padding: 0 10px; }
+.song-chosen { padding: 8px; border: 2.5px solid var(--navy); border-radius: 12px; background: #fff; }
+.song-chosen .song-links { margin-top: 8px; }
 /* コルクボードのポラロイドの再生ボタン */
 .song-play { position: absolute; right: 5px; bottom: 5px; width: 26px; height: 26px; padding: 6px; border-radius: 50%; z-index: 2;
   background: rgb(var(--paper-rgb) / .94); color: var(--navy); box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }

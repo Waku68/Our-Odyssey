@@ -1,13 +1,13 @@
 // SETTINGS：名前、言語、色のテーマ、パスワード、通知、バックアップ、ログアウト。
-import { CONFIG } from '../config.js?v=48';
-import { h } from '../dom.js?v=48';
-import { lang, tr, setLang } from '../i18n.js?v=48';
-import { today } from '../dates.js?v=48';
-import { store, data, me, nameOf, partner } from '../state.js?v=48';
-import { ask, notice } from '../ask.js?v=48';
-import { localKey } from '../store.js?v=48';
-import * as theme from '../theme.js?v=48';
-import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=48';
+import { CONFIG } from '../config.js?v=50';
+import { h } from '../dom.js?v=50';
+import { lang, tr, setLang } from '../i18n.js?v=50';
+import { today } from '../dates.js?v=50';
+import { store, data, me, nameOf, partner } from '../state.js?v=50';
+import { ask, notice } from '../ask.js?v=50';
+import { localKey } from '../store.js?v=50';
+import * as theme from '../theme.js?v=50';
+import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=50';
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function enablePush() {
@@ -52,7 +52,7 @@ async function backup() {
 }
 // バックアップのファイル（.zip か .json）から、なくなった記録を戻す。いまある記録は変えない。
 // 戻せるのは自分が書いた分だけ（相手の分は、相手の端末から戻す）。
-const ENTRY_COLS = ['id', 'section', 'category', 'title', 'body', 'date', 'lat', 'lng', 'author', 'created_at'];
+const ENTRY_COLS = ['id', 'section', 'category', 'title', 'body', 'date', 'lat', 'lng', 'song', 'author', 'created_at'];
 const MOOD_COLS = ['id', 'user_id', 'date', 'level', 'note', 'shared', 'created_at'];
 const COMMENT_COLS = ['id', 'entry_id', 'body', 'author', 'created_at'];
 const only = (row, cols) => Object.fromEntries(cols.filter((c) => row[c] !== undefined).map((c) => [c, row[c]]));

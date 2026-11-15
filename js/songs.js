@@ -1,8 +1,9 @@
 /* ---------- 曲：タップで聴く ----------
    Likes の「曲」は、曲名で Apple Music（iTunes）をさがして、30秒の試聴を流す。全曲を聴くときは各アプリで開く */
-import { h, svgIcon } from './dom.js?v=48';
-import { tr } from './i18n.js?v=48';
-import { notice } from './ask.js?v=48';
+import { h, svgIcon } from './dom.js?v=50';
+import { tr } from './i18n.js?v=50';
+import { notice } from './ask.js?v=50';
+import { store } from './state.js?v=50';
 
 // iTunes の検索は JSONP で呼ぶ（ブラウザの CORS に左右されない）
 function jsonp(url) {
@@ -45,6 +46,15 @@ function itunesQueued(q) {
   itunesLine = run.catch(() => {}).then(() => wait(350));
   return run;
 }
+// iPhone の Safari は itunes.apple.com の検索をミュージックのアプリ（musics://）へ飛ばしてしまい、結果を読めない。
+// 直接がだめなら Supabase の関数 songs に代わりに呼んでもらう。一度だめだったら、そのあとは最初から関数へ
+let directOk = true;
+async function appleSongs(q) {
+  if (directOk || !store?.songSearch) {
+    try { return await itunesQueued(q); } catch (e) { if (!store?.songSearch) throw e; directOk = false; }
+  }
+  return (await store.songSearch(q)).map(toTrack).filter(Boolean);
+}
 const FALLBACK_KEEP = 60000;   // 予備の結果は1分だけ覚えて、そのあとはまた Apple Music からさがす
 const songSearches = new Map();
 function searchSongs(title) {
@@ -53,9 +63,9 @@ function searchSongs(title) {
   if (!songSearches.has(q)) {
     songSearches.set(q, (async () => {
       let a = null, b = null;
-      try { a = await itunesQueued(q); } catch {
+      try { a = await appleSongs(q); } catch {
         await wait(1500);
-        try { a = await itunesQueued(q); } catch { /* 予備へ */ }
+        try { a = await appleSongs(q); } catch { /* 予備へ */ }
       }
       if (a?.length) return a;
       try { b = await deezerSongs(q); } catch { /* どちらもだめ */ }
@@ -66,12 +76,17 @@ function searchSongs(title) {
   }
   return songSearches.get(q);
 }
-// その曲の Apple Music の候補（曲名でさがした結果）。「ちがう曲？」でえらんだ曲は端末に覚えておく
+// 足すときにえらんで保存した曲（e.song）。ふたりとも同じ曲になる
+const savedTrack = (e) => (e?.song?.preview ? e.song : null);
+// その曲の候補。えらんで保存した曲があればそれだけ。前からの記録は曲名でさがす（「ちがう曲？」でえらんだ曲は端末に覚えておく）
 const songCache = new Map(), songDone = new Map();
 const songKey = (e) => `${e.id}|${e.title}`;
 function songFor(e) {
   const key = songKey(e);
+  const saved = savedTrack(e);
+  if (saved) { songDone.set(key, [saved]); return Promise.resolve([saved]); }
   if (!songCache.has(key)) {
+    songDone.delete(key);   // えらんだ曲を外したあとに、その曲が残らないように
     songCache.set(key, searchSongs(e.title).then((tracks) => {
       songDone.set(key, tracks);
       if (tracks[0]?.from === 'Deezer') setTimeout(() => { songCache.delete(key); songDone.delete(key); }, FALLBACK_KEEP);
@@ -194,9 +209,73 @@ function songPlayer(e) {
     .catch(() => { box.replaceChildren(h('p', { class: 'muted' }, tr('曲をさがせませんでした（電波を確かめてください）', "Couldn't look up the song (check your connection)")), musicLinks(songQuery(e.title))); });
   return box;
 }
+// 足す・なおすときに、曲をえらぶ欄。さがした結果からタップでえらぶ（試聴して確かめられる）
+// value：えらんである曲。query：はじめにさがす言葉（好きなもの の欄）。onPick(track | null)：えらんだ・外したとき
+function songPicker({ value, query = '', onPick }) {
+  let sel = value?.preview ? value : null, list = [], seq = 0, timer = 0, typed = false;
+  const input = h('input', { type: 'text', class: 'song-q', enterkeyhint: 'search', value: query,
+    placeholder: tr('曲名やアーティスト名でさがす', 'Search by title or artist'), 'aria-label': tr('曲をさがす', 'Search for the song'),
+    oninput: () => { typed = true; find(400); },
+    onkeydown: (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); find(0); } } });
+  const status = h('p', { class: 'hint song-status' });
+  const rows = h('div', { class: 'song-list' });
+  const chosen = h('div', { class: 'song-chosen' });
+  const root = h('div', { class: 'song-pick' }, chosen, input, status, rows);
+  const keyOf = (t) => `pick:${t.id}`;
+  const art = (t) => {
+    const btn = h('button', { type: 'button', class: 'song-btn', 'aria-label': tr(`「${t.name}」を試聴`, `Preview "${t.name}"`),
+      onclick: (ev) => { ev.stopPropagation(); playTrack(keyOf(t), t); } });
+    btn.track = t;
+    return h('div', { class: 'song-art' }, t.art && h('img', { src: t.art, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }), btn);
+  };
+  const txt = (t) => h('span', { class: 'song-txt' }, h('b', {}, t.name), h('small', {}, t.artist));
+  const paint = () => root.querySelectorAll('.song-btn').forEach((b) => {
+    const on = isPlaying(keyOf(b.track)); svgIcon(b, on ? PAUSE : PLAY); b.classList.toggle('on', on);
+  });
+  onAudio(root, paint);
+  const stop = () => { if (audio.key?.startsWith('pick:')) { audio.el?.pause(); audio.key = null; } };
+  const choose = (t) => { stop(); sel = t; onPick(t); render(); };
+  function render() {
+    chosen.hidden = !sel; input.hidden = !!sel; status.hidden = !!sel; rows.hidden = !!sel;
+    if (sel) {
+      chosen.replaceChildren(h('div', { class: 'song-main' }, art(sel), txt(sel)),
+        h('div', { class: 'song-links' },
+          h('button', { type: 'button', class: 'chip', onclick: () => { stop(); sel = null; onPick(null); render(); if (input.value.trim()) find(0); input.focus(); } }, 'CHANGE')));
+    } else {
+      rows.replaceChildren(...list.map((t) => h('div', { class: 'song-row' }, art(t),
+        h('button', { type: 'button', class: 'song-choose', onclick: () => choose(t) }, txt(t), h('span', { class: 'chip' }, 'PICK')))));
+    }
+    paint();
+  }
+  const say = (t) => { status.textContent = t; };
+  function find(ms) {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const q = input.value.trim(), my = ++seq;
+      if (!q) { list = []; say(''); render(); return; }
+      say(tr('さがしています…', 'Searching…'));
+      let found = null;
+      try { found = await searchSongs(q); } catch { found = null; }
+      if (my !== seq) return;
+      list = found || [];
+      say(!found ? tr('曲をさがせませんでした（電波を確かめてください）', "Couldn't search (check your connection)")
+        : !list.length ? tr('見つかりませんでした。アーティスト名も足してみてください', 'Nothing found. Try adding the artist.')
+          : list[0].from === 'Deezer' ? tr('Apple Music につながらなかったので、予備の Deezer の結果です', "Couldn't reach Apple Music, so these are from Deezer")
+            : tr('▶ で試聴、PICK でえらぶ。見つからなければアーティスト名も足してください', '▶ to preview, PICK to choose. Not here? Add the artist.'));
+      render();
+    }, ms);
+  }
+  // 好きなもの の欄が変わったら、自分でさがす言葉を書きかえていないかぎり、それでさがし直す
+  root.setQuery = (q) => { if (typed || sel || (q === input.value && list.length)) return; input.value = q; find(700); };
+  render();
+  if (!sel && query.trim()) find(0);
+  return root;
+}
+// 保存する曲の中身（試聴の URL など、鳴らすのに要るものだけ）
+const songRow = (t) => (t ? { id: t.id, name: t.name, artist: t.artist, preview: t.preview, art: t.art, url: t.url, from: t.from } : null);
 // 曲の写真の候補：ジャケット写真
 async function songPhotos(q) {
   try { return (await searchSongs(q)).filter((t) => t.art).slice(0, 4).map((t) => ({ url: t.art, title: `${t.name} / ${t.artist}`, from: t.from })); } catch { return []; }
 }
 
-export { songBadge, songPlayer, songPhotos };
+export { songBadge, songPlayer, songPhotos, songPicker, songRow };

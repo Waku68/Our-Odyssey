@@ -1,15 +1,15 @@
 // ひとつの記録（場所・好きなもの・贈りもの など）の欄の決まり、カード、詳細、足す・なおす・消す。
-import { h } from './dom.js?v=48';
-import { tr } from './i18n.js?v=48';
-import { dots, today } from './dates.js?v=48';
-import { store, data, me, nameOf, byCreated } from './state.js?v=48';
-import { entryNew, newMark, markSeenNow } from './seen.js?v=48';
-import { ask } from './ask.js?v=48';
-import { photoImg, pickPhoto } from './photos.js?v=48';
-import { catLabel, likeCats, isSong } from './cats.js?v=48';
-import { songPlayer } from './songs.js?v=48';
-import { showDialog, closeDialog, openForm, F } from './forms.js?v=48';
-import { act } from './shell.js?v=48';
+import { h } from './dom.js?v=50';
+import { tr } from './i18n.js?v=50';
+import { dots, today } from './dates.js?v=50';
+import { store, data, me, nameOf, byCreated } from './state.js?v=50';
+import { entryNew, newMark, markSeenNow } from './seen.js?v=50';
+import { ask } from './ask.js?v=50';
+import { photoImg, pickPhoto } from './photos.js?v=50';
+import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=50';
+import { songPlayer } from './songs.js?v=50';
+import { showDialog, closeDialog, openForm, F } from './forms.js?v=50';
+import { act } from './shell.js?v=50';
 
 // Likes のしぼりこみ（えらんでいる種類）と、ひらいているひとこと欄
 let likeFilter = '';
@@ -21,7 +21,9 @@ const SECTIONS = {
     fields: () => [F.title(tr('場所の名前', 'Place'), tr('例：江ノ島の水族館', 'e.g. Enoshima Aquarium')), F.date(tr('行った日', 'Date visited')), F.body, F.geo, F.photo] },
   like: { en: 'Likes', lead: () => tr('相手の「好き」をメモしておく', 'Things they love'), fields: () => [
     { name: 'category', type: 'category', label: tr('種類', 'Type'), required: true, options: likeCats() },
-    F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')), F.body, F.photo] },
+    F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')),
+    { type: 'song', label: tr('どの曲？', 'Which song?'), hint: tr('えらんでおくと、ふたりとも同じ曲を聴けます', 'Pick it so you both hear the same song') },
+    F.body, F.photo] },
   wish: { en: 'Wishes', lead: () => tr('いつか一緒に行きたいところ', 'Places we want to go someday'),
     fields: () => [F.title(tr('行きたいところ', 'Place'), tr('例：金沢の21世紀美術館', 'e.g. 21st Century Museum, Kanazawa')), { ...F.body, ph: tr('行きたい理由、やりたいこと', 'Why, and what we want to do there') }, F.geo, F.photo] },
   gift: { en: 'Gifts', lead: () => tr('贈ったもの・もらったもの', 'Gifts given and received'),
@@ -44,7 +46,9 @@ const entryMeta = (e) => [e.date && dots(e.date), e.category && catLabel(e.categ
 const talkable = (e) => !SECTIONS[e.section]?.own;
 // フォームに書いた内容から、新しい記録を作る
 const newEntryRow = (section, v) => ({ section, title: v.title || '', body: v.body || '', date: v.date || null, category: v.category || null,
-  lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null });
+  lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null, ...songOf(v) });
+// えらんだ曲（種類が「曲」のときだけ）。曲でない記録には song を送らない
+const songOf = (v, before = null) => (v.category === SONG_CAT && v.song ? { song: v.song } : before?.song ? { song: null } : {});
 
 function talk(e, fresh = new Set()) {
   const list = data.comments.filter((c) => c.entry_id === e.id).sort(byCreated);
@@ -95,7 +99,7 @@ function addEntry(key) {
 function entryEdit(e) {
   const S = SECTIONS[e.section];
   openForm({ title: 'Edit', en: S.en, fields: S.fields(), initial: e,
-    onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo }) });
+    onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo, ...songOf(v, e) }) });
 }
 function entryWent(e) {
   openForm({ title: 'Been there!', en: 'Places', lead: tr(`「${e.title}」に行った日を残す`, `When did we go to "${e.title}"?`), initial: { ...e, date: today() },

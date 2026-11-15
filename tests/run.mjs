@@ -133,7 +133,7 @@ const btn = (page, text, scope = 'body') => page.locator(`${scope} >> role=butto
 async function fillForm(page, { title, body, chip }) {
   const dlg = page.locator('dialog.modal[open]').last();
   if (chip) await dlg.locator('.chips .chip', { hasText: chip }).first().click();
-  if (title != null) await dlg.locator('.field input[type=text]:not([readonly])').last().fill(title);
+  if (title != null) await dlg.locator('.field input[type=text]:not([readonly]):not(.song-q)').last().fill(title);
   if (body != null) await dlg.locator('textarea').first().fill(body);
 }
 const submit = (page) => page.locator('dialog.modal[open] button[type=submit]').last().click();
