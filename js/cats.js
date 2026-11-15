@@ -1,6 +1,6 @@
 // Likes の種類（食べ物・曲 など）。
-import { lang } from './i18n.js?v=42';
-import { data } from './state.js?v=42';
+import { lang } from './i18n.js?v=43';
+import { data } from './state.js?v=43';
 
 const LIKE_CATS = ['食べ物', '飲み物', '仕草', '場所', '曲', 'その他'];
 const LIKE_CATS_EN = ['Food', 'Drinks', 'Habits', 'Places', 'Songs', 'Other'];

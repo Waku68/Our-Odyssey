@@ -1,6 +1,6 @@
 // データ層。Supabase が設定されていればそちら、なければこの端末だけに保存するお試しモード。
-import { CONFIG } from './config.js?v=42';
-import { tr } from './i18n.js?v=42';
+import { CONFIG } from './config.js?v=43';
+import { tr } from './i18n.js?v=43';
 
 // この端末に覚えておくデータの名前。SITE_ID があるときだけうしろに付けて、同じドメインの別のサイトと混ざらないようにする
 export const localKey = (name) => (CONFIG.SITE_ID ? `${name}@${CONFIG.SITE_ID}` : name);

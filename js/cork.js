@@ -1,11 +1,11 @@
 // コルクボードのポラロイドを、長押しで持ち上げて動かす（重ねてもいい）。離すと S / M / L で大きさを変えられる。
 // 並びと大きさはこの端末だけに残す（相手の画面は変わらない）。動かしていないものは、今までどおりの並び。
-import { h } from './dom.js?v=42';
-import { localKey } from './store.js?v=42';
+import { h } from './dom.js?v=43';
+import { localKey } from './store.js?v=43';
 
 const KEY = localKey('our-odyssey-cork');
 const SIZES = { S: 0.72, M: 1, L: 1.45 };
-const HOLD = 420, SLOP = 8, EDGE = 80;
+const HOLD = 210, SLOP = 8, EDGE = 80;
 
 let saved = null;
 function boards() {
