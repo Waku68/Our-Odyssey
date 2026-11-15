@@ -1,15 +1,15 @@
 // ひとつの記録（場所・好きなもの・贈りもの など）の欄の決まり、カード、詳細、足す・なおす・消す。
-import { h } from './dom.js?v=47';
-import { tr } from './i18n.js?v=47';
-import { dots, today } from './dates.js?v=47';
-import { store, data, me, nameOf, byCreated } from './state.js?v=47';
-import { entryNew, newMark, markSeenNow } from './seen.js?v=47';
-import { ask } from './ask.js?v=47';
-import { photoImg, pickPhoto } from './photos.js?v=47';
-import { catLabel, likeCats, isSong } from './cats.js?v=47';
-import { songPlayer } from './songs.js?v=47';
-import { showDialog, closeDialog, openForm, F } from './forms.js?v=47';
-import { act } from './shell.js?v=47';
+import { h } from './dom.js?v=48';
+import { tr } from './i18n.js?v=48';
+import { dots, today } from './dates.js?v=48';
+import { store, data, me, nameOf, byCreated } from './state.js?v=48';
+import { entryNew, newMark, markSeenNow } from './seen.js?v=48';
+import { ask } from './ask.js?v=48';
+import { photoImg, pickPhoto } from './photos.js?v=48';
+import { catLabel, likeCats, isSong } from './cats.js?v=48';
+import { songPlayer } from './songs.js?v=48';
+import { showDialog, closeDialog, openForm, F } from './forms.js?v=48';
+import { act } from './shell.js?v=48';
 
 // Likes のしぼりこみ（えらんでいる種類）と、ひらいているひとこと欄
 let likeFilter = '';

@@ -52,9 +52,43 @@ export function apply(t = load(), save = false) {
   for (const [k, v] of Object.entries(vars)) document.documentElement.style.setProperty(k, v);
   const css = Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(';');
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', c.pink);
+  tintIcon(t);
   if (save) {
     try { localStorage.setItem(KEY, JSON.stringify(t)); localStorage.setItem(CSS_KEY, css); } catch { /* 今回だけ */ }
   }
   return c;
 }
 export const isOriginal = (t) => t.hue === BASE_HUE && !t.ink;
+
+// アイコンも同じ色合いにする（タブのアイコンと、iPhone で「ホーム画面に追加」するときの絵）。
+// すでにホーム画面にあるアイコンと、Android のインストール版のアイコン（manifest の絵）は変えられない。
+let iconImg = null;   // もとの絵（apple-touch-icon.png）。一度だけ読む
+let iconJob = 0;      // スライダーを動かしている最中に、古い計算の結果で上書きしないための番号
+async function tintIcon(t) {
+  const links = [...document.querySelectorAll('link[rel=icon], link[rel=apple-touch-icon]')];
+  for (const l of links) l.dataset.src ??= l.getAttribute('href');
+  const job = ++iconJob;
+  if (isOriginal(t)) { for (const l of links) l.href = l.dataset.src; return; }
+  const src = links.find((l) => l.rel === 'apple-touch-icon')?.dataset.src;
+  if (!src) return;
+  try {
+    iconImg ??= new Promise((ok, ng) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ng; im.src = src; });
+    const im = await iconImg;
+    if (job !== iconJob) return;
+    const cv = document.createElement('canvas');
+    cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(im, 0, 0);
+    const img = ctx.getImageData(0, 0, cv.width, cv.height), px = img.data, d = t.hue - BASE_HUE;
+    for (let i = 0; i < px.length; i += 4) {
+      const rgb = [px[i], px[i + 1], px[i + 2]], [h, s, l] = rgbToHsl(rgb);
+      const out = hslToRgb([(h + d + 360) % 360, s, l]);
+      // 紺をそのままにするときは、明るいところ（空・海・雲のピンク）だけ回す。船のふちはなめらかにまぜる
+      const w = t.ink ? 1 : Math.min(1, Math.max(0, (l - .5) / .18));
+      for (let k = 0; k < 3; k++) px[i + k] = Math.round(rgb[k] + (out[k] - rgb[k]) * w);
+    }
+    ctx.putImageData(img, 0, 0);
+    const url = cv.toDataURL('image/png');
+    for (const l of links) l.href = url;
+  } catch { iconImg = null; /* 読めないときは、もとのアイコンのまま */ }
+}

@@ -1,15 +1,15 @@
 // ダイアログと入力フォーム（日付の帯、写真の欄、地図の欄など）。
-import { h, reduceMotion } from './dom.js?v=47';
-import { lang, tr } from './i18n.js?v=47';
-import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=47';
-import { store } from './state.js?v=47';
-import { ask, notice } from './ask.js?v=47';
-import { editPhoto } from './photo-editor.js?v=47';
-import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=47';
-import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=47';
-import { songPhotos } from './songs.js?v=47';
-import { SONG_CAT, catLabel } from './cats.js?v=47';
-import { refresh } from './shell.js?v=47';
+import { h, reduceMotion } from './dom.js?v=48';
+import { lang, tr } from './i18n.js?v=48';
+import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=48';
+import { store } from './state.js?v=48';
+import { ask, notice } from './ask.js?v=48';
+import { editPhoto } from './photo-editor.js?v=48';
+import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=48';
+import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=48';
+import { songPhotos } from './songs.js?v=48';
+import { SONG_CAT, catLabel } from './cats.js?v=48';
+import { refresh } from './shell.js?v=48';
 
 const BOOKMARK = '<svg viewBox="0 0 10 13" aria-hidden="true"><path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor"/></svg>';
 
