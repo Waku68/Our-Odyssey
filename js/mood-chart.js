@@ -1,8 +1,8 @@
 // MOOD の折れ線グラフ（横にスクロール、2本指で期間を伸び縮み、点をタップで吹き出し）。
-import { h, reduceMotion } from './dom.js?v=45';
-import { lang, tr } from './i18n.js?v=45';
-import { MONTHS, WEEK, ymd, parse, today, utc, daysBetween, dots, md, plural, addDays } from './dates.js?v=45';
-import { TH } from './theme.js?v=45';
+import { h, reduceMotion } from './dom.js?v=46';
+import { lang, tr } from './i18n.js?v=46';
+import { MONTHS, WEEK, ymd, parse, today, utc, daysBetween, dots, md, plural, addDays } from './dates.js?v=46';
+import { TH } from './theme.js?v=46';
 
 const levels = () => tr(['とても\nつらい', 'つらい', 'ふつう', 'いい', 'とても\nいい'], ['Very\nbad', 'Bad', 'Okay', 'Good', 'Very\ngood']);
 
