@@ -1,15 +1,15 @@
 // ダイアログと入力フォーム（日付の帯、写真の欄、地図の欄など）。
-import { h, reduceMotion } from './dom.js?v=50';
-import { lang, tr } from './i18n.js?v=50';
-import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=50';
-import { store } from './state.js?v=50';
-import { ask, notice } from './ask.js?v=50';
-import { editPhoto } from './photo-editor.js?v=50';
-import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=50';
-import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=50';
-import { songPhotos, songPicker, songRow } from './songs.js?v=50';
-import { SONG_CAT, catLabel } from './cats.js?v=50';
-import { refresh } from './shell.js?v=50';
+import { h, reduceMotion } from './dom.js?v=51';
+import { lang, tr } from './i18n.js?v=51';
+import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=51';
+import { store } from './state.js?v=51';
+import { ask, notice } from './ask.js?v=51';
+import { editPhoto } from './photo-editor.js?v=51';
+import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=51';
+import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=51';
+import { songPhotos, songPicker, songRow } from './songs.js?v=51';
+import { SONG_CAT, catLabel } from './cats.js?v=51';
+import { refresh } from './shell.js?v=51';
 
 const BOOKMARK = '<svg viewBox="0 0 10 13" aria-hidden="true"><path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor"/></svg>';
 
@@ -103,8 +103,8 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
   let titleEl = null;
   const touch = () => { dirty = true; };
   const err = h('p', { class: 'err', role: 'alert' });
-  const field = (f, inner, tag = 'div') => h(tag, { class: 'field' },
-    f.label && h('span', { class: 'flabel' }, f.label, f.required && !f.readonly && h('span', { class: 'req' }, tr('必須', 'required'))),
+  const field = (f, inner, tag = 'div', extra = null) => h(tag, { class: 'field' },
+    f.label && h('span', { class: 'flabel' }, f.label, f.required && !f.readonly && h('span', { class: 'req' }, tr('必須', 'required')), extra),
     inner, f.hint && h('span', { class: 'hint' }, f.hint));
   const control = (f) => {
     if (f.type === 'geo') return field(f, geoField(v, (info) => onGeo(info)));
@@ -222,7 +222,7 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
     if (f.type === 'category') {
       // 種類はえらぶだけ。決まった種類は日本語のまま保存し、表示だけ言語に合わせる
       const chips = h('div', { class: 'chips' }, f.options.map((o) => h('button', { type: 'button', class: `chip${v[f.name] === o ? ' on' : ''}`,
-        onclick: (ev) => { v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c === ev.currentTarget)); onCat(); } }, catLabel(o))));
+        onclick: (ev) => { v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c === ev.currentTarget)); onCat(); } }, f.optLabel ? f.optLabel(o) : catLabel(o))));
       return field(f, h('div', { class: 'cat' }, chips));
     }
     if (f.type === 'song') {
@@ -242,6 +242,17 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
     }
     const input = h('input', { type: f.type, ...common });
     if (f.name === 'title') titleEl = input;
+    if (f.examples?.length && !f.readonly) {
+      // 例からえらぶ：ラベルの横のボタンで例を並べ、タップした例を欄に入れる
+      // （ラベルの中にボタンがあると、ラベルをタップしたときにボタンが押されるので、外側は div にする）
+      const setOpen = (open) => { list.hidden = !open; btn.classList.toggle('on', open); btn.setAttribute('aria-expanded', String(open)); };
+      const list = h('div', { class: 'chips examples', hidden: true }, f.examples.map((t) => h('button', { type: 'button', class: 'chip', onclick: () => {
+        input.value = t; v[f.name] = t; touch(); setOpen(false); if (f.name === 'title') { onTitle(t); onSongQuery(t); }
+      } }, t)));
+      const btn = h('button', { type: 'button', class: 'chip ex-btn', 'aria-expanded': 'false', onclick: () => setOpen(list.hidden) }, 'EXAMPLES');
+      input.setAttribute('aria-label', f.label);
+      return field(f, h('div', { class: 'ex-field' }, input, list), 'div', btn);
+    }
     return field(f, input, 'label');
   };
   const submit = h('button', { class: 'btn', type: 'submit' }, submitLabel);

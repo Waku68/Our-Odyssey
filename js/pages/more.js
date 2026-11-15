@@ -1,17 +1,17 @@
 // MORE：Likes・Gifts・Values・Dislikes・Days をコルクボードで見せる一覧と、それぞれの「VIEW ALL」のページ。
-import { h } from '../dom.js?v=50';
-import { tr } from '../i18n.js?v=50';
-import { md, dots } from '../dates.js?v=50';
-import { data, nameOf } from '../state.js?v=50';
-import { entryNew, newMark, sectionNew } from '../seen.js?v=50';
-import { photoImg } from '../photos.js?v=50';
-import { catLabel, likeCats, isSong } from '../cats.js?v=50';
-import { songBadge } from '../songs.js?v=50';
-import { SECTIONS, fromLabel, likeFilter, setLikeFilter, entryCard, addEntry, openDetail } from '../entries.js?v=50';
-import { draw, pageNav, pageHead } from '../shell.js?v=50';
-import { writeValue } from './values.js?v=50';
-import { annivLines, addAnniv } from './anniv.js?v=50';
-import { movable, hasLayout, resetLayout } from '../cork.js?v=50';
+import { h } from '../dom.js?v=51';
+import { tr } from '../i18n.js?v=51';
+import { md, dots } from '../dates.js?v=51';
+import { data, nameOf } from '../state.js?v=51';
+import { entryNew, newMark, sectionNew } from '../seen.js?v=51';
+import { photoImg } from '../photos.js?v=51';
+import { catLabel, likeCats, isSong } from '../cats.js?v=51';
+import { songBadge } from '../songs.js?v=51';
+import { SECTIONS, fromLabel, catText, likeFilter, setLikeFilter, entryCard, addEntry, openDetail } from '../entries.js?v=51';
+import { draw, pageNav, pageHead } from '../shell.js?v=51';
+import { writeValue } from './values.js?v=51';
+import { annivLines, addAnniv } from './anniv.js?v=51';
+import { movable, hasLayout, resetLayout } from '../cork.js?v=51';
 
 function sectionPage(key) {
   const S = SECTIONS[key];
@@ -38,7 +38,7 @@ function sectionPage(key) {
 /* ---------- その他（その場で開く） ---------- */
 const MORE = [
   { key: 'like', en: 'Likes', jp: '好きなもの', sub: 'Things they love' },
-  { key: 'gift', en: 'Gifts', jp: '贈ったもの', sub: 'Given & received' },
+  { key: 'gift', en: 'Gifts', jp: '贈りもの', sub: 'Given & received' },
   { key: 'values', en: 'Values', jp: '価値観', sub: 'What we think' },
   { key: 'dislike', en: 'Dislikes', jp: '嫌いなもの', sub: 'Not for them' },
   { key: 'anniv', en: 'Days', jp: '記念日', sub: 'Anniversaries' },
@@ -100,7 +100,7 @@ function morePreview(key) {
   return board(items.length, items.map((e) => ({
     seed: e.id, photo: e.photo, title: e.title, onclick: () => openDetail(e.id), fresh: entryNew(e), badge: isSong(e) ? songBadge(e) : null,
     sub: SECTIONS[key].own ? (e.date ? dots(e.date) : tr('自分だけ', 'Only you'))
-      : [e.category && catLabel(e.category), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・'),
+      : [catText(e), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・'),
   })), () => addEntry(key));
 }
 function morePage() {

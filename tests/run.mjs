@@ -205,6 +205,10 @@ async function demoFlow(browser, lang) {
   // 写真を足す（編集画面を通す）
   await go(page, '#/more/dislike'); await page.waitForTimeout(300);
   await go(page, '#/more/gift'); await page.waitForTimeout(300);
+  // GIFTS：「もらったもの」をえらんで足す（相手から、と出る）
+  await page.locator('.head .btn').click(); await page.waitForTimeout(300);
+  await fillForm(page, { title: 'ペアのマグカップ', chip: lang === 'en' ? 'Received' : 'もらったもの' }); await snap('gift-received-form');
+  await submit(page); await snap('gift-received-added');
   const card = page.locator('.card', { hasText: '腕時計' });
   await page.evaluate(() => document.querySelector('.view')?.scrollIntoView());
   // VALUES：書く

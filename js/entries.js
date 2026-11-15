@@ -1,15 +1,15 @@
 // ひとつの記録（場所・好きなもの・贈りもの など）の欄の決まり、カード、詳細、足す・なおす・消す。
-import { h } from './dom.js?v=50';
-import { tr } from './i18n.js?v=50';
-import { dots, today } from './dates.js?v=50';
-import { store, data, me, nameOf, byCreated } from './state.js?v=50';
-import { entryNew, newMark, markSeenNow } from './seen.js?v=50';
-import { ask } from './ask.js?v=50';
-import { photoImg, pickPhoto } from './photos.js?v=50';
-import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=50';
-import { songPlayer } from './songs.js?v=50';
-import { showDialog, closeDialog, openForm, F } from './forms.js?v=50';
-import { act } from './shell.js?v=50';
+import { h } from './dom.js?v=51';
+import { tr } from './i18n.js?v=51';
+import { dots, today } from './dates.js?v=51';
+import { store, data, me, nameOf, byCreated } from './state.js?v=51';
+import { entryNew, newMark, markSeenNow } from './seen.js?v=51';
+import { ask } from './ask.js?v=51';
+import { photoImg, pickPhoto } from './photos.js?v=51';
+import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=51';
+import { songPlayer } from './songs.js?v=51';
+import { showDialog, closeDialog, openForm, F } from './forms.js?v=51';
+import { act } from './shell.js?v=51';
 
 // Likes のしぼりこみ（えらんでいる種類）と、ひらいているひとこと欄
 let likeFilter = '';
@@ -26,8 +26,9 @@ const SECTIONS = {
     F.body, F.photo] },
   wish: { en: 'Wishes', lead: () => tr('いつか一緒に行きたいところ', 'Places we want to go someday'),
     fields: () => [F.title(tr('行きたいところ', 'Place'), tr('例：金沢の21世紀美術館', 'e.g. 21st Century Museum, Kanazawa')), { ...F.body, ph: tr('行きたい理由、やりたいこと', 'Why, and what we want to do there') }, F.geo, F.photo] },
-  gift: { en: 'Gifts', lead: () => tr('贈ったもの・もらったもの', 'Gifts given and received'),
-    fields: () => [F.title(tr('贈ったもの', 'Gift'), tr('例：手編みのマフラー', 'e.g. Hand-knit scarf')), F.date(tr('贈った日', 'Date given')), F.body, F.photo] },
+  gift: { en: 'Gifts', lead: () => tr('贈ったもの・もらったもの', 'Gifts given and received'), fields: () => [
+    { name: 'category', type: 'category', label: tr('どっち？', 'Given or received?'), required: true, options: GIFT_WAYS, optLabel: giftWayLabel },
+    F.title(tr('贈りもの', 'Gift'), tr('例：手編みのマフラー', 'e.g. Hand-knit scarf')), F.date(), F.body, F.photo] },
   dislike: { en: 'Dislikes', lead: () => tr('相手の苦手なものを覚えておく', "Things they don't like"),
     fields: () => [F.title(tr('嫌いなもの', 'What'), tr('例：満員電車', 'e.g. Packed trains')), F.body] },
   // 自分だけの写真。データベースの決まりで、書いた本人にしか読めない（相手の画面には出てこない）
@@ -37,11 +38,20 @@ const SECTIONS = {
       F.date(tr('撮った日', 'Date taken')), { ...F.body, label: tr('メモ', 'Note') }] },
 };
 
-const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(e.author)}から`, `from ${nameOf(e.author)}`) : nameOf(e.author));
+// 贈りものは「贈った」か「もらった」かを category に入れる（前からある、空のものは「贈った」）
+const GIFT_WAYS = ['given', 'received'];
+const giftWayLabel = (w) => (w === 'received' ? tr('もらったもの', 'Received') : tr('贈ったもの', 'Given'));
+// 贈った人：「もらった」なら書いた人の相手
+const giverOf = (e) => (e.category === 'received' ? data.profiles.find((p) => p.id !== e.author)?.id : e.author);
+const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(giverOf(e))}から`, `from ${nameOf(giverOf(e))}`) : nameOf(e.author));
+// 種類の表示（贈りものの「贈った・もらった」は「◯◯から」で分かるので出さない）
+const catText = (e) => (e.section !== 'gift' && e.category ? catLabel(e.category) : '');
+// なおすときの最初の値（前からある贈りものは「贈った」をえらんだ状態にする）
+const editInitial = (e) => (e.section === 'gift' && !e.category ? { ...e, category: 'given' } : e);
 // なおす・消すのは書いた本人だけ（データベースの決まりと同じ）
 const canEdit = (e) => !!e && e.author === me();
 
-const entryMeta = (e) => [e.date && dots(e.date), e.category && catLabel(e.category), SECTIONS[e.section]?.own ? tr('自分だけ', 'Only you') : fromLabel(e)].filter(Boolean).join(' ・ ');
+const entryMeta = (e) => [e.date && dots(e.date), catText(e), SECTIONS[e.section]?.own ? tr('自分だけ', 'Only you') : fromLabel(e)].filter(Boolean).join(' ・ ');
 // 自分だけの記録には、ひとこと欄を出さない
 const talkable = (e) => !SECTIONS[e.section]?.own;
 // フォームに書いた内容から、新しい記録を作る
@@ -90,7 +100,7 @@ function entryCard(e, key) {
 }
 function addEntry(key) {
   const S = SECTIONS[key];
-  openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : {},
+  openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : key === 'gift' ? { category: 'given' } : {},
     onSubmit: (v) => store.saveEntry(newEntryRow(key, v)) });
 }
 
@@ -98,7 +108,7 @@ function addEntry(key) {
 
 function entryEdit(e) {
   const S = SECTIONS[e.section];
-  openForm({ title: 'Edit', en: S.en, fields: S.fields(), initial: e,
+  openForm({ title: 'Edit', en: S.en, fields: S.fields(), initial: editInitial(e),
     onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo, ...songOf(v, e) }) });
 }
 function entryWent(e) {
@@ -135,4 +145,4 @@ function openDetail(id) {
   showDialog(dlg);
 }
 
-export { SECTIONS, fromLabel, canEdit, likeFilter, setLikeFilter, newEntryRow, removeEntry, entryCard, addEntry, openDetail };
+export { SECTIONS, fromLabel, catText, canEdit, likeFilter, setLikeFilter, newEntryRow, removeEntry, entryCard, addEntry, openDetail };
