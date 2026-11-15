@@ -48,11 +48,14 @@ img { max-width: 100%; display: block; }
 .home .tag { margin-top: calc(16px + env(safe-area-inset-top)); background: var(--navy); color: var(--pink); }
 .big { font-family: var(--en); font-size: min(41vw, 196px); line-height: .94; text-align: center; white-space: nowrap; text-transform: uppercase; margin: 0; font-weight: 400; }
 .big.first { margin-top: 12px; }
-/* 日数は縦に引きのばして背を高く（transform はレイアウトに効かないので、伸びたぶん下をあける） */
-.home .big.first { --fs: min(44vw, 212px); --sy: 1.32; font-size: var(--fs); transform: scaleY(var(--sy)); transform-origin: 50% 0;
-  margin-bottom: calc(var(--fs) * .94 * (var(--sy) - 1)); }
+/* 日数は縦に引きのばして背を高く、横は少し細く。白いずらし影で浮かせる（transform はレイアウトに効かないので、伸びたぶん下をあける） */
+.home .big.first { --fs: min(44vw, 212px); --sx: .84; --sy: 1.32; font-size: var(--fs); transform: scale(var(--sx), var(--sy)); transform-origin: 50% 0;
+  margin-bottom: calc(var(--fs) * .94 * (var(--sy) - 1)); text-shadow: .06em .03em 0 var(--paper); }
 /* 数字の下の DAYS */
 .big.unit { font-size: min(31vw, 150px); line-height: 1; margin-top: 16px; }
+/* DAYS の上に、DAYS と同じ幅の線（日数が一桁でも線の長さは変わらない） */
+.home .big.unit { position: relative; width: fit-content; margin: 6px auto 0; padding-top: 22px; }
+.home .big.unit::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 9px; background: var(--navy); box-shadow: 6px 4px 0 var(--paper); }
 .sub { margin: 18px 0 0; text-align: center; }
 /* 写真の台：画面の下端まで伸ばして、チューリップを下端から生やす */
 .stage { position: relative; width: 100vw; max-width: 480px; flex: 1 0 400px; margin-top: 8px; }
