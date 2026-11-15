@@ -15,6 +15,7 @@
 - 価値観：同じお題にふたりそれぞれの答えを並べる
 - 記念日を足す、年表
 - メンタルの記録（本人だけに見える）と折れ線グラフ
+- 自分だけの写真（MORE > Secret）：載せた本人にしか見えないお気に入りの写真
 - 写真は載せたい項目にだけ。投稿への「ひとこと」
 - 記念日の朝の通知（設定でオン・オフ）、バックアップの保存と、消えた記録の復元
 
@@ -23,7 +24,7 @@
 ### 1. Supabase を用意する
 
 1. https://supabase.com でアカウントを作り、新しいプロジェクトを作る（Region は Tokyo）。
-2. SQL Editor に `supabase/schema.sql` をぜんぶ貼って実行する。
+2. SQL Editor に `supabase/schema.sql` をぜんぶ貼って実行する。（前に実行したデータベースに「自分だけの写真」を足すときは、`supabase/secret.sql` だけを実行する）
 3. Authentication > Users > Add user で、2人分を作る（Auto Confirm User にチェック）。Email には `ログイン名@waku68.github.io`（例：`waku@waku68.github.io`）を入れる。サイトでは `waku` とパスワードだけでログインできる。
 4. Authentication の設定で「Allow new users to sign up」をオフにする。**これをしないと、URLを知った他人が登録して中身を読めてしまいます。**
 5. Project Settings > API にある Project URL と anon public key を `js/config.js` に入れる。
@@ -69,10 +70,10 @@
 
 ### 更新するとき（`?v=` の数字）
 
-`index.html` と `js/` の中で `.js` `.css` についている `?v=38` は、スマホに新しいファイルを取りに行かせるための番号です。**全部同じ数字にそろえます**（一部だけちがうと、同じファイルが2回読みこまれて中身が食いちがいます）。何か変えたら、まとめて1つ上げます。
+`index.html` と `js/` の中で `.js` `.css` についている `?v=41` は、スマホに新しいファイルを取りに行かせるための番号です。**全部同じ数字にそろえます**（一部だけちがうと、同じファイルが2回読みこまれて中身が食いちがいます）。何か変えたら、まとめて1つ上げます。
 
 ```sh
-grep -rl '?v=' index.html js | xargs sed -i -E 's/\.(js|css)\?v=[0-9]+/.\1?v=39/g'
+grep -rl '?v=' index.html js | xargs sed -i -E 's/\.(js|css)\?v=[0-9]+/.\1?v=42/g'
 ```
 
 `js/` にファイルを足したときは、`index.html` の `modulepreload` の並びにも足します。

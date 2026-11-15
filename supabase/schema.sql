@@ -10,7 +10,7 @@ create table if not exists public.profiles (
 
 create table if not exists public.entries (
   id uuid primary key default gen_random_uuid(),
-  section text not null check (section in ('place','like','wish','gift','dislike','value','anniversary','hero')),
+  section text not null check (section in ('place','like','wish','gift','dislike','value','anniversary','hero','secret')),
   category text,
   title text not null default '',
   body text not null default '',
@@ -81,15 +81,17 @@ create policy "profiles update own" on public.profiles for update to authenticat
 
 -- 投稿：2人とも読める・足せる。なおす／消すのは書いた本人だけ。
 -- 例外：「行きたいところ」は、どちらでも「行った！」で「過ごした場所」に移せる。
-create policy "entries read" on public.entries for select to authenticated using (true);
+-- 「自分だけの写真」（secret）は、書いた本人しか読めない。
+create policy "entries read" on public.entries for select to authenticated using (section <> 'secret' or author = auth.uid());
 create policy "entries insert own" on public.entries for insert to authenticated with check (author = auth.uid());
 create policy "entries update own or wish" on public.entries for update to authenticated
   using (author = auth.uid() or section = 'wish')
   with check (author = auth.uid() or section = 'place');
 create policy "entries delete own" on public.entries for delete to authenticated using (author = auth.uid());
 
--- ひとこと：2人とも読める・書ける。消せるのは本人だけ。
-create policy "comments read" on public.comments for select to authenticated using (true);
+-- ひとこと：2人とも読める・書ける（読める投稿についた分だけ）。消せるのは本人だけ。
+create policy "comments read" on public.comments for select to authenticated
+  using (exists (select 1 from public.entries e where e.id = entry_id));
 create policy "comments insert own" on public.comments for insert to authenticated with check (author = auth.uid());
 create policy "comments delete own" on public.comments for delete to authenticated using (author = auth.uid());
 
@@ -111,6 +113,17 @@ create policy "photos read" on storage.objects for select to authenticated using
 create policy "photos upload" on storage.objects for insert to authenticated with check (bucket_id = 'photos');
 create policy "photos delete own" on storage.objects for delete to authenticated
   using (bucket_id = 'photos' and owner = auth.uid());
+
+-- 自分だけの写真の置き場。本人のフォルダ（ユーザーID）しか読み書きできない
+insert into storage.buckets (id, name, public) values ('secret', 'secret', false)
+on conflict (id) do nothing;
+
+create policy "secret read own" on storage.objects for select to authenticated
+  using (bucket_id = 'secret' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "secret upload own" on storage.objects for insert to authenticated
+  with check (bucket_id = 'secret' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "secret delete own" on storage.objects for delete to authenticated
+  using (bucket_id = 'secret' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- 5) 相手の更新をすぐ届ける（Realtime） ----------------------------------------
 -- realtime.sql と同じ内容。あとから足したので、すでに schema.sql を実行済みなら realtime.sql だけ実行すればいい。

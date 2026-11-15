@@ -1,8 +1,8 @@
 /* ---------- 曲：タップで聴く ----------
    Likes の「曲」は、曲名で Apple Music（iTunes）をさがして、30秒の試聴を流す。全曲を聴くときは各アプリで開く */
-import { h, svgIcon } from './dom.js?v=39';
-import { tr } from './i18n.js?v=39';
-import { notice } from './ask.js?v=39';
+import { h, svgIcon } from './dom.js?v=42';
+import { tr } from './i18n.js?v=42';
+import { notice } from './ask.js?v=42';
 
 // iTunes の検索は JSONP で呼ぶ（ブラウザの CORS に左右されない）
 function jsonp(url) {
@@ -36,6 +36,16 @@ async function deezerSongs(q) {
   return (j.data || []).filter((d) => d.preview).map((d) => ({ id: `dz${d.id}`, name: d.title, artist: d.artist?.name || '', preview: d.preview,
     art: d.album?.cover_big || '', url: d.link, from: 'Deezer' }));
 }
+// iTunes は短いあいだに何度も呼ぶと断られる（コルクボードの曲が一度にさがしに行くと起きる）。
+// ひとつずつ間をあけて呼び、断られたら少し待ってもう一度。Deezer は日本の曲に弱いので最後の手段
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+let itunesLine = Promise.resolve();
+function itunesQueued(q) {
+  const run = itunesLine.then(() => itunesSongs(q));
+  itunesLine = run.catch(() => {}).then(() => wait(350));
+  return run;
+}
+const FALLBACK_KEEP = 60000;   // 予備の結果は1分だけ覚えて、そのあとはまた Apple Music からさがす
 const songSearches = new Map();
 function searchSongs(title) {
   const q = songQuery(title);
@@ -43,10 +53,13 @@ function searchSongs(title) {
   if (!songSearches.has(q)) {
     songSearches.set(q, (async () => {
       let a = null, b = null;
-      try { a = await itunesSongs(q); } catch { /* 予備へ */ }
+      try { a = await itunesQueued(q); } catch {
+        await wait(1500);
+        try { a = await itunesQueued(q); } catch { /* 予備へ */ }
+      }
       if (a?.length) return a;
       try { b = await deezerSongs(q); } catch { /* どちらもだめ */ }
-      if (b?.length) return b;
+      if (b?.length) { setTimeout(() => songSearches.delete(q), FALLBACK_KEEP); return b; }
       if (a || b) return [];
       throw new Error('search failed');
     })().catch((e) => { songSearches.delete(q); throw e; }));
@@ -59,7 +72,11 @@ const songKey = (e) => `${e.id}|${e.title}`;
 function songFor(e) {
   const key = songKey(e);
   if (!songCache.has(key)) {
-    songCache.set(key, searchSongs(e.title).then((tracks) => { songDone.set(key, tracks); return tracks; },
+    songCache.set(key, searchSongs(e.title).then((tracks) => {
+      songDone.set(key, tracks);
+      if (tracks[0]?.from === 'Deezer') setTimeout(() => { songCache.delete(key); songDone.delete(key); }, FALLBACK_KEEP);
+      return tracks;
+    },
       (err) => { songCache.delete(key); throw err; }));
   }
   return songCache.get(key);

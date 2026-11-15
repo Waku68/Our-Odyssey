@@ -1,16 +1,17 @@
 // MORE：Likes・Gifts・Values・Dislikes・Days をコルクボードで見せる一覧と、それぞれの「VIEW ALL」のページ。
-import { h } from '../dom.js?v=39';
-import { tr } from '../i18n.js?v=39';
-import { md } from '../dates.js?v=39';
-import { data, nameOf } from '../state.js?v=39';
-import { entryNew, newMark, sectionNew } from '../seen.js?v=39';
-import { photoImg } from '../photos.js?v=39';
-import { catLabel, likeCats, isSong } from '../cats.js?v=39';
-import { songBadge } from '../songs.js?v=39';
-import { SECTIONS, fromLabel, likeFilter, setLikeFilter, entryCard, addEntry, openDetail } from '../entries.js?v=39';
-import { draw, pageNav, pageHead } from '../shell.js?v=39';
-import { writeValue } from './values.js?v=39';
-import { annivLines, addAnniv } from './anniv.js?v=39';
+import { h } from '../dom.js?v=42';
+import { tr } from '../i18n.js?v=42';
+import { md, dots } from '../dates.js?v=42';
+import { data, nameOf } from '../state.js?v=42';
+import { entryNew, newMark, sectionNew } from '../seen.js?v=42';
+import { photoImg } from '../photos.js?v=42';
+import { catLabel, likeCats, isSong } from '../cats.js?v=42';
+import { songBadge } from '../songs.js?v=42';
+import { SECTIONS, fromLabel, likeFilter, setLikeFilter, entryCard, addEntry, openDetail } from '../entries.js?v=42';
+import { draw, pageNav, pageHead } from '../shell.js?v=42';
+import { writeValue } from './values.js?v=42';
+import { annivLines, addAnniv } from './anniv.js?v=42';
+import { movable, hasLayout, resetLayout } from '../cork.js?v=42';
 
 function sectionPage(key) {
   const S = SECTIONS[key];
@@ -28,6 +29,7 @@ function sectionPage(key) {
   }
   return h('div', {}, pageNav(true),
     pageHead(S.en, h('button', { class: 'btn', onclick: add }, '+ ADD')),
+    S.own && h('p', { class: 'muted' }, S.lead()),
     chips,
     items.length ? h('div', { class: 'cards' }, items.map((e) => entryCard(e, key)))
       : h('p', { class: 'empty' }, tr('まだ何もありません。「+ ADD」から最初のひとつを。', 'Nothing here yet. Tap "+ ADD" to start.')));
@@ -40,6 +42,7 @@ const MORE = [
   { key: 'values', en: 'Values', jp: '価値観', sub: 'What we think' },
   { key: 'dislike', en: 'Dislikes', jp: '嫌いなもの', sub: 'Not for them' },
   { key: 'anniv', en: 'Days', jp: '記念日', sub: 'Anniversaries' },
+  { key: 'secret', en: 'Secret', jp: '自分だけの写真', sub: 'Only you can see' },
   { key: 'settings', en: 'Settings', jp: '設定', sub: '', link: true },
 ];
 
@@ -54,22 +57,30 @@ function seeded(str) {
   for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); }
   return () => { x = Math.imul(x ^ (x >>> 15), 2246822507); x = Math.imul(x ^ (x >>> 13), 3266489909); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
 }
-// cards: { seed, title, sub, onclick, photo?, big?, cls? }
-function corkBoard(cards) {
+// cards: { seed, title, sub, onclick, photo?, big?, cls? }。長押しで動かせる（cork.js）
+function corkBoard(key, cards, onChange) {
   const between = (r, a, b) => a + (b - a) * r();
-  return h('div', { class: 'cork-board' }, h('div', { class: 'cork' }, h('div', { class: 'cork-grid' }, cards.map((c) => {
+  const grid = h('div', { class: 'cork-grid' });
+  const moving = cards.map((c) => {
     const r = seeded(String(c.seed));
-    const style = `--s:${between(r, .88, 1.06).toFixed(3)};--r:${between(r, -4, 4).toFixed(2)}deg;--x:${between(r, -3, 4).toFixed(1)}px;--y:${between(r, -3, 10).toFixed(1)}px;--z:${between(r, 1, 3).toFixed(2)}`;
+    const s = between(r, .88, 1.06);
+    const style = `--s:${s.toFixed(3)};--r:${between(r, -4, 4).toFixed(2)}deg;--x:${between(r, -3, 4).toFixed(1)}px;--y:${between(r, -3, 10).toFixed(1)}px;--z:${between(r, 1, 3).toFixed(2)}`;
     const pin = h('img', { class: 'tack', src: `assets/pin-${r() < .5 ? 'pink' : 'navy'}.webp`, alt: '' });
-    return newMark(h('button', { class: ['pol', !c.photo && 'memo', c.cls].filter(Boolean).join(' '), type: 'button', style, onclick: c.onclick },
+    const el = newMark(h('button', { class: ['pol', !c.photo && 'memo', c.cls].filter(Boolean).join(' '), type: 'button', style, onclick: c.onclick },
       pin, c.photo ? h('span', { class: 'pim' }, photoImg(c.photo, ''), c.badge || null) : null, c.big || null, h('b', {}, c.title), h('small', {}, c.sub),
       !c.photo && c.badge ? c.badge : null), c.fresh);
-  }))));
+    grid.append(el);
+    return { el, seed: String(c.seed), s: Number(s.toFixed(3)) };
+  });
+  movable(key, grid, moving, onChange);
+  return h('div', { class: 'cork-board' }, h('div', { class: 'cork' }, grid));
 }
 const MORE_SECTIONS = { like: ['like'], gift: ['gift'], values: ['value'], dislike: ['dislike'], anniv: ['anniversary'] };
 function morePreview(key) {
   const go = (k) => { location.hash = `#/more/${k}`; };
-  const board = (n, cards, add) => ({ n, items: cards.length ? [corkBoard(cards)] : [], add });
+  // TIDY UP：動かした並びをやめて、もとの並びにもどす（動かしてあるときだけ出す）
+  const tidy = h('button', { class: 'btn ghost small', type: 'button', hidden: !hasLayout(key), onclick: () => { resetLayout(key); draw(); } }, 'TIDY UP');
+  const board = (n, cards, add) => ({ n, items: cards.length ? [corkBoard(key, cards, () => { tidy.hidden = !hasLayout(key); })] : [], add, tidy });
   if (key === 'values') {
     const all = data.entries.filter((e) => e.section === 'value');
     const topics = [...new Set(all.map((e) => e.title))];
@@ -88,7 +99,8 @@ function morePreview(key) {
   const items = data.entries.filter((e) => e.section === key).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return board(items.length, items.map((e) => ({
     seed: e.id, photo: e.photo, title: e.title, onclick: () => openDetail(e.id), fresh: entryNew(e), badge: isSong(e) ? songBadge(e) : null,
-    sub: [e.category && catLabel(e.category), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・'),
+    sub: SECTIONS[key].own ? (e.date ? dots(e.date) : tr('自分だけ', 'Only you'))
+      : [e.category && catLabel(e.category), e.section === 'gift' ? fromLabel(e) : nameOf(e.author)].filter(Boolean).join('・'),
   })), () => addEntry(key));
 }
 function morePage() {
@@ -111,7 +123,7 @@ function morePage() {
         p.items.length ? p.items : h('p', { class: 'muted' }, tr('まだ何もありません。', 'Nothing here yet.')),
         h('div', { class: 'row' },
           h('button', { class: 'btn small', type: 'button', onclick: p.add }, '+ ADD'),
-          h('a', { class: 'btn ghost small acc-all', href: `#/more/${m.key}` }, `VIEW ALL (${p.n})`)))));
+          h('a', { class: 'btn ghost small acc-all', href: `#/more/${m.key}` }, `VIEW ALL (${p.n})`), p.tidy))));
       return li;
     })));
 }

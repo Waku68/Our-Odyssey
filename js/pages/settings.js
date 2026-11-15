@@ -1,13 +1,13 @@
 // SETTINGS：名前、言語、色のテーマ、パスワード、通知、バックアップ、ログアウト。
-import { CONFIG } from '../config.js?v=39';
-import { h } from '../dom.js?v=39';
-import { lang, tr, setLang } from '../i18n.js?v=39';
-import { today } from '../dates.js?v=39';
-import { store, data, me, nameOf, partner } from '../state.js?v=39';
-import { ask, notice } from '../ask.js?v=39';
-import { localKey } from '../store.js?v=39';
-import * as theme from '../theme.js?v=39';
-import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=39';
+import { CONFIG } from '../config.js?v=42';
+import { h } from '../dom.js?v=42';
+import { lang, tr, setLang } from '../i18n.js?v=42';
+import { today } from '../dates.js?v=42';
+import { store, data, me, nameOf, partner } from '../state.js?v=42';
+import { ask, notice } from '../ask.js?v=42';
+import { localKey } from '../store.js?v=42';
+import * as theme from '../theme.js?v=42';
+import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=42';
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function enablePush() {
@@ -98,7 +98,7 @@ async function restore() {
   await act(async () => {
     for (const e of myE) {
       const blob = e.photo ? await photoOf(e.id) : null;
-      await store.restore('entries', { ...only(e, ENTRY_COLS), photo: blob ? await store.uploadPhoto(blob) : null });
+      await store.restore('entries', { ...only(e, ENTRY_COLS), photo: blob ? await store.uploadPhoto(blob, { secret: e.section === 'secret' }) : null });
     }
     for (const m of lostM) await store.restore('moods', only(m, MOOD_COLS));
     for (const c of myC) await store.restore('comments', only(c, COMMENT_COLS));

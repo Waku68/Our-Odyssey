@@ -1,11 +1,14 @@
 // データ層。Supabase が設定されていればそちら、なければこの端末だけに保存するお試しモード。
-import { CONFIG } from './config.js?v=39';
-import { tr } from './i18n.js?v=39';
+import { CONFIG } from './config.js?v=42';
+import { tr } from './i18n.js?v=42';
 
 // この端末に覚えておくデータの名前。SITE_ID があるときだけうしろに付けて、同じドメインの別のサイトと混ざらないようにする
 export const localKey = (name) => (CONFIG.SITE_ID ? `${name}@${CONFIG.SITE_ID}` : name);
 
 const uuid = () => crypto.randomUUID();
+// 自分だけの写真（Secret）は、ふたりの photos とは別の置き場 secret に入れる。記録には頭に secret/ をつけて覚えておく
+const SECRET = 'secret/';
+const where = (path) => (path.startsWith(SECRET) ? ['secret', path.slice(SECRET.length)] : ['photos', path]);
 const nowIso = () => new Date().toISOString();
 
 export async function createStore() {
@@ -40,7 +43,7 @@ function demoStore() {
     switchUser() { db.me = db.me === 'a' ? 'b' : 'a'; save(); },
     async profiles() { return db.profiles; },
     async saveProfile(patch) { Object.assign(db.profiles.find(p => p.id === db.me), patch); save(); },
-    async entries() { return db.entries; },
+    async entries() { return db.entries.filter((e) => e.section !== 'secret' || e.author === db.me); },
     async saveEntry(e) {
       if (e.id) Object.assign(db.entries.find(x => x.id === e.id), e);
       else db.entries.push({ id: uuid(), author: db.me, created_at: nowIso(), ...e });
@@ -130,12 +133,17 @@ async function supaStore() {
   const flushUrls = async () => {
     const items = urlQueue; urlQueue = [];
     if (!items.length) return;
+    const buckets = new Map();
+    for (const it of items) { const [b, name] = where(it.path); if (!buckets.has(b)) buckets.set(b, []); buckets.get(b).push({ ...it, name }); }
+    await Promise.all([...buckets].map(([b, list]) => signUrls(b, list)));
+  };
+  const signUrls = async (bucket, items) => {
     try {
-      const list = ok(await sb.storage.from('photos').createSignedUrls(items.map((i) => i.path), URL_LIFE));
+      const list = ok(await sb.storage.from(bucket).createSignedUrls(items.map((i) => i.name), URL_LIFE));
       const exp = Date.now() + URL_LIFE * 1000;
       const byPath = new Map(list.map((x) => [x.path, x]));
       for (const it of items) {
-        const r = byPath.get(it.path);
+        const r = byPath.get(it.name);
         urls.delete(it.path);
         if (r?.signedUrl) { urlCache[it.path] = { url: r.signedUrl, exp }; it.res(r.signedUrl); } else it.rej(new Error(r?.error || tr('写真を読みこめませんでした', "Couldn't load the photo")));
       }
@@ -220,7 +228,8 @@ async function supaStore() {
     if (op.kind === 'upload') {
       const blob = await idb.get(op.path).catch(() => null);
       if (blob) {
-        const { error } = await sb.storage.from('photos').upload(op.path, blob, { contentType: 'image/jpeg' });
+        const [bucket, name] = where(op.path);
+        const { error } = await sb.storage.from(bucket).upload(name, blob, { contentType: 'image/jpeg' });
         if (error && !/exist|duplicate/i.test(error.message)) throw error;
       }
       pendingPhotos.delete(op.path);
@@ -228,7 +237,8 @@ async function supaStore() {
       return;
     }
     if (op.kind === 'removePhoto') {
-      const { error } = await sb.storage.from('photos').remove([op.path]);
+      const [bucket, name] = where(op.path);
+      const { error } = await sb.storage.from(bucket).remove([name]);
       if (error) throw error;
       return;
     }
@@ -358,12 +368,13 @@ async function supaStore() {
     async removeComment(id) { await write({ kind: 'delete', table: 'comments', id }); },
     // バックアップから戻す：もとの id と日時のまま入れる（すでにあれば何もしない）
     async restore(table, row) { await write({ kind: 'insert', table, id: row.id, row }); },
-    // 写真はまず端末にあずけて、つながったら送る
-    async uploadPhoto(blob) {
-      const path = `${uid()}/${uuid()}.jpg`;
+    // 写真はまず端末にあずけて、つながったら送る。secret なら自分だけの置き場へ
+    async uploadPhoto(blob, { secret = false } = {}) {
+      const path = `${secret ? SECRET : ''}${uid()}/${uuid()}.jpg`;
       try { await idb.put(path, blob); }
       catch {
-        ok(await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' }));
+        const [bucket, name] = where(path);
+        ok(await sb.storage.from(bucket).upload(name, blob, { contentType: 'image/jpeg' }));
         return path;
       }
       pendingPhotos.add(path);

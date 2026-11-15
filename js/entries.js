@@ -1,15 +1,15 @@
 // ひとつの記録（場所・好きなもの・贈りもの など）の欄の決まり、カード、詳細、足す・なおす・消す。
-import { h } from './dom.js?v=39';
-import { tr } from './i18n.js?v=39';
-import { dots, today } from './dates.js?v=39';
-import { store, data, me, nameOf, byCreated } from './state.js?v=39';
-import { entryNew, newMark, markSeenNow } from './seen.js?v=39';
-import { ask } from './ask.js?v=39';
-import { photoImg, pickPhoto } from './photos.js?v=39';
-import { catLabel, likeCats, isSong } from './cats.js?v=39';
-import { songPlayer } from './songs.js?v=39';
-import { showDialog, closeDialog, openForm, F } from './forms.js?v=39';
-import { act } from './shell.js?v=39';
+import { h } from './dom.js?v=42';
+import { tr } from './i18n.js?v=42';
+import { dots, today } from './dates.js?v=42';
+import { store, data, me, nameOf, byCreated } from './state.js?v=42';
+import { entryNew, newMark, markSeenNow } from './seen.js?v=42';
+import { ask } from './ask.js?v=42';
+import { photoImg, pickPhoto } from './photos.js?v=42';
+import { catLabel, likeCats, isSong } from './cats.js?v=42';
+import { songPlayer } from './songs.js?v=42';
+import { showDialog, closeDialog, openForm, F } from './forms.js?v=42';
+import { act } from './shell.js?v=42';
 
 // Likes のしぼりこみ（えらんでいる種類）と、ひらいているひとこと欄
 let likeFilter = '';
@@ -20,7 +20,7 @@ const SECTIONS = {
   place: { en: 'Places', lead: () => tr('ふたりで過ごした場所を残す', 'Places we spent time together'),
     fields: () => [F.title(tr('場所の名前', 'Place'), tr('例：江ノ島の水族館', 'e.g. Enoshima Aquarium')), F.date(tr('行った日', 'Date visited')), F.body, F.geo, F.photo] },
   like: { en: 'Likes', lead: () => tr('相手の「好き」をメモしておく', 'Things they love'), fields: () => [
-    { name: 'category', type: 'category', label: tr('種類', 'Type'), required: true, options: likeCats(), ph: tr('えらぶか、自由に書く', 'Pick one or type your own') },
+    { name: 'category', type: 'category', label: tr('種類', 'Type'), required: true, options: likeCats() },
     F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')), F.body, F.photo] },
   wish: { en: 'Wishes', lead: () => tr('いつか一緒に行きたいところ', 'Places we want to go someday'),
     fields: () => [F.title(tr('行きたいところ', 'Place'), tr('例：金沢の21世紀美術館', 'e.g. 21st Century Museum, Kanazawa')), { ...F.body, ph: tr('行きたい理由、やりたいこと', 'Why, and what we want to do there') }, F.geo, F.photo] },
@@ -28,15 +28,22 @@ const SECTIONS = {
     fields: () => [F.title(tr('贈ったもの', 'Gift'), tr('例：手編みのマフラー', 'e.g. Hand-knit scarf')), F.date(tr('贈った日', 'Date given')), F.body, F.photo] },
   dislike: { en: 'Dislikes', lead: () => tr('相手の苦手なものを覚えておく', "Things they don't like"),
     fields: () => [F.title(tr('嫌いなもの', 'What'), tr('例：満員電車', 'e.g. Packed trains')), F.body] },
+  // 自分だけの写真。データベースの決まりで、書いた本人にしか読めない（相手の画面には出てこない）
+  secret: { en: 'Secret', own: true, lead: () => tr('自分だけに見えるお気に入りの写真。相手には見えません', "Favorite photos only you can see. Your partner can't."),
+    fields: () => [{ ...F.photo, required: true, secret: true, manual: true },
+      { ...F.title(tr('ひとこと', 'Caption'), tr('例：この笑顔が好き', 'e.g. Love this smile')), required: false },
+      F.date(tr('撮った日', 'Date taken')), { ...F.body, label: tr('メモ', 'Note') }] },
 };
 
 const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(e.author)}から`, `from ${nameOf(e.author)}`) : nameOf(e.author));
 // なおす・消すのは書いた本人だけ（データベースの決まりと同じ）
 const canEdit = (e) => !!e && e.author === me();
 
-const entryMeta = (e) => [e.date && dots(e.date), e.category && catLabel(e.category), fromLabel(e)].filter(Boolean).join(' ・ ');
+const entryMeta = (e) => [e.date && dots(e.date), e.category && catLabel(e.category), SECTIONS[e.section]?.own ? tr('自分だけ', 'Only you') : fromLabel(e)].filter(Boolean).join(' ・ ');
+// 自分だけの記録には、ひとこと欄を出さない
+const talkable = (e) => !SECTIONS[e.section]?.own;
 // フォームに書いた内容から、新しい記録を作る
-const newEntryRow = (section, v) => ({ section, title: v.title, body: v.body || '', date: v.date || null, category: v.category || null,
+const newEntryRow = (section, v) => ({ section, title: v.title || '', body: v.body || '', date: v.date || null, category: v.category || null,
   lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null });
 
 function talk(e, fresh = new Set()) {
@@ -62,12 +69,12 @@ function entryCard(e, key) {
   const edit = () => entryEdit(e);
   const addPhoto = async () => {
     const blob = await pickPhoto(); if (!blob) return;
-    act(async () => store.saveEntry({ id: e.id, photo: await store.uploadPhoto(blob) }));
+    act(async () => store.saveEntry({ id: e.id, photo: await store.uploadPhoto(blob, { secret: !!S.own }) }));
   };
   const went = () => entryWent(e);
   return newMark(h('article', { class: 'card' },
     e.photo && photoImg(e.photo),
-    h('h2', {}, e.title), h('div', { class: 'meta' }, meta),
+    e.title && h('h2', {}, e.title), h('div', { class: 'meta' }, meta),
     e.body && h('p', {}, e.body),
     isSong(e) ? songPlayer(e) : null,
     h('div', { class: 'row' },
@@ -75,7 +82,7 @@ function entryCard(e, key) {
       ok && !e.photo && S.fields().some((f) => f.type === 'photo') && h('button', { class: 'btn ghost small', onclick: addPhoto }, 'ADD PHOTO'),
       ok && h('button', { class: 'link', onclick: edit }, 'EDIT'),
       ok && h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
-    talk(e)), entryNew(e));
+    talkable(e) && talk(e)), entryNew(e));
 }
 function addEntry(key) {
   const S = SECTIONS[key];
@@ -117,7 +124,7 @@ function openDetail(id) {
         ok && h('div', { class: 'row' },
           h('button', { class: 'btn ghost small', onclick: () => entryEdit(e) }, 'EDIT'),
           h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
-        talk(e, fresh))));
+        talkable(e) && talk(e, fresh))));
   };
   dlg.refresh = render;
   render();

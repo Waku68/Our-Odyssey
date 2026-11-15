@@ -44,14 +44,15 @@ img { max-width: 100%; display: block; }
 .home { display: flex; flex-direction: column; align-items: center; margin: 0 -24px; padding: 0 24px; overflow: hidden;
   min-height: calc(100vh - 16px); min-height: calc(100svh - 16px); }
 .home .nav { width: 100%; }
-.home .tag { margin-top: calc(6px + env(safe-area-inset-top)); }
+/* はじめた日：大きさ・字はそのまま、紺地にピンクで目立たせる */
+.home .tag { margin-top: calc(16px + env(safe-area-inset-top)); background: var(--navy); color: var(--pink); }
 .big { font-family: var(--en); font-size: min(41vw, 196px); line-height: .94; text-align: center; white-space: nowrap; text-transform: uppercase; margin: 0; font-weight: 400; }
 .big.first { margin-top: 12px; }
 /* 日数は縦に引きのばして背を高く（transform はレイアウトに効かないので、伸びたぶん下をあける） */
 .home .big.first { --fs: min(44vw, 212px); --sy: 1.32; font-size: var(--fs); transform: scaleY(var(--sy)); transform-origin: 50% 0;
   margin-bottom: calc(var(--fs) * .94 * (var(--sy) - 1)); }
 /* 数字の下の DAYS */
-.big.unit { font-size: min(31vw, 150px); line-height: 1; margin-top: 4px; }
+.big.unit { font-size: min(31vw, 150px); line-height: 1; margin-top: 16px; }
 .sub { margin: 18px 0 0; text-align: center; }
 /* 写真の台：画面の下端まで伸ばして、チューリップを下端から生やす */
 .stage { position: relative; width: 100vw; max-width: 480px; flex: 1 0 400px; margin-top: 8px; }
@@ -130,7 +131,7 @@ img { max-width: 100%; display: block; }
   box-shadow: inset 0 2px 6px rgba(40, 20, 5, .55), inset 0 0 0 1px rgba(40, 20, 5, .35); }
 .cork::after { content: ''; position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(120% 90% at 30% 20%, rgba(255, 240, 215, .16), transparent 55%), radial-gradient(140% 120% at 50% 50%, transparent 60%, rgba(40, 20, 5, .25)); }
-.cork-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; align-items: start; }
+.cork-grid { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; align-items: start; align-content: start; }
 .pol { --s: 1; --r: 0deg; --x: 0px; --y: 0px; --z: 1; position: relative; z-index: 1; display: block; width: 100%; border: none; margin: 0; text-align: left; color: var(--navy);
   padding: 5px 5px 8px; background-color: #FBF9F4; background-image: linear-gradient(160deg, rgba(255, 255, 255, .6), transparent 40%, rgba(0, 0, 0, .05) 85%);
   transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(var(--s)); transition: transform .2s;
@@ -154,6 +155,18 @@ img { max-width: 100%; display: block; }
 .pol.days b { margin-top: 4px; font-size: 10px; line-height: 1.3; }
 .pol.days small { white-space: nowrap; }
 .pol .tack { position: absolute; top: -9px; left: 50%; width: 17px; height: auto; margin-left: -7px; z-index: 2; pointer-events: none; filter: drop-shadow(3px 4px 2.5px rgba(30, 12, 2, .5)); }
+/* 長押しで持ち上げて動かす（cork.js）。離すと S / M / L の帯が出る */
+.pol { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.pol img { -webkit-user-drag: none; }
+.pol.lifted, .pol.lifted:active { --z: 7; z-index: 999 !important; transition: none; cursor: grabbing;
+  transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(calc(var(--s) * 1.06)); }
+.pol.picked { outline: 2px dashed var(--pink); outline-offset: 4px; }
+.cork-bar { position: absolute; z-index: 1000; display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--navy);
+  box-shadow: 0 6px 14px rgba(35, 18, 4, .45); }
+.cork-bar button { min-width: 36px; height: 34px; padding: 0 10px; border: none; border-radius: 999px; background: none; color: var(--pink);
+  font-family: var(--en); font-size: 14px; letter-spacing: .06em; }
+.cork-bar button.on { background: var(--pink); color: var(--navy); }
+.cork-bar .done { font-size: 12px; opacity: .85; }
 
 /* 地図のタブ */
 .map.big-map { height: auto; aspect-ratio: 1 / 1; border-radius: 16px; overflow: hidden; margin-top: 12px; }

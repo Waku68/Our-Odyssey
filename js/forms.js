@@ -1,15 +1,15 @@
 // ダイアログと入力フォーム（日付の帯、写真の欄、地図の欄など）。
-import { h, reduceMotion } from './dom.js?v=39';
-import { lang, tr } from './i18n.js?v=39';
-import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=39';
-import { store } from './state.js?v=39';
-import { ask, notice } from './ask.js?v=39';
-import { editPhoto } from './photo-editor.js?v=39';
-import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=39';
-import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=39';
-import { songPhotos } from './songs.js?v=39';
-import { SONG_CAT, catLabel, catKey } from './cats.js?v=39';
-import { refresh } from './shell.js?v=39';
+import { h, reduceMotion } from './dom.js?v=42';
+import { lang, tr } from './i18n.js?v=42';
+import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=42';
+import { store } from './state.js?v=42';
+import { ask, notice } from './ask.js?v=42';
+import { editPhoto } from './photo-editor.js?v=42';
+import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=42';
+import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=42';
+import { songPhotos } from './songs.js?v=42';
+import { SONG_CAT, catLabel } from './cats.js?v=42';
+import { refresh } from './shell.js?v=42';
 
 const BOOKMARK = '<svg viewBox="0 0 10 13" aria-hidden="true"><path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor"/></svg>';
 
@@ -158,7 +158,8 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
         if (cands.length) pick(0, false);
         else { if (auto) { clearPhoto(); auto = false; } say(''); }
       };
-      onGeo = async (info) => {
+      // 自分だけの写真（manual）は、名前や場所から写真をさがさない（書いた内容を外に送らない）
+      if (!f.manual) onGeo = async (info) => {
         const my = ++seq;
         if (!info) { geoCand = null; refresh(); return; }
         say(tr('この場所の写真をさがしています…', 'Looking for a photo of this place…'));
@@ -168,7 +169,7 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
         refresh();
       };
       let timer = 0;
-      onTitle = (text) => {
+      if (!f.manual) onTitle = (text) => {
         clearTimeout(timer);
         timer = setTimeout(async () => {
           const q = text.trim();
@@ -207,13 +208,10 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
       oninput: (ev) => { v[f.name] = ev.target.value; touch(); if (f.name === 'title') onTitle(ev.target.value); } };
     if (f.type === 'textarea') return field(f, h('textarea', common), 'label');
     if (f.type === 'category') {
-      // 決まった種類は日本語のまま保存し、表示だけ言語に合わせる
-      const input = h('input', { type: 'text', ...common, value: catLabel(v[f.name] ?? ''),
-        oninput: (ev) => { v[f.name] = catKey(ev.target.value); touch(); } });
+      // 種類はえらぶだけ。決まった種類は日本語のまま保存し、表示だけ言語に合わせる
       const chips = h('div', { class: 'chips' }, f.options.map((o) => h('button', { type: 'button', class: `chip${v[f.name] === o ? ' on' : ''}`,
-        onclick: () => { input.value = catLabel(o); v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c.textContent === catLabel(o))); } }, catLabel(o))));
-      input.addEventListener('input', () => [...chips.children].forEach((c) => c.classList.toggle('on', c.textContent === input.value)));
-      return field(f, h('div', { class: 'cat' }, chips, input));
+        onclick: (ev) => { v[f.name] = o; touch(); [...chips.children].forEach((c) => c.classList.toggle('on', c === ev.currentTarget)); } }, catLabel(o))));
+      return field(f, h('div', { class: 'cat' }, chips));
     }
     return field(f, h('input', { type: f.type, ...common }), 'label');
   };
@@ -221,16 +219,16 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
   const handle = async (ev) => {
     ev.preventDefault(); err.textContent = '';
     for (const f of fields) {
-      const missing = f.required && f.name && !String(v[f.name] ?? '').trim();
+      const missing = f.required && (f.type === 'photo' ? !newPhoto && !v.photo : f.name && !String(v[f.name] ?? '').trim());
       if (missing) {
-        const pick = ['date', 'category'].includes(f.type);
+        const pick = ['date', 'category', 'photo'].includes(f.type);
         err.textContent = tr(`「${f.label}」を${pick ? 'えらんで' : '書いて'}ください。`, `Please ${pick ? 'choose' : 'fill in'} "${f.label}".`);
         return;
       }
     }
     submit.disabled = true;
     try {
-      if (newPhoto) v.photo = await store.uploadPhoto(newPhoto);
+      if (newPhoto) v.photo = await store.uploadPhoto(newPhoto, { secret: fields.some((f) => f.type === 'photo' && f.secret) });
       for (const f of fields) if (f.type === 'date' && !v[f.name]) v[f.name] = null;
       await onSubmit(v);
       if (initial.photo && v.photo !== initial.photo) store.removePhoto(initial.photo).catch(() => {});
