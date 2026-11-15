@@ -91,6 +91,24 @@ create policy "entries update own or wish" on public.entries for update to authe
   using (author = auth.uid() or section = 'wish')
   with check (author = auth.uid() or section = 'place');
 create policy "entries delete own" on public.entries for delete to authenticated using (author = auth.uid());
+-- 例外：Values のお題は、どちらでも名前をなおせる・お題ごと消せる（相手の答えは名前しか変えられない）。
+-- values.sql と同じ内容。あとから足したので、すでに schema.sql を実行済みなら values.sql だけ実行すればいい。
+create policy "entries update value topic" on public.entries for update to authenticated
+  using (section = 'value') with check (section = 'value');
+create policy "entries delete value topic" on public.entries for delete to authenticated
+  using (section = 'value');
+create or replace function public.value_topic_only() returns trigger
+language plpgsql set search_path = public as $$
+declare t text := new.title;
+begin
+  if old.section = 'value' and auth.uid() is not null and old.author is distinct from auth.uid() then
+    new := old;
+    new.title := t;
+  end if;
+  return new;
+end $$;
+create trigger value_topic_only before update on public.entries
+  for each row execute function public.value_topic_only();
 
 -- ひとこと：2人とも読める・書ける（読める投稿についた分だけ）。消せるのは本人だけ。
 create policy "comments read" on public.comments for select to authenticated

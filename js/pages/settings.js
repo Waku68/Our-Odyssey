@@ -1,13 +1,13 @@
 // SETTINGS：名前、言語、色のテーマ、パスワード、通知、バックアップ、ログアウト。
-import { CONFIG } from '../config.js?v=51';
-import { h } from '../dom.js?v=51';
-import { lang, tr, setLang } from '../i18n.js?v=51';
-import { today } from '../dates.js?v=51';
-import { store, data, me, nameOf, partner } from '../state.js?v=51';
-import { ask, notice } from '../ask.js?v=51';
-import { localKey } from '../store.js?v=51';
-import * as theme from '../theme.js?v=51';
-import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=51';
+import { CONFIG } from '../config.js?v=52';
+import { h } from '../dom.js?v=52';
+import { lang, tr, setLang } from '../i18n.js?v=52';
+import { today } from '../dates.js?v=52';
+import { store, data, me, nameOf, partner } from '../state.js?v=52';
+import { ask, notice } from '../ask.js?v=52';
+import { localKey } from '../store.js?v=52';
+import * as theme from '../theme.js?v=52';
+import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=52';
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function enablePush() {
