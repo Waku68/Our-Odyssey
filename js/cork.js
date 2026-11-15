@@ -1,10 +1,12 @@
-// コルクボードのポラロイドを、長押しで持ち上げて動かす（重ねてもいい）。2本指でつまむと大きさが変わる（PC はトラックパッドのピンチ）。
+// コルクボードのポラロイド：タップでえらぶ（S / M / L / DONE の帯が出る）→ えらんだカードはそのまま指で動かせる（重ねてもいい）。
+// 長押しで詳細を開く。えらんだカードは2本指でつまんでも大きさが変わる（PC はトラックパッドのピンチ）。
 // 並びと大きさはこの端末だけに残す（相手の画面は変わらない）。動かしていないものは、今までどおりの並び。
-import { localKey } from './store.js?v=46';
+import { h } from './dom.js?v=47';
+import { localKey } from './store.js?v=47';
 
 const KEY = localKey('our-odyssey-cork');
-const SIZES = { S: 0.72, M: 1, L: 1.45 }; // 前に S / M / L で残したもの
-const HOLD = 210, SLOP = 8, EDGE = 80, MIN_K = 0.55, MAX_K = 2.5;
+const SIZES = { S: 0.72, M: 1, L: 1.45 };
+const HOLD = 400, SLOP = 8, EDGE = 80, MIN_K = 0.55, MAX_K = 2.5;
 
 let saved = null;
 function boards() {
@@ -37,6 +39,7 @@ function movable(board, grid, cards, onChange) {
     if (L.x == null) { L.x = (c.el.offsetLeft + px(c.el, '--x')) / W(); L.y = (c.el.offsetTop + px(c.el, '--y')) / W(); }
     return L;
   }
+  const raise = (c) => { pin(c).z = 1 + Math.max(0, ...Object.values(lay).map((v) => v.z || 0)); };
   // ボードからはみ出さないように（大きくするのは真ん中から。下へはボードを伸ばす）
   function clamp(c, x, y) {
     const w = c.el.offsetWidth, hh = c.el.offsetHeight, s = scale(c);
@@ -65,70 +68,182 @@ function movable(board, grid, cards, onChange) {
     const natural = Math.max(0, ...cards.map((c) => c.el.offsetTop + c.el.offsetHeight));
     grid.style.minHeight = need > natural ? `${Math.ceil(need)}px` : '';
   }
-  const relayout = () => { cards.forEach(place); fit(); };
+  const relayout = () => { cards.forEach(place); fit(); aimBar(); };
   if ('ResizeObserver' in window) {
     const ro = new ResizeObserver(relayout);
     ro.observe(grid);
     cards.forEach((c) => ro.observe(c.el));
   } else requestAnimationFrame(relayout);
 
-  const raise = (c) => { pin(c).z = 1 + Math.max(0, ...Object.values(lay).map((v) => v.z || 0)); };
   // 大きさを変える（真ん中から。ボードの幅より大きくはしない）
   function resize(c, k) {
     const L = pin(c);
     L.k = Math.max(MIN_K, Math.min(MAX_K, W() / (c.el.offsetWidth * c.s), k));
-    if (Math.abs(L.k - 1) < 0.04) L.k = 1;
+    if (Math.abs(L.k - 1) < 0.04) delete L.k;
     [L.x, L.y] = clamp(c, L.x * W(), L.y * W()).map((v) => v / W());
-    place(c); fit();
+    place(c); fit(); aimBar();
   }
 
-  /* ---------- 長押しで持ち上げる ---------- */
-  let drag = null, dropped = { el: null, at: 0 }, raf = 0;
+  /* ---------- えらんだカードと、大きさの帯（S / M / L / DONE） ---------- */
+  let picked = null, bar = null;
+  function aimBar() {
+    if (!bar) return;
+    if (!picked?.el.isConnected) { unpick(); return; }
+    const g = grid.getBoundingClientRect(), r = picked.el.getBoundingClientRect();
+    const bw = bar.offsetWidth, bh = bar.offsetHeight;
+    let top = r.top - g.top - bh - 12;
+    if (top < -8) top = r.bottom - g.top + 12;
+    bar.style.top = `${top}px`;
+    bar.style.left = `${Math.max(-6, Math.min(W() - bw + 6, r.left - g.left + r.width / 2 - bw / 2))}px`;
+    const k = kOf(picked);
+    bar.querySelectorAll('[data-k]').forEach((b) => b.classList.toggle('on', Math.abs(SIZES[b.dataset.k] - k) < 0.02));
+  }
+  function unpick() {
+    bar?.remove(); picked?.el.classList.remove('picked');
+    bar = null; picked = null;
+    document.removeEventListener('pointerdown', outside, true);
+  }
+  // 2本目の指（つまむとき）は、外に置いても閉じない
+  function outside(ev) { if (ev.isPrimary && bar && !bar.contains(ev.target) && !picked?.el.contains(ev.target)) unpick(); }
+  function pick(c) {
+    if (picked === c) return;
+    unpick();
+    picked = c;
+    bar = h('div', { class: 'cork-bar', role: 'group', 'aria-label': 'Size' },
+      Object.keys(SIZES).map((k) => h('button', { type: 'button', 'data-k': k, onclick: () => { raise(c); resize(c, SIZES[k]); keep(); } }, k)),
+      h('button', { type: 'button', class: 'done', onclick: unpick }, 'DONE'));
+    c.el.classList.add('picked');
+    grid.append(bar);
+    aimBar();
+    document.addEventListener('pointerdown', outside, true);
+  }
+
+  /* ---------- 指の動き ----------
+     どのカードでも：長押しで詳細。えらんだカードだけ：指を動かすとついてくる（ページはスクロールしない） */
+  let press = null, swallow = null, raf = 0;
+  const isInner = (t, el) => { const b = t.closest('button, a, [role=button]'); return b && b !== el; }; // 曲の再生ボタンなど
   function follow() {
-    const { c, gx, gy } = drag;
+    const { c, gx, gy } = press;
     const g = grid.getBoundingClientRect();
-    const [x, y] = clamp(c, drag.px - g.left - gx, drag.py - g.top - gy);
+    const [x, y] = clamp(c, press.px - g.left - gx, press.py - g.top - gy);
     const L = lay[c.seed];
     L.x = x / W(); L.y = y / W();
-    place(c); fit();
+    place(c); fit(); aimBar();
   }
   // 画面の上下の端に寄せると、そのまま流れる
   function scrollLoop() {
-    if (!drag?.on) return;
+    if (!press?.moving) return;
     const bottom = innerHeight - EDGE - 40;
-    const v = drag.py < EDGE ? -(EDGE - drag.py) / 5 : drag.py > bottom ? (drag.py - bottom) / 5 : 0;
+    const v = press.py < EDGE ? -(EDGE - press.py) / 5 : press.py > bottom ? (press.py - bottom) / 5 : 0;
     if (v) { window.scrollBy(0, v); follow(); }
     raf = requestAnimationFrame(scrollLoop);
   }
-  function lift() {
-    const { c } = drag;
-    drag.on = true;
+  function startMove() {
+    const { c } = press;
+    clearTimeout(press.timer);
+    press.moving = true;
     raise(c);
     const L = pin(c);
     place(c);
     const g = grid.getBoundingClientRect();
-    drag.gx = drag.px - g.left - L.x * W();
-    drag.gy = drag.py - g.top - L.y * W();
+    press.gx = press.sx - g.left - L.x * W();
+    press.gy = press.sy - g.top - L.y * W();
     c.el.classList.add('lifted');
-    try { c.el.setPointerCapture(drag.id); } catch { /* もう離れていたら、そのまま */ }
-    navigator.vibrate?.(10);
+    try { c.el.setPointerCapture(press.id); } catch { /* もう離れていたら、そのまま */ }
+    follow();
     raf = requestAnimationFrame(scrollLoop);
   }
-  function end(ev) {
-    if (!drag || (ev?.pointerId != null && ev.pointerId !== drag.id)) return;
-    clearTimeout(drag.timer);
-    cancelAnimationFrame(raf);
-    const { c, on } = drag;
-    drag = null;
-    removeEventListener('pointerup', end);
-    removeEventListener('pointercancel', end);
-    if (!on) return;
-    dropped = { el: c.el, at: Date.now() };
-    if (pinch?.c !== c) c.el.classList.remove('lifted');
-    fit(); keep();
+  function longPress() {
+    const { c } = press;
+    press.done = true;
+    swallow = c.el;               // 指を離したときのタップは、えらぶのに使わない
+    navigator.vibrate?.(10);
+    unpick();
+    c.el.click();                 // 詳細を開く（detail が 0 のクリックは、そのまま通す）
   }
+  function release(ev) {
+    if (!press || (ev?.pointerId != null && ev.pointerId !== press.id)) return;
+    clearTimeout(press.timer);
+    cancelAnimationFrame(raf);
+    const { c, moving, done } = press;
+    press = null;
+    removeEventListener('pointerup', release);
+    removeEventListener('pointercancel', release);
+    // 長押しで詳細を開いたあと、指を離したときのクリックが開いた詳細（の外側）に当たって閉じないように
+    if (done) {
+      const eat = (e) => { e.preventDefault(); e.stopPropagation(); };
+      addEventListener('click', eat, { capture: true, once: true });
+      setTimeout(() => removeEventListener('click', eat, { capture: true }), 500);
+    }
+    if (!moving) return;
+    swallow = c.el;
+    if (pinch?.c !== c) c.el.classList.remove('lifted');
+    fit(); keep(); aimBar();
+  }
+  for (const c of cards) {
+    const el = c.el;
+    el.addEventListener('pointerdown', (ev) => {
+      if (ev.button > 0 || !ev.isPrimary || press || isInner(ev.target, el)) return;
+      if (ev.pointerType === 'mouse') ev.preventDefault(); // 文字の選択や、画像の引きずりを出さない
+      swallow = null;
+      press = { c, id: ev.pointerId, sx: ev.clientX, sy: ev.clientY, px: ev.clientX, py: ev.clientY, moving: false, done: false };
+      press.timer = setTimeout(longPress, HOLD);
+      // カードの外で指（ボタン）を離したときも、ここで終える
+      addEventListener('pointerup', release);
+      addEventListener('pointercancel', release);
+    });
+    el.addEventListener('pointermove', (ev) => {
+      if (!press || press.c !== c || ev.pointerId !== press.id || press.done) return;
+      press.px = ev.clientX; press.py = ev.clientY;
+      if (press.moving) follow();
+      else if (Math.hypot(ev.clientX - press.sx, ev.clientY - press.sy) > SLOP) {
+        if (picked === c && !pinch) startMove(); else release();
+      }
+    });
+    // 中の文字などがつかんでいた指をカードがつかみ直したときの通知は、終わりではない
+    el.addEventListener('lostpointercapture', (ev) => { if (ev.target === el && press?.moving && press.c === c) release(ev); });
+    // えらんだカードの上では、ページをスクロールさせない
+    el.addEventListener('touchmove', (ev) => { if (picked === c || press?.moving) ev.preventDefault(); }, { passive: false });
+    el.addEventListener('contextmenu', (ev) => ev.preventDefault());
+    el.addEventListener('touchstart', (ev) => {
+      if (picked !== c) return;
+      if (!touchCard) {
+        touchCard = c;
+        addEventListener('touchstart', pinchStart, { passive: false });
+        addEventListener('touchmove', pinchMove, { passive: false });
+        addEventListener('touchend', pinchEnd);
+        addEventListener('touchcancel', pinchEnd);
+        addEventListener('gesturestart', noZoom, { passive: false });
+      }
+      pinchStart(ev);
+    }, { passive: false });
+    // PC：えらんだカードの上でトラックパッドのピンチ（ctrl ＋ ホイールとして届く）
+    let wheelTimer = 0;
+    el.addEventListener('wheel', (ev) => {
+      if (!ev.ctrlKey || picked !== c) return;
+      ev.preventDefault();
+      if (!wheelTimer) { raise(c); place(c); }
+      resize(c, kOf(c) * Math.exp(-ev.deltaY / 100));
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => { wheelTimer = 0; keep(); }, 300);
+    }, { passive: false });
+  }
+  // タップ：詳細は開かずに、えらぶ。キーボード（Enter）と長押しのクリックは、今までどおり詳細を開く
+  grid.addEventListener('click', (ev) => {
+    const el = ev.target.closest('.pol');
+    if (!el || isInner(ev.target, el) || ev.detail === 0) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if (swallow === el) { swallow = null; return; }
+    const c = cards.find((x) => x.el === el);
+    if (c) pick(c);
+  }, true);
+  // PC：ダブルクリックでも詳細を開く
+  grid.addEventListener('dblclick', (ev) => {
+    const el = ev.target.closest('.pol');
+    if (el && !isInner(ev.target, el)) { unpick(); el.click(); }
+  });
 
-  /* ---------- 2本指でつまんで大きさを変える ----------
+  /* ---------- えらんだカードを2本指でつまんで大きさを変える ----------
      2本目の指はカードの外に置いてもいい。つまんでいる間は、ページの拡大やスクロールを止める */
   let pinch = null, touchCard = null;
   const gap = (ts) => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY) || 1;
@@ -136,7 +251,7 @@ function movable(board, grid, cards, onChange) {
     if (!touchCard || ev.touches.length < 2 || pinch) return;
     if (ev.cancelable) ev.preventDefault();
     const c = touchCard;
-    if (drag && !drag.on) end(); // 長押しの途中なら、そちらはやめる
+    if (press && !press.moving) release(); // 長押しの途中なら、そちらはやめる
     raise(c);
     pinch = { c, d0: gap(ev.touches), k0: kOf(c) };
     c.el.classList.add('lifted');
@@ -151,8 +266,8 @@ function movable(board, grid, cards, onChange) {
     if (pinch && ev.touches.length < 2) {
       const { c } = pinch;
       pinch = null;
-      dropped = { el: c.el, at: Date.now() };
-      if (drag?.c !== c) c.el.classList.remove('lifted');
+      swallow = c.el;
+      if (press?.c !== c) c.el.classList.remove('lifted');
       keep();
     }
     if (!ev.touches.length) {
@@ -165,54 +280,6 @@ function movable(board, grid, cards, onChange) {
     }
   }
   function noZoom(ev) { if (touchCard) ev.preventDefault(); } // iPhone の Safari の拡大
-
-  for (const c of cards) {
-    const el = c.el;
-    el.addEventListener('pointerdown', (ev) => {
-      if (ev.button > 0 || !ev.isPrimary || drag) return;
-      if (ev.pointerType === 'mouse') ev.preventDefault(); // 文字の選択や、画像の引きずりを出さない
-      drag = { c, id: ev.pointerId, sx: ev.clientX, sy: ev.clientY, px: ev.clientX, py: ev.clientY, on: false };
-      drag.timer = setTimeout(lift, HOLD);
-      // カードの外で指（ボタン）を離したときも、ここで終える。つかむのは持ち上げてから（中の曲のボタンなどを押せるように）
-      addEventListener('pointerup', end);
-      addEventListener('pointercancel', end);
-    });
-    el.addEventListener('pointermove', (ev) => {
-      if (!drag || drag.c !== c || ev.pointerId !== drag.id) return;
-      drag.px = ev.clientX; drag.py = ev.clientY;
-      if (drag.on) follow();
-      else if (Math.hypot(ev.clientX - drag.sx, ev.clientY - drag.sy) > SLOP) end();
-    });
-    el.addEventListener('lostpointercapture', (ev) => { if (drag?.on && drag.c === c) end(ev); });
-    // 持ち上げている間は、ページをスクロールさせない（touch-action は途中で変えられないので、こちらで止める）
-    el.addEventListener('touchmove', (ev) => { if (drag?.on && drag.c === c) ev.preventDefault(); }, { passive: false });
-    el.addEventListener('contextmenu', (ev) => ev.preventDefault());
-    el.addEventListener('touchstart', (ev) => {
-      if (!touchCard) {
-        touchCard = c;
-        addEventListener('touchstart', pinchStart, { passive: false });
-        addEventListener('touchmove', pinchMove, { passive: false });
-        addEventListener('touchend', pinchEnd);
-        addEventListener('touchcancel', pinchEnd);
-        addEventListener('gesturestart', noZoom, { passive: false });
-      }
-      pinchStart(ev);
-    }, { passive: false });
-    // PC：トラックパッドのピンチ（ctrl ＋ ホイールとして届く）
-    let wheelTimer = 0;
-    el.addEventListener('wheel', (ev) => {
-      if (!ev.ctrlKey) return;
-      ev.preventDefault();
-      if (!wheelTimer) { raise(c); place(c); }
-      resize(c, kOf(c) * Math.exp(-ev.deltaY / 100));
-      clearTimeout(wheelTimer);
-      wheelTimer = setTimeout(() => { wheelTimer = 0; keep(); }, 300);
-    }, { passive: false });
-  }
-  // 動かした・大きさを変えた直後の、そのカードの「タップ」で詳細を開かない
-  grid.addEventListener('click', (ev) => {
-    if (Date.now() - dropped.at < 700 && ev.target.closest('.pol') === dropped.el) { ev.preventDefault(); ev.stopPropagation(); }
-  }, true);
 }
 
 export { movable, hasLayout, resetLayout };

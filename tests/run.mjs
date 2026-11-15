@@ -170,12 +170,13 @@ async function demoFlow(browser, lang) {
   await go(page, '#/more'); await page.waitForTimeout(300);
   for (const b of await page.locator('button.acc-head').all()) await b.click();
   await snap('more-open', 900);
-  await page.locator('.cork-board .pol', { hasText: '抹茶ラテ' }).click(); await snap('detail-like');
+  // コルクボードのカードは長押しで詳細（タップはえらぶだけ）
+  await page.locator('.cork-board .pol', { hasText: '抹茶ラテ' }).click({ delay: 600 }); await snap('detail-like');
   await page.locator('dialog[open] .talk summary').click().catch(() => {});
   await page.locator('dialog[open] .talk input').fill('テストのひとこと'); await page.locator('dialog[open] .talk button[type=submit]').click(); await snap('detail-commented');
   await page.locator('dialog[open] .talk .c button').last().click(); await snap('detail-comment-deleted');
   await page.locator('dialog[open] .x').click(); await page.waitForTimeout(300);
-  await page.locator('.cork-board .pol', { hasText: 'Wonderwall' }).click(); await snap('detail-song', 900);
+  await page.locator('.cork-board .pol', { hasText: 'Wonderwall' }).click({ delay: 600 }); await snap('detail-song', 900);
   await page.locator('dialog[open] .song .chip').first().click(); await snap('detail-song-next');
   await page.locator('dialog[open] .x').click(); await page.waitForTimeout(300);
   await page.locator('.cork-board .song-play').first().click(); await snap('song-badge-tap', 600);

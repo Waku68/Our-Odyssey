@@ -158,11 +158,18 @@ img { max-width: 100%; display: block; }
 .pol.days b { margin-top: 4px; font-size: 10px; line-height: 1.3; }
 .pol.days small { white-space: nowrap; }
 .pol .tack { position: absolute; top: -9px; left: 50%; width: 17px; height: auto; margin-left: -7px; z-index: 2; pointer-events: none; filter: drop-shadow(3px 4px 2.5px rgba(30, 12, 2, .5)); }
-/* 長押しで持ち上げて動かす・2本指で大きさを変える（cork.js） */
+/* タップでえらぶ → 動かす・S / M / L で大きさ、長押しで詳細（cork.js） */
 .pol { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .pol img { -webkit-user-drag: none; }
 .pol.lifted, .pol.lifted:active { --z: 7; z-index: 999 !important; transition: none; cursor: grabbing;
   transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(calc(var(--s) * 1.06)); }
+.pol.picked { z-index: 998 !important; touch-action: none; outline: 2px dashed var(--pink); outline-offset: 4px; cursor: grab; }
+.cork-bar { position: absolute; z-index: 1000; display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--navy);
+  box-shadow: 0 6px 14px rgba(35, 18, 4, .45); }
+.cork-bar button { min-width: 40px; height: 36px; padding: 0 10px; border: none; border-radius: 999px; background: none; color: var(--pink);
+  font-family: var(--en); font-size: 15px; letter-spacing: .06em; }
+.cork-bar button.on { background: var(--pink); color: var(--navy); }
+.cork-bar .done { font-size: 13px; }
 
 /* 地図のタブ */
 .map.big-map { height: auto; aspect-ratio: 1 / 1; border-radius: 16px; overflow: hidden; margin-top: 12px; }

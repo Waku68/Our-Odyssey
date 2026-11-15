@@ -1,6 +1,6 @@
 // いまの保存先（store）と、読みこんだデータ（data）。ほかのファイルはここから読む。
 // 入れかえるのは setStore / setData だけ（import した側には、入れかえたあとの中身がそのまま見える）。
-import { tr } from './i18n.js?v=46';
+import { tr } from './i18n.js?v=47';
 
 let store = null;
 let data = { entries: [], moods: [], comments: [], profiles: [] };
