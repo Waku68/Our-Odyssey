@@ -1,13 +1,13 @@
 // HOME：日数（DAYS）と2人の写真、その下の年表。
-import { CONFIG } from '../config.js?v=63';
-import { h, reduceMotion } from '../dom.js?v=63';
-import { tr } from '../i18n.js?v=63';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=63';
-import { store, data, me, byCreated } from '../state.js?v=63';
-import { newMark, entryNew } from '../seen.js?v=63';
-import { photoImg, pickPhoto } from '../photos.js?v=63';
-import { act, fadeIn } from '../shell.js?v=63';
-import { openDetail } from '../entries.js?v=63';
+import { CONFIG } from '../config.js?v=64';
+import { h, reduceMotion } from '../dom.js?v=64';
+import { tr } from '../i18n.js?v=64';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=64';
+import { store, data, me, byCreated } from '../state.js?v=64';
+import { newMark, entryNew } from '../seen.js?v=64';
+import { photoImg, pickPhoto } from '../photos.js?v=64';
+import { act, fadeIn } from '../shell.js?v=64';
+import { openDetail } from '../entries.js?v=64';
 
 function home() {
   const t = today();
@@ -45,17 +45,26 @@ function home() {
   const root = h('div', {}, pin,
     store.mode === 'demo' && h('p', { class: 'note' }, tr('お試しモード：書いた内容はこの端末にだけ保存されます。', 'Demo mode: everything is saved on this device only.')),
     tl, bloom);
-  requestAnimationFrame(() => { fadeIn(root); pinHero(pin, heroEl); showBloom(bloom, tl); });
+  requestAnimationFrame(() => { fadeIn(root); pinHero(pin, heroEl); showBloom(bloom); });
   return root;
 }
-// 表紙が消えて年表が画面に入ってきたら、チューリップを出す（表紙のチューリップから入れかわる）
-function showBloom(bloom, tl) {
-  if (!('IntersectionObserver' in window)) { bloom.classList.add('on'); return; }
-  const io = new IntersectionObserver(([x]) => {
-    if (!bloom.isConnected) { io.disconnect(); return; }
-    bloom.classList.toggle('on', x.isIntersecting);
-  }, { rootMargin: '0px 0px -45% 0px' });
-  io.observe(tl);
+// 年表を下までスクロールしていくと、最後の一画面ぶんでチューリップがだんだん出てくる
+function showBloom(bloom) {
+  let raf = 0;
+  const update = () => {
+    raf = 0;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const span = Math.min(window.innerHeight * 0.8, max);
+    const p = span > 0 ? (window.scrollY - (max - span)) / span : 1;
+    bloom.style.opacity = String(Math.min(1, Math.max(0, p)).toFixed(3));
+  };
+  const onScroll = () => {
+    if (!bloom.isConnected) { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); return; }
+    if (!raf) raf = requestAnimationFrame(update);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  update();
 }
 // 1384 DAYS をその場に止めたまま、スクロールに合わせて消していく。消えきったら年表が上がってくる。
 function pinHero(pin, hero) {
