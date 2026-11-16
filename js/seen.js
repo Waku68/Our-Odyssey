@@ -1,5 +1,5 @@
-import { h } from './dom.js?v=55';
-import { store, data, me } from './state.js?v=55';
+import { h } from './dom.js?v=56';
+import { store, data, me } from './state.js?v=56';
 
 /* ---------- NEW! のしるし ----------
    相手が足したり変えたりしたもの（ひとことも）に「NEW!」を貼る。画面に0.7秒ほど映ったら「見た」ことにして、

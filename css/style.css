@@ -263,7 +263,12 @@ details.talk summary { font-size: 12px; font-weight: 800; min-height: 32px; disp
 .tl .it.pic-r, .tl .it.pic-l { display: grid; grid-template-columns: minmax(0, 1fr) 46%; gap: 12px; align-items: start; }
 .tl .it.pic-l { grid-template-columns: 46% minmax(0, 1fr); }
 .tl .it.pic-l img { order: -1; }
-.tl .it.pic-r img, .tl .it.pic-l img { width: 100%; height: auto; aspect-ratio: 4 / 3; margin-top: 0; border-radius: 3px; }
+/* ポラロイド風：白いふちと下を広めに。MORE のコルクボードと同じ紙の色と影で、右は右へ・左は左へ少し傾ける */
+.tl .it.pic-r img, .tl .it.pic-l img { box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 1 / 1.08; margin-top: 2px; padding: 7px 7px 26px;
+  background-color: #FBF9F4; background-image: linear-gradient(160deg, rgba(255, 255, 255, .6), transparent 40%, rgba(0, 0, 0, .05) 85%);
+  box-shadow: 1px 2px 3px rgba(35, 18, 4, .25), 0 0 1px rgba(0, 0, 0, .25); transform: rotate(var(--tilt, 0deg)); }
+.tl .it.pic-r { --tilt: 2deg; }
+.tl .it.pic-l { --tilt: -2deg; }
 .tl .txt { min-width: 0; }
 .tl .desc { font-size: 13px; line-height: 1.6; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
 
