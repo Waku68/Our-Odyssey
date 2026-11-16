@@ -1,13 +1,13 @@
 // HOME：日数（DAYS）と2人の写真、その下の年表。
-import { CONFIG } from '../config.js?v=54';
-import { h, reduceMotion } from '../dom.js?v=54';
-import { tr } from '../i18n.js?v=54';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots } from '../dates.js?v=54';
-import { store, data, me, byCreated } from '../state.js?v=54';
-import { newMark, entryNew } from '../seen.js?v=54';
-import { photoImg, pickPhoto } from '../photos.js?v=54';
-import { act, fadeIn } from '../shell.js?v=54';
-import { openDetail } from '../entries.js?v=54';
+import { CONFIG } from '../config.js?v=55';
+import { h, reduceMotion } from '../dom.js?v=55';
+import { tr } from '../i18n.js?v=55';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots } from '../dates.js?v=55';
+import { store, data, me, byCreated } from '../state.js?v=55';
+import { newMark, entryNew } from '../seen.js?v=55';
+import { photoImg, pickPhoto } from '../photos.js?v=55';
+import { act, fadeIn } from '../shell.js?v=55';
+import { openDetail } from '../entries.js?v=55';
 
 function home() {
   const t = today();
@@ -86,17 +86,21 @@ function pinHero(pin, hero) {
 function timeline() {
   const kind = { gift: tr('贈りもの', 'Gift'), place: tr('過ごした場所', 'Place'), anniversary: tr('記念日', 'Anniversary') };
   const items = [{ date: CONFIG.START_DATE, title: tr('付き合いはじめた日', 'The day we started dating'), k: kind.anniversary },
-    ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ id: e.id, section: e.section, date: e.date, title: e.title, k: kind[e.section], photo: e.photo }))];
+    ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ id: e.id, section: e.section, date: e.date, title: e.title, k: kind[e.section], photo: e.photo, body: e.body }))];
   // 上が古く、下にスクロールするほど新しくなる
   items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const out = [];
-  let year = null, group = null;
+  let year = null, group = null, shots = 0;
   for (const it of items) {
     const y = it.date.slice(0, 4);
     if (y !== year) { year = y; group = h('div', { class: 'tl' }); out.push(h('div', { class: 'year fade' }, y), group); }
-    group.append(newMark(h(it.id ? 'button' : 'div', { class: 'it fade', type: it.id ? 'button' : null, onclick: it.id ? () => (it.section === 'anniversary' ? (location.hash = '#/more/anniv') : openDetail(it.id)) : null },
-      h('div', { class: 'd' }, dots(it.date).slice(5)), h('div', { class: 't' }, it.title),
-      h('div', { class: 'muted' }, it.k), it.photo && photoImg(it.photo, '')), it.id && entryNew(data.entries.find((x) => x.id === it.id))));
+    // 写真は右、左、右…と交互に置く（写真のない項目は数えない。年が変わってもつづけて数える）
+    const side = it.photo ? (shots++ % 2 ? ' pic-l' : ' pic-r') : '';
+    group.append(newMark(h(it.id ? 'button' : 'div', { class: `it fade${side}`, type: it.id ? 'button' : null, onclick: it.id ? () => (it.section === 'anniversary' ? (location.hash = '#/more/anniv') : openDetail(it.id)) : null },
+      h('div', { class: 'txt' },
+        h('div', { class: 'd' }, dots(it.date).slice(5)), h('div', { class: 't' }, it.title),
+        h('div', { class: 'muted' }, it.k), it.body && h('div', { class: 'desc' }, it.body)),
+      it.photo && photoImg(it.photo, '')), it.id && entryNew(data.entries.find((x) => x.id === it.id))));
   }
   return h('section', { class: 'home-tl' },
     h('div', { class: 'head fade' }, h('h1', {}, 'Timeline')), out);

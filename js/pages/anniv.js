@@ -1,12 +1,12 @@
 // DAYS：記念日。付き合った日と、足した記念日のカウント。
-import { CONFIG } from '../config.js?v=54';
-import { h } from '../dom.js?v=54';
-import { tr } from '../i18n.js?v=54';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=54';
-import { store, data } from '../state.js?v=54';
-import { openForm, F } from '../forms.js?v=54';
-import { canEdit, removeEntry } from '../entries.js?v=54';
-import { pageNav, pageHead } from '../shell.js?v=54';
+import { CONFIG } from '../config.js?v=55';
+import { h } from '../dom.js?v=55';
+import { tr } from '../i18n.js?v=55';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=55';
+import { store, data } from '../state.js?v=55';
+import { openForm, F } from '../forms.js?v=55';
+import { canEdit, removeEntry } from '../entries.js?v=55';
+import { pageNav, pageHead } from '../shell.js?v=55';
 
 // つぎに来る記念日を、近い順に並べる（MORE のコルクボード用）
 function annivLines() {
@@ -23,7 +23,7 @@ function annivLines() {
 
 function addAnniv() {
   openForm({ title: 'New day', en: 'Days', lead: tr('毎年その日に数えて、当日の朝に通知します', "Counted every year, with a notification that morning"), fields: annivFields(),
-    onSubmit: (v) => store.saveEntry({ section: 'anniversary', title: v.title, date: v.date }) });
+    onSubmit: (v) => store.saveEntry({ section: 'anniversary', title: v.title, date: v.date, body: v.body || '' }) });
 }
 function annivPage() {
   const t = today();
@@ -48,11 +48,12 @@ function annivPage() {
     }
     return h('article', { class: 'card' },
       h('h2', {}, title), h('div', { class: 'meta' }, dots(date)),
+      e?.body && h('p', { class: 'dbody' }, e.body),
       n >= 0 && h('div', { class: 'count' }, String(n), h('small', {}, tr('日', 'days'))),
       lines.map((l) => h('p', {}, l)),
       canEdit(e) && h('div', { class: 'row' },
         h('button', { class: 'link', onclick: () => openForm({ title: 'Edit', en: 'Days', fields: annivFields(), initial: e,
-          onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, date: v.date }) }) }, 'EDIT'),
+          onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, date: v.date, body: v.body || '' }) }) }, 'EDIT'),
         h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')));
   };
   return h('div', {}, pageNav(true),
@@ -60,7 +61,7 @@ function annivPage() {
     h('div', { class: 'cards' }, block(tr('付き合いはじめた日', 'The day we started dating'), CONFIG.START_DATE), custom.map((e) => block(e.title, e.date, e))));
 }
 function annivFields() {
-  return [F.title(tr('なんの日？', 'What day?'), tr('例：はじめて旅行した日', 'e.g. Our first trip')), { ...F.date(), required: true }];
+  return [F.title(tr('なんの日？', 'What day?'), tr('例：はじめて旅行した日', 'e.g. Our first trip')), { ...F.date(), required: true }, F.body];
 }
 
 export { annivLines, addAnniv, annivPage };
