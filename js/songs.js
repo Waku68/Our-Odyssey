@@ -1,9 +1,9 @@
 /* ---------- 曲：タップで聴く ----------
    Likes の「曲」は、曲名で Apple Music（iTunes）をさがして、30秒の試聴を流す。全曲を聴くときは各アプリで開く */
-import { h, svgIcon } from './dom.js?v=53';
-import { tr } from './i18n.js?v=53';
-import { notice } from './ask.js?v=53';
-import { store } from './state.js?v=53';
+import { h, svgIcon } from './dom.js?v=54';
+import { tr } from './i18n.js?v=54';
+import { notice } from './ask.js?v=54';
+import { store } from './state.js?v=54';
 
 // iTunes の検索は JSONP で呼ぶ（ブラウザの CORS に左右されない）
 function jsonp(url) {

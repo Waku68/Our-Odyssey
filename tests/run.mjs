@@ -372,6 +372,9 @@ async function placesMorePhotos(page, snap, lang, IMG, choose, ed) {
   await page.locator('.addbox button[type=submit]').click(); await snap('places-added-photos', 1300);
   let row = (await db()).entries.find((e) => e.title === '写真がたくさんの場所');
   check(row?.photo && row?.more_photos?.length === 2, `ADD: 保存した写真がちがう（photo=${!!row?.photo} more=${row?.more_photos?.length}）`);
+  // 一覧：写真が何枚かある行は重ねて見せる。閉じているときは MORE の上に縦の点
+  check(await page.locator('.lrow', { hasText: '写真がたくさんの場所' }).locator('.lstack.n3 img').count() === 3, '一覧で写真が3枚重ならない');
+  check(await page.locator('.list .list-dots + .list-more').count() === 1, 'MORE の上に縦の点がない');
   // 一覧：5件 → MORE で全部 → LESS
   check(await page.locator('.list .lrow').count() === 5, `一覧が5件になっていない（${await page.locator('.list .lrow').count()}件）`);
   await page.locator('.list-more', { hasText: 'MORE' }).click(); await snap('places-list-all', 400);

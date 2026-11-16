@@ -1,8 +1,8 @@
 // 写真をえらぶ・表示する・大きさをそろえる。
-import { h } from './dom.js?v=53';
-import { lang } from './i18n.js?v=53';
-import { store } from './state.js?v=53';
-import { editPhoto } from './photo-editor.js?v=53';
+import { h } from './dom.js?v=54';
+import { lang } from './i18n.js?v=54';
+import { store } from './state.js?v=54';
+import { editPhoto } from './photo-editor.js?v=54';
 
 function photoImg(path, cls = 'photo') {
   const img = h('img', { class: cls, alt: '', loading: 'lazy', decoding: 'async' });

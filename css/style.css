@@ -192,6 +192,19 @@ img { max-width: 100%; display: block; }
 .lthumb.dot { display: grid; border-radius: 50%; width: 18px; height: 18px; flex: 0 0 18px; margin: 0 14px; }
 .lthumb.dot.place { background: var(--navy); } .lthumb.dot.wish { background: var(--pink-d); border: 1.5px solid var(--navy); }
 .list-more { align-self: center; margin-top: 4px; min-width: 132px; }
+/* MORE の上の縦の点（まだ下に続く） */
+.list-dots { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 2px 0 0; }
+.list-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--navy); }
+.list-dots i:nth-child(2) { opacity: .6; } .list-dots i:nth-child(3) { opacity: .3; }
+.list-dots + .list-more { margin-top: 0; }
+/* 一覧の写真が何枚かあるとき：DM の写真のように、少しずつ傾けて重ねる */
+.lthumb.lstack { position: relative; display: block; overflow: visible; border-radius: 0; }
+.lstack .ls { position: absolute; inset: 3px; width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--pink-d);
+  border: 2px solid var(--paper); box-shadow: 0 1px 3px rgb(var(--navy-rgb) / .25); }
+.lstack .ls0 { z-index: 3; }
+.lstack .ls1 { z-index: 2; transform: translate(5px, -2px) rotate(9deg); }
+.lstack .ls2 { z-index: 1; transform: translate(-5px, -1px) rotate(-10deg); }
+.lstack.n2 .ls1 { transform: translate(4px, -2px) rotate(8deg); }
 .list-more.is-new { position: relative; }
 .ltext { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.4; }
 .ltext b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

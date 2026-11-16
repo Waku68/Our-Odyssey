@@ -1,14 +1,14 @@
 // PLACES：過ごした場所と行きたいところの地図と一覧。
-import { h } from '../dom.js?v=53';
-import { tr } from '../i18n.js?v=53';
-import { dots } from '../dates.js?v=53';
-import { store, data } from '../state.js?v=53';
-import { newMark, entryNew } from '../seen.js?v=53';
-import { photoImg } from '../photos.js?v=53';
-import { leaflet, TILE, ATTR, MAP_FEEL, limitMap } from '../places.js?v=53';
-import { inlineForm } from '../forms.js?v=53';
-import { SECTIONS, fromLabel, newEntryRow, openDetail } from '../entries.js?v=53';
-import { draw, pageNav, pageHead } from '../shell.js?v=53';
+import { h } from '../dom.js?v=54';
+import { tr } from '../i18n.js?v=54';
+import { dots } from '../dates.js?v=54';
+import { store, data } from '../state.js?v=54';
+import { newMark, entryNew } from '../seen.js?v=54';
+import { photoImg, allPhotos } from '../photos.js?v=54';
+import { leaflet, TILE, ATTR, MAP_FEEL, limitMap } from '../places.js?v=54';
+import { inlineForm } from '../forms.js?v=54';
+import { SECTIONS, fromLabel, newEntryRow, openDetail } from '../entries.js?v=54';
+import { draw, pageNav, pageHead } from '../shell.js?v=54';
 
 let mapFilter = 'all';
 let mapView = null;
@@ -140,8 +140,15 @@ function mapPage() {
     setTimeout(fitSize, 380);
   }).catch(() => { mapEl.textContent = tr('地図を読みこめませんでした。', "Couldn't load the map."); });
 
+  // 写真が何枚かあるときは、3枚まで少しずつ傾けて重ねる（いちばん上が表紙）
+  const thumbOf = (e) => {
+    const ps = allPhotos(e).slice(0, 3);
+    if (ps.length < 2) return e.photo ? photoImg(e.photo, 'lthumb') : h('span', { class: `lthumb dot ${e.section}` });
+    return h('span', { class: `lthumb lstack n${ps.length}`, 'aria-label': tr(`写真 ${allPhotos(e).length}枚`, `${allPhotos(e).length} photos`) },
+      ps.map((p, i) => photoImg(p, `ls ls${i}`)).reverse());
+  };
   const row = (e) => newMark(h('button', { class: 'lrow', type: 'button', onclick: () => openDetail(e.id) },
-    e.photo ? photoImg(e.photo, 'lthumb') : h('span', { class: `lthumb dot ${e.section}` }),
+    thumbOf(e),
     h('span', { class: 'ltext' }, h('b', {}, e.title),
       h('small', {}, [e.section === 'place' ? 'PLACES' : 'WISHES', e.date && dots(e.date), e.lat == null && tr('地図なし', 'no pin')].filter(Boolean).join(' ・ '))),
     h('span', { 'aria-hidden': 'true' }, '›')), entryNew(e));
@@ -157,7 +164,9 @@ function mapPage() {
     // 隠れている中に NEW! があれば、ボタンにも出す（ひらくまで「見た」ことにはしない）
     if (more && hidden.some((e) => entryNew(e).length)) { more.classList.add('is-new'); more.append(h('span', { class: 'newtag', 'aria-label': 'NEW' }, 'NEW!')); }
     const less = open && listed.length > LIST_SHORT && h('button', { type: 'button', class: 'btn ghost small list-more', 'aria-expanded': 'true', onclick: () => { listOpen = false; paintList(); list.lastElementChild?.scrollIntoView({ block: 'nearest' }); } }, 'LESS');
-    list.replaceChildren(...(open ? listed : listed.slice(0, LIST_SHORT)).map(row), more || less || '');
+    // 閉じているときは、MORE の上に縦の点（⋮）を出して、まだ下に続くのが分かるようにする
+    const dots = more && h('span', { class: 'list-dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'));
+    list.replaceChildren(...(open ? listed : listed.slice(0, LIST_SHORT)).map(row), dots || '', more || less || '');
   };
   paintList();
 
