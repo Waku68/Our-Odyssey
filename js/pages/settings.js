@@ -1,13 +1,14 @@
 // SETTINGS：名前、言語、色のテーマ、パスワード、通知、バックアップ、ログアウト。
-import { CONFIG } from '../config.js?v=52';
-import { h } from '../dom.js?v=52';
-import { lang, tr, setLang } from '../i18n.js?v=52';
-import { today } from '../dates.js?v=52';
-import { store, data, me, nameOf, partner } from '../state.js?v=52';
-import { ask, notice } from '../ask.js?v=52';
-import { localKey } from '../store.js?v=52';
-import * as theme from '../theme.js?v=52';
-import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=52';
+import { CONFIG } from '../config.js?v=53';
+import { h } from '../dom.js?v=53';
+import { lang, tr, setLang } from '../i18n.js?v=53';
+import { today } from '../dates.js?v=53';
+import { store, data, me, nameOf, partner } from '../state.js?v=53';
+import { ask, notice } from '../ask.js?v=53';
+import { localKey } from '../store.js?v=53';
+import { morePhotos } from '../photos.js?v=53';
+import * as theme from '../theme.js?v=53';
+import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=53';
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function enablePush() {
@@ -33,7 +34,10 @@ function download(blob, name) {
 }
 async function backup() {
   const stamp = today();
-  const entries = data.entries.map((e) => ({ ...e, photo: e.photo ? `photos/${e.id}.jpg` : null }));
+  // ほかの写真は photos/<id>-1.jpg, -2.jpg … に入れる
+  const moreName = (e, i) => `photos/${e.id}-${i + 1}.jpg`;
+  const entries = data.entries.map((e) => ({ ...e, photo: e.photo ? `photos/${e.id}.jpg` : null,
+    ...(morePhotos(e).length ? { more_photos: morePhotos(e).map((_, i) => moreName(e, i)) } : {}) }));
   const json = JSON.stringify({ exported_at: new Date().toISOString(), start_date: CONFIG.START_DATE,
     profiles: data.profiles.map((p) => ({ id: p.id, display_name: p.display_name })), entries, moods: data.moods, comments: data.comments }, null, 2);
   try {
@@ -43,6 +47,9 @@ async function backup() {
     for (const e of data.entries.filter((x) => x.photo)) {
       const blob = await (await fetch(await store.photoUrl(e.photo))).blob();
       zip.file(`photos/${e.id}.jpg`, blob);
+    }
+    for (const e of data.entries) {
+      for (const [i, p] of morePhotos(e).entries()) zip.file(moreName(e, i), await (await fetch(await store.photoUrl(p))).blob());
     }
     download(await zip.generateAsync({ type: 'blob' }), `our-odyssey-${stamp}.zip`);
   } catch {
@@ -72,7 +79,7 @@ async function restore() {
       const JSZip = (await import('https://esm.sh/jszip@3.10.1')).default;
       const zip = await JSZip.loadAsync(file);
       b = JSON.parse(await zip.file('our-odyssey.json').async('string'));
-      photoOf = async (id) => { const f = zip.file(`photos/${id}.jpg`); return f ? new Blob([await f.async('arraybuffer')], { type: 'image/jpeg' }) : null; };
+      photoOf = async (id) => { const f = zip.file(`photos/${id}.jpg`) || zip.file(id); return f ? new Blob([await f.async('arraybuffer')], { type: 'image/jpeg' }) : null; };
     }
     if (!Array.isArray(b?.entries)) throw new Error('entries');
   } catch {
@@ -98,7 +105,11 @@ async function restore() {
   await act(async () => {
     for (const e of myE) {
       const blob = e.photo ? await photoOf(e.id) : null;
-      await store.restore('entries', { ...only(e, ENTRY_COLS), photo: blob ? await store.uploadPhoto(blob, { secret: e.section === 'secret' }) : null });
+      // ほかの写真（zip の中の名前で入っている）。戻せたものだけ並べる。なければ欄ごと送らない
+      const more = [];
+      for (const name of morePhotos(e)) { const b2 = await photoOf(name); if (b2) more.push(await store.uploadPhoto(b2)); }
+      await store.restore('entries', { ...only(e, ENTRY_COLS), photo: blob ? await store.uploadPhoto(blob, { secret: e.section === 'secret' }) : null,
+        ...(more.length ? { more_photos: more } : {}) });
     }
     for (const m of lostM) await store.restore('moods', only(m, MOOD_COLS));
     for (const c of myC) await store.restore('comments', only(c, COMMENT_COLS));

@@ -1,16 +1,18 @@
 // ダイアログと入力フォーム（日付の帯、写真の欄、地図の欄など）。
-import { h, reduceMotion } from './dom.js?v=52';
-import { lang, tr } from './i18n.js?v=52';
-import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=52';
-import { store } from './state.js?v=52';
-import { ask, notice } from './ask.js?v=52';
-import { editPhoto } from './photo-editor.js?v=52';
-import { photoImg, pickFile, maxSide, fitImage } from './photos.js?v=52';
-import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=52';
-import { songPhotos, songPicker, songRow } from './songs.js?v=52';
-import { SONG_CAT, catLabel } from './cats.js?v=52';
-import { refresh } from './shell.js?v=52';
+import { h, reduceMotion } from './dom.js?v=53';
+import { lang, tr } from './i18n.js?v=53';
+import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=53';
+import { store } from './state.js?v=53';
+import { ask, notice } from './ask.js?v=53';
+import { editPhoto } from './photo-editor.js?v=53';
+import { photoImg, pickFile, pickFiles, maxSide, fitImage, morePhotos } from './photos.js?v=53';
+import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=53';
+import { songPhotos, songPicker, songRow } from './songs.js?v=53';
+import { SONG_CAT, catLabel } from './cats.js?v=53';
+import { refresh } from './shell.js?v=53';
 
+// ほかの写真の欄に入れられる枚数（表紙の1枚は別）
+const MAX_MORE = 12;
 const BOOKMARK = '<svg viewBox="0 0 10 13" aria-hidden="true"><path d="M0 0h10v13L5 9.5 0 13z" fill="currentColor"/></svg>';
 
 /* ---------- ダイアログ（入力・メニュー共通） ---------- */
@@ -94,6 +96,9 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
   const v = { ...initial };
   let newPhoto = null;
   let draft = null; // 保存前の写真は、元の写真と編集の内容を持っておく（何度でもやり直せる）
+  let extras = null; // ほかの写真の欄があるとき：並び順の { path }（保存ずみ）か { blob }（まだ送っていない）
+  let promoted = null; // 表紙がないので、ほかの写真の先頭を表紙にしたときの写真
+  let extrasLoading = null; // まとめてえらんだ写真を読みこんでいるあいだ
   let dirty = false;
   let onGeo = () => {};   // 地図の場所が決まったとき（写真の欄が自動で写真を入れるのに使う）
   let onTitle = () => {}; // 名前が変わったとき（写真の欄が名前から写真をさがすのに使う）
@@ -216,6 +221,45 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
       const drop = h('button', { type: 'button', class: v.photo ? 'drop' : 'drop is-empty', onclick: choose }, img, txt);
       return field(f, h('div', { class: 'photo-field' }, drop, credit, strip, h('div', { class: 'row' }, ed, rm)));
     }
+    if (f.type === 'photos') {
+      // ほかの写真（何枚でも）。上の「写真」が表紙で、ここはその後ろに並ぶ写真。消すのは保存したときに決まる
+      extras = morePhotos(v).map((path) => ({ path }));
+      const grid = h('div', { class: 'mphotos' });
+      const count = h('span', { class: 'hint' });
+      const add = h('button', { type: 'button', class: 'mph-add', onclick: async () => {
+        const files = (await pickFiles()).slice(0, MAX_MORE - extras.length);
+        if (!files.length) return;
+        // 1枚なら編集画面を通す（表紙と同じ）。何枚かまとめてえらんだら、大きさだけそろえて並べる
+        // （スマホのメモリを使いすぎないように、1枚ずつ順に読む）
+        if (files.length === 1) {
+          const blob = await editPhoto(files[0], { maxSide: maxSide(), lang });
+          if (!blob) return;
+          extras.push({ blob });
+        } else {
+          // 読みこみ中に SAVE を押されても、終わるのを待ってから保存する（handle が extrasLoading を待つ）
+          let bad = 0;
+          extrasLoading = (async () => {
+            for (const x of files) {
+              const blob = await fitImage(x).catch(() => null);
+              if (blob) { extras.push({ blob }); paint(); } else bad++;
+            }
+          })();
+          try { await extrasLoading; } finally { extrasLoading = null; }
+          if (bad) notice(tr(`${bad}枚の写真を読みこめませんでした`, `Couldn't load ${bad} photo${bad > 1 ? 's' : ''}`));
+        }
+        touch(); paint();
+      } }, h('span', {}, '+'), h('small', {}, 'ADD PHOTOS'));
+      const thumb = (it, i) => h('div', { class: 'mph' },
+        it.blob ? h('img', { src: (it.url ??= URL.createObjectURL(it.blob)), alt: '' }) : photoImg(it.path, ''),
+        h('button', { type: 'button', class: 'mph-x', 'aria-label': tr(`${i + 1}枚目の写真を外す`, `Remove photo ${i + 1}`), onclick: () => { extras.splice(i, 1); touch(); paint(); } }, '×'));
+      function paint() {
+        grid.replaceChildren(...extras.map(thumb), extras.length < MAX_MORE ? add : '');
+        count.textContent = extras.length ? tr(`${extras.length}枚（あと${MAX_MORE - extras.length}枚まで）`, `${extras.length} photo${extras.length > 1 ? 's' : ''} (up to ${MAX_MORE})`)
+          : tr(`まとめて${MAX_MORE}枚までえらべます`, `Pick up to ${MAX_MORE} at once`);
+      }
+      paint();
+      return field(f, h('div', { class: 'photo-field' }, grid, count));
+    }
     const common = { value: v[f.name] ?? '', required: f.required, readonly: f.readonly, placeholder: f.ph,
       oninput: (ev) => { v[f.name] = ev.target.value; touch(); if (f.name === 'title') { onTitle(ev.target.value); onSongQuery(ev.target.value); } } };
     if (f.type === 'textarea') return field(f, h('textarea', common), 'label');
@@ -268,10 +312,23 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
     }
     submit.disabled = true;
     try {
-      if (newPhoto) v.photo = await store.uploadPhoto(newPhoto, { secret: fields.some((f) => f.type === 'photo' && f.secret) });
+      if (newPhoto) { v.photo = await store.uploadPhoto(newPhoto, { secret: fields.some((f) => f.type === 'photo' && f.secret) }); newPhoto = null; }
+      if (extras) {
+        await extrasLoading;
+        // 送った写真は path を覚えておく（保存に失敗してやり直しても、同じ写真を2回送らない）
+        for (const it of extras) if (!it.path) it.path = await store.uploadPhoto(it.blob);
+        v.more_photos = extras.map((it) => it.path);
+        // 表紙を外して、ほかの写真が残っているときは、先頭を表紙にする（地図のピンや一覧の写真が空にならないように）。
+        // 前にためして保存に失敗していたら、そのときの入れかえをいったんもどしてからやり直す
+        if (promoted && v.photo === promoted) v.photo = null;
+        promoted = null;
+        if (!v.photo && v.more_photos.length) { [v.photo, ...v.more_photos] = v.more_photos; promoted = v.photo; }
+      }
       for (const f of fields) if (f.type === 'date' && !v[f.name]) v[f.name] = null;
       await onSubmit(v);
-      if (initial.photo && v.photo !== initial.photo) store.removePhoto(initial.photo).catch(() => {});
+      // 外した写真は、保存できてから消す
+      const keep = new Set([v.photo, ...morePhotos(v)]);
+      for (const p of [initial.photo, ...morePhotos(initial)]) if (p && !keep.has(p)) store.removePhoto(p).catch(() => {});
       await after();
     } catch (e) { err.textContent = e.message || String(e); submit.disabled = false; }
   };
@@ -305,6 +362,7 @@ const F = {
   get body() { return { name: 'body', type: 'textarea', label: tr('ひとこと', 'Note'), ph: tr('そのときのこと、思ったことを自由に', 'What happened, how you felt — anything') }; },
   get geo() { return { type: 'geo', label: tr('地図の場所', 'Location'), hint: tr('入れておくと地図にピンが立ちます', 'Adds a pin to the map') }; },
   get photo() { return { type: 'photo', label: tr('写真', 'Photo') }; },
+  get morePhotos() { return { type: 'photos', label: tr('ほかの写真', 'More photos') }; },
 };
 
 export { showDialog, closeDialog, dayStrip, openForm, inlineForm, F };

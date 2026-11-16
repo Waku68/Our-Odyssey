@@ -137,6 +137,12 @@ async function fillForm(page, { title, body, chip }) {
   if (body != null) await dlg.locator('textarea').first().fill(body);
 }
 const submit = (page) => page.locator('dialog.modal[open] button[type=submit]').last().click();
+// PLACES の一覧の行をひらく（5件にしぼられて隠れていたら、先に MORE で全部ひらく）
+async function openRow(page, title) {
+  const r = page.locator('.lrow', { hasText: title });
+  if (!(await r.count())) await page.locator('.list-more', { hasText: 'MORE' }).click();
+  await r.click();
+}
 
 async function routesTour(page, snap) {
   for (const [name, hash] of [['home', '#/'], ['map', '#/map'], ['mood', '#/mood'], ['more', '#/more'], ['like', '#/more/like'], ['gift', '#/more/gift'],
@@ -223,7 +229,7 @@ async function demoFlow(browser, lang) {
   await page.locator('.leaflet-marker-icon').first().click({ force: true }); await snap('map-bubble');
   await page.locator('.mpop-more').click(); await snap('map-detail');
   await page.locator('dialog[open] .x').click(); await page.waitForTimeout(300);
-  await page.locator('.lrow', { hasText: '富士急ハイランド' }).click(); await snap('wish-detail');
+  await openRow(page, '富士急ハイランド'); await snap('wish-detail');
   await page.locator('dialog[open] button', { hasText: 'BEEN THERE' }).click(); await snap('went-form');
   await fillForm(page, { body: '行ってきた' }); await submit(page); await snap('went-done', 1200);
   await page.locator('dialog[open] .x').click().catch(() => {}); await page.waitForTimeout(300);
@@ -341,7 +347,85 @@ async function demoFlow(browser, lang) {
     await snap('hero-replaced', 500);
     log('hero a after 2 swaps each by both people:', await heroes(), '| slot shows photo:', await page.locator('.slot.a.has').count());
   }
+  await placesMorePhotos(page, snap, lang, IMG, choose, ed);
   await ctx.close();
+}
+
+// PLACES：一覧は最近足した5件だけ（MORE で全部）／場所に写真を何枚もつける（足す・外す・見る）
+async function placesMorePhotos(page, snap, lang, IMG, choose, ed) {
+  const check = (ok, msg) => { if (!ok) errors.push(`[demo/${lang}] ${msg}`); };
+  const db = () => page.evaluate(() => JSON.parse(localStorage.getItem('our-odyssey-demo')));
+  const IMG2 = path.join(root, 'assets/tulip-blue.webp');
+  // 途中で読みこみ直しているので、id の通し番号が前に足したものと重ならないように進めておく
+  await page.evaluate(() => { let n = 500; crypto.randomUUID = () => `99999999-0000-4000-8000-${String(++n).padStart(12, '0')}`; });
+  await go(page, '#/map'); await page.waitForTimeout(1200);
+  await page.locator('.chips .chip.all').click(); await snap('places-list-short', 900);
+  // 足すフォーム：表紙（編集画面を通す）＋ほかの写真2枚（まとめてえらぶ）
+  await page.locator('.addbox .seg button').first().click(); await page.waitForTimeout(200);
+  await page.locator('.addbox .field input[type=text]').first().fill('写真がたくさんの場所');
+  await choose(() => page.locator('.addbox .drop').click()); await page.waitForTimeout(600);
+  await ed().locator('button', { hasText: 'DONE' }).click(); await page.waitForTimeout(600);
+  let fc = page.waitForEvent('filechooser');
+  await page.locator('.addbox .mph-add').click(); await (await fc).setFiles([IMG, IMG2]);
+  await snap('places-add-photos', 900);
+  check(await page.locator('.addbox .mph img').count() === 2, 'ADD: ほかの写真が2枚並ばない');
+  await page.locator('.addbox button[type=submit]').click(); await snap('places-added-photos', 1300);
+  let row = (await db()).entries.find((e) => e.title === '写真がたくさんの場所');
+  check(row?.photo && row?.more_photos?.length === 2, `ADD: 保存した写真がちがう（photo=${!!row?.photo} more=${row?.more_photos?.length}）`);
+  // 一覧：5件 → MORE で全部 → LESS
+  check(await page.locator('.list .lrow').count() === 5, `一覧が5件になっていない（${await page.locator('.list .lrow').count()}件）`);
+  await page.locator('.list-more', { hasText: 'MORE' }).click(); await snap('places-list-all', 400);
+  const total = (await db()).entries.filter((e) => e.section === 'place' || e.section === 'wish').length;
+  check(await page.locator('.list .lrow').count() === total, `MORE で全部（${total}件）出ない`);
+  await page.locator('.list-more', { hasText: 'LESS' }).click(); await snap('places-list-less', 400);
+  check(await page.locator('.list .lrow').count() === 5, 'LESS で5件にもどらない');
+  // 詳細：3枚を横にめくって見る
+  await page.locator('.lrow', { hasText: '写真がたくさんの場所' }).click(); await snap('places-detail-gallery', 700);
+  check(await page.locator('dialog[open] .dgallery img').count() === 3, '詳細に写真が3枚出ない');
+  await page.locator('dialog[open] .dg-dot').nth(2).click(); await page.waitForTimeout(700);
+  check((await page.locator('dialog[open] .dg-num').textContent()) === '3 / 3', '3枚目にめくれない');
+  // なおす：ほかの写真を1枚外して1枚足す（1枚なら編集画面を通す）、表紙も外す → 先頭のほかの写真が表紙になる
+  await page.locator('dialog[open] button', { hasText: 'EDIT' }).first().click(); await page.waitForTimeout(500);
+  check(await page.locator('dialog.modal[open] .mph img').count() === 2, 'EDIT: 前からのほかの写真が出ない');
+  await page.locator('dialog.modal[open] .mph-x').first().click();
+  fc = page.waitForEvent('filechooser');
+  await page.locator('dialog.modal[open] .mph-add').click(); await (await fc).setFiles(IMG2); await page.waitForTimeout(600);
+  await ed().locator('button', { hasText: 'DONE' }).click(); await page.waitForTimeout(500);
+  await page.locator('dialog.modal[open] button', { hasText: 'REMOVE PHOTO' }).click(); await snap('places-edit-photos', 500);
+  const old = row;
+  await submit(page); await snap('places-edited-photos', 900);
+  row = (await db()).entries.find((e) => e.title === '写真がたくさんの場所');
+  check(row?.photo === old.more_photos[1] && row?.more_photos?.length === 1 && row.more_photos[0] !== old.more_photos[0], 'EDIT: 表紙の入れかわりか、ほかの写真の並びがちがう');
+  check(await page.locator('dialog[open] .dgallery img').count() === 2, 'EDIT のあと詳細に写真が2枚出ない');
+  // ほかの写真を全部外すと、1枚だけの見た目にもどる（more_photos は空にする）
+  await page.locator('dialog[open] button', { hasText: 'EDIT' }).first().click(); await page.waitForTimeout(500);
+  await page.locator('dialog.modal[open] .mph-x').first().click(); await submit(page); await snap('places-one-photo', 900);
+  row = (await db()).entries.find((e) => e.title === '写真がたくさんの場所');
+  check(row?.photo && row?.more_photos === null, `ほかの写真を外しても more_photos が残る（${JSON.stringify(row?.more_photos)}）`);
+  check(await page.locator('dialog[open] .dgallery').count() === 0 && await page.locator('dialog[open] img.dphoto').count() === 1, '1枚にもどしたのに詳細の見た目がもどらない');
+  if (process.env.EXTRA) {   // バックアップにほかの写真も入り、消してから戻すと写真も全部もどる
+    await page.locator('dialog[open] button', { hasText: 'EDIT' }).first().click(); await page.waitForTimeout(500);
+    fc = page.waitForEvent('filechooser');
+    await page.locator('dialog.modal[open] .mph-add').click(); await (await fc).setFiles([IMG, IMG2]); await page.waitForTimeout(600);
+    await submit(page); await page.waitForTimeout(900);
+    await page.locator('dialog[open] .x').click(); await page.waitForTimeout(300);
+    await go(page, '#/more/settings'); await page.waitForTimeout(300);
+    const dz = page.waitForEvent('download');
+    await page.locator('button', { hasText: 'SAVE BACKUP' }).click();
+    const zipPath = path.join(out, `demo-${lang}-more-photos-backup.zip`); await (await dz).saveAs(zipPath);
+    await go(page, '#/map'); await page.waitForTimeout(900);
+    await openRow(page, '写真がたくさんの場所'); await page.waitForTimeout(400);
+    await page.locator('dialog[open] button', { hasText: 'DELETE' }).click(); await page.waitForTimeout(300);
+    await page.locator('dialog.ask[open] .btn').first().click(); await page.waitForTimeout(600);
+    check(!(await db()).entries.some((e) => e.title === '写真がたくさんの場所'), 'バックアップの確認：消せていない');
+    await go(page, '#/more/settings'); await page.waitForTimeout(300);
+    fc = page.waitForEvent('filechooser');
+    await page.locator('button', { hasText: 'RESTORE' }).click(); await (await fc).setFiles(zipPath); await page.waitForTimeout(900);
+    await page.locator('dialog.ask[open] .btn').first().click(); await page.waitForTimeout(900);
+    row = (await db()).entries.find((e) => e.title === '写真がたくさんの場所');
+    console.log(`[${lang}] more_photos restored:`, row?.more_photos?.length, 'cover:', !!row?.photo);
+    check(row?.photo && row?.more_photos?.length === 2 && row.more_photos.every((p) => p.startsWith('data:image/')), `バックアップから戻したら、ほかの写真がもどらない（${row?.more_photos?.length}）`);
+  }
 }
 
 async function liveFlow(browser) {
@@ -364,7 +448,7 @@ async function liveFlow(browser) {
   await go(page, '#/more'); await snap('more-new');
   await page.locator('button.acc-head').first().click(); await snap('more-new-open', 1300);
   await go(page, '#/map'); await snap('map-new', 1500);
-  await page.locator('.lrow', { hasText: '江ノ島' }).click(); await snap('detail-new');
+  await openRow(page, '江ノ島'); await snap('detail-new');
   await page.locator('dialog[open] .x').click(); await page.waitForTimeout(300);
   await go(page, '#/more'); await snap('more-seen');
   await go(page, '#/'); await snap('home-seen');
@@ -372,7 +456,7 @@ async function liveFlow(browser) {
   await go(page, '#/more/like'); await page.waitForTimeout(300);
   await page.locator('.head .btn').click(); await fillForm(page, { title: 'おにぎり', chip: '食べ物' }); await submit(page); await snap('like-added');
   await go(page, '#/map'); await page.waitForTimeout(1000);
-  await page.locator('.lrow', { hasText: '富士急ハイランド' }).click(); await page.locator('dialog[open] button', { hasText: 'BEEN THERE' }).click();
+  await openRow(page, '富士急ハイランド'); await page.locator('dialog[open] button', { hasText: 'BEEN THERE' }).click();
   await submit(page); await snap('went', 1200);
   await page.locator('dialog[open] .x').click().catch(() => {}); await page.waitForTimeout(300);
   // つながらないとき：あずかる → つながったら送る
@@ -390,6 +474,23 @@ async function liveFlow(browser) {
   await pw.nth(1).fill('password2'); await pw.nth(2).fill('password2'); await page.locator('.pwform button[type=submit]').click(); await snap('pw-changed');
   await page.locator('button', { hasText: 'LOG OUT' }).click(); await snap('logged-out', 700);
   await page.evaluate(() => JSON.stringify(Object.keys(localStorage).sort())).then((s) => fs.writeFileSync(path.join(out, 'live-localstorage-keys.json'), s));
+  // 場所の写真を何枚も（本番の保存先）：前からの1枚だけの記録にほかの写真を足す
+  const check = (ok, msg) => { if (!ok) errors.push(`[live] ${msg}`); };
+  const rowOf = (title) => page.evaluate((t) => window.__fake.tables.entries.find((e) => e.title === t), title);
+  // ほかの写真を足していない保存では more_photos を送らない（photos.sql を流す前のデータベースでも保存できるように）
+  check(!('more_photos' in (await rowOf('富士急ハイランド'))), 'ほかの写真のない保存で more_photos を送っている');
+  await page.locator('input[type=text]').fill('waku'); await page.locator('input[type=password]').fill('password1'); await page.locator('button[type=submit]').click(); await page.waitForTimeout(1200);
+  await go(page, '#/map'); await page.waitForTimeout(1200);
+  await openRow(page, '江ノ島'); await snap('places-old-photo', 600);
+  check(await page.locator('dialog[open] img.dphoto').count() === 1 && await page.locator('dialog[open] .dgallery').count() === 0, '前からの1枚だけの記録の見た目が変わった');
+  await page.locator('dialog[open] button', { hasText: 'EDIT' }).first().click(); await page.waitForTimeout(500);
+  const IMG = path.join(root, 'assets/tulip-pink.webp'), IMG2 = path.join(root, 'assets/tulip-blue.webp');
+  const fc = page.waitForEvent('filechooser');
+  await page.locator('dialog.modal[open] .mph-add').click(); await (await fc).setFiles([IMG, IMG2]); await page.waitForTimeout(600);
+  await submit(page); await snap('places-live-more', 1500);
+  const enoshima = await rowOf('江ノ島の水族館');
+  check(enoshima?.photo === `${U1}/p.jpg` && enoshima?.more_photos?.length === 2 && enoshima.more_photos.every((p) => p.startsWith(`${U1}/`)), `本番：ほかの写真の保存がちがう（${JSON.stringify(enoshima?.more_photos)}）`);
+  check(await page.locator('dialog[open] .dgallery img').count() === 3, '本番：詳細に写真が3枚出ない');
   await ctx.close();
 }
 

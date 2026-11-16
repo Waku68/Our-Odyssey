@@ -18,12 +18,15 @@ create table if not exists public.entries (
   lat double precision,
   lng double precision,
   photo text,
+  more_photos jsonb,
   song jsonb,
   author uuid not null default auth.uid() references auth.users,
   created_at timestamptz not null default now()
 );
 -- Likes の曲でえらんだ曲（前に作ったデータベースにも足す）
 alter table public.entries add column if not exists song jsonb;
+-- 場所のほかの写真（前に作ったデータベースにも足す。photos.sql と同じ）
+alter table public.entries add column if not exists more_photos jsonb;
 
 create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),

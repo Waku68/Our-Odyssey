@@ -1,15 +1,15 @@
 // ひとつの記録（場所・好きなもの・贈りもの など）の欄の決まり、カード、詳細、足す・なおす・消す。
-import { h } from './dom.js?v=52';
-import { tr } from './i18n.js?v=52';
-import { dots, today } from './dates.js?v=52';
-import { store, data, me, nameOf, byCreated } from './state.js?v=52';
-import { entryNew, newMark, markSeenNow } from './seen.js?v=52';
-import { ask } from './ask.js?v=52';
-import { photoImg, pickPhoto } from './photos.js?v=52';
-import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=52';
-import { songPlayer } from './songs.js?v=52';
-import { showDialog, closeDialog, openForm, F } from './forms.js?v=52';
-import { act } from './shell.js?v=52';
+import { h } from './dom.js?v=53';
+import { tr } from './i18n.js?v=53';
+import { dots, today } from './dates.js?v=53';
+import { store, data, me, nameOf, byCreated } from './state.js?v=53';
+import { entryNew, newMark, markSeenNow } from './seen.js?v=53';
+import { ask } from './ask.js?v=53';
+import { photoImg, pickPhoto, morePhotos, allPhotos, moreOf } from './photos.js?v=53';
+import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=53';
+import { songPlayer } from './songs.js?v=53';
+import { showDialog, closeDialog, openForm, F } from './forms.js?v=53';
+import { act } from './shell.js?v=53';
 
 // Likes のしぼりこみ（えらんでいる種類）と、ひらいているひとこと欄
 let likeFilter = '';
@@ -18,14 +18,14 @@ const openTalks = new Set();
 
 const SECTIONS = {
   place: { en: 'Places', lead: () => tr('ふたりで過ごした場所を残す', 'Places we spent time together'),
-    fields: () => [F.title(tr('場所の名前', 'Place'), tr('例：江ノ島の水族館', 'e.g. Enoshima Aquarium')), F.date(tr('行った日', 'Date visited')), F.body, F.geo, F.photo] },
+    fields: () => [F.title(tr('場所の名前', 'Place'), tr('例：江ノ島の水族館', 'e.g. Enoshima Aquarium')), F.date(tr('行った日', 'Date visited')), F.body, F.geo, F.photo, F.morePhotos] },
   like: { en: 'Likes', lead: () => tr('相手の「好き」をメモしておく', 'Things they love'), fields: () => [
     { name: 'category', type: 'category', label: tr('種類', 'Type'), required: true, options: likeCats() },
     F.title(tr('好きなもの', 'What'), tr('例：抹茶ラテ', 'e.g. Matcha latte')),
     { type: 'song', label: tr('どの曲？', 'Which song?'), hint: tr('えらんでおくと、ふたりとも同じ曲を聴けます', 'Pick it so you both hear the same song') },
     F.body, F.photo] },
   wish: { en: 'Wishes', lead: () => tr('いつか一緒に行きたいところ', 'Places we want to go someday'),
-    fields: () => [F.title(tr('行きたいところ', 'Place'), tr('例：金沢の21世紀美術館', 'e.g. 21st Century Museum, Kanazawa')), { ...F.body, ph: tr('行きたい理由、やりたいこと', 'Why, and what we want to do there') }, F.geo, F.photo] },
+    fields: () => [F.title(tr('行きたいところ', 'Place'), tr('例：金沢の21世紀美術館', 'e.g. 21st Century Museum, Kanazawa')), { ...F.body, ph: tr('行きたい理由、やりたいこと', 'Why, and what we want to do there') }, F.geo, F.photo, F.morePhotos] },
   gift: { en: 'Gifts', lead: () => tr('贈ったもの・もらったもの', 'Gifts given and received'), fields: () => [
     { name: 'category', type: 'category', label: tr('どっち？', 'Given or received?'), required: true, options: GIFT_WAYS, optLabel: giftWayLabel },
     F.title(tr('贈りもの', 'Gift'), tr('例：手編みのマフラー', 'e.g. Hand-knit scarf')), F.date(), F.body, F.photo] },
@@ -56,7 +56,7 @@ const entryMeta = (e) => [e.date && dots(e.date), catText(e), SECTIONS[e.section
 const talkable = (e) => !SECTIONS[e.section]?.own;
 // フォームに書いた内容から、新しい記録を作る
 const newEntryRow = (section, v) => ({ section, title: v.title || '', body: v.body || '', date: v.date || null, category: v.category || null,
-  lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null, ...songOf(v) });
+  lat: v.lat ?? null, lng: v.lng ?? null, photo: v.photo || null, ...moreOf(v), ...songOf(v) });
 // えらんだ曲（種類が「曲」のときだけ）。曲でない記録には song を送らない
 const songOf = (v, before = null) => (v.category === SONG_CAT && v.song ? { song: v.song } : before?.song ? { song: null } : {});
 
@@ -74,7 +74,7 @@ function talk(e, fresh = new Set()) {
 }
 async function removeEntry(e) {
   if (!(await ask(tr('消しますか？', 'Delete this?'), { text: tr('元には戻せません。', "This can't be undone."), ok: 'DELETE', danger: true }))) return;
-  act(async () => { await store.removeEntry(e.id); await store.removePhoto(e.photo); });
+  act(async () => { await store.removeEntry(e.id); for (const p of allPhotos(e)) await store.removePhoto(p); });
 }
 function entryCard(e, key) {
   const S = SECTIONS[key];
@@ -109,12 +109,30 @@ function addEntry(key) {
 function entryEdit(e) {
   const S = SECTIONS[e.section];
   openForm({ title: 'Edit', en: S.en, fields: S.fields(), initial: editInitial(e),
-    onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo, ...songOf(v, e) }) });
+    onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo, ...moreOf(v, e), ...songOf(v, e) }) });
 }
 function entryWent(e) {
   openForm({ title: 'Been there!', en: 'Places', lead: tr(`「${e.title}」に行った日を残す`, `When did we go to "${e.title}"?`), initial: { ...e, date: today() },
-    fields: [F.date(tr('行った日', 'Date visited')), F.body, ...(e.lat == null ? [F.geo] : []), F.photo],
-    onSubmit: (v) => store.saveEntry({ id: e.id, section: 'place', date: v.date, body: v.body, photo: v.photo, lat: v.lat ?? null, lng: v.lng ?? null }) });
+    fields: [F.date(tr('行った日', 'Date visited')), F.body, ...(e.lat == null ? [F.geo] : []), F.photo, F.morePhotos],
+    onSubmit: (v) => store.saveEntry({ id: e.id, section: 'place', date: v.date, body: v.body, photo: v.photo, ...moreOf(v, e), lat: v.lat ?? null, lng: v.lng ?? null }) });
+}
+// 写真が何枚かあるとき：横にめくって見る。下の数字と点で、いま何枚目か分かる（点をタップするとその写真へ）
+function photoGallery(paths) {
+  const track = h('div', { class: 'dgallery', tabindex: '0', 'aria-label': tr(`写真 ${paths.length}枚`, `${paths.length} photos`) }, paths.map((p) => photoImg(p, 'dphoto')));
+  const num = h('span', { class: 'dg-num' });
+  const dots = paths.map((_, i) => h('button', { type: 'button', class: 'dg-dot', 'aria-label': tr(`${i + 1}枚目`, `Photo ${i + 1}`),
+    onclick: () => track.scrollTo({ left: track.children[i].offsetLeft - track.offsetLeft, behavior: 'smooth' }) }));
+  let cur = -1;
+  const mark = () => {
+    const i = Math.min(paths.length - 1, Math.max(0, Math.round(track.scrollLeft / (track.clientWidth || 1))));
+    if (i === cur) return;
+    cur = i;
+    num.textContent = `${i + 1} / ${paths.length}`;
+    dots.forEach((d, k) => { d.classList.toggle('on', k === i); d.setAttribute('aria-current', String(k === i)); });
+  };
+  track.addEventListener('scroll', mark, { passive: true });
+  mark();
+  return h('div', { class: 'dgallery-wrap' }, track, h('div', { class: 'dg-foot' }, h('div', { class: 'dg-dots' }, dots), num));
 }
 function openDetail(id) {
   const dlg = h('dialog', { class: 'modal detail', 'aria-label': tr('詳細', 'Details') });
@@ -131,7 +149,7 @@ function openDetail(id) {
         h('div', {}, SECTIONS[e.section] && h('div', { class: `tag ${e.section}` }, SECTIONS[e.section].en), h('h2', { class: 'dtitle' }, e.title), h('p', { class: 'lead' }, meta)),
         h('button', { type: 'button', class: 'x', 'aria-label': 'Close', onclick: () => closeDialog(dlg) }, '×')),
       h('div', { class: 'mbody' },
-        e.photo && photoImg(e.photo, 'dphoto'),
+        morePhotos(e).length ? photoGallery(allPhotos(e)) : e.photo && photoImg(e.photo, 'dphoto'),
         e.body ? h('p', { class: 'dbody' }, e.body) : null,
         isSong(e) ? songPlayer(e) : null,
         e.section === 'wish' && h('button', { class: 'btn', onclick: () => entryWent(e) }, 'BEEN THERE! → PLACES'),

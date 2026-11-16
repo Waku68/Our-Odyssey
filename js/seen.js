@@ -1,5 +1,5 @@
-import { h } from './dom.js?v=52';
-import { store, data, me } from './state.js?v=52';
+import { h } from './dom.js?v=53';
+import { store, data, me } from './state.js?v=53';
 
 /* ---------- NEW! のしるし ----------
    相手が足したり変えたりしたもの（ひとことも）に「NEW!」を貼る。画面に0.7秒ほど映ったら「見た」ことにして、
@@ -15,7 +15,7 @@ function hashStr(str) {
   b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
   return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36);
 }
-const entrySig = (e) => hashStr(JSON.stringify([e.section, e.title, e.body, e.date, e.category, e.lat, e.lng, e.photo, ...(e.song ? [e.song.id] : [])]));
+const entrySig = (e) => hashStr(JSON.stringify([e.section, e.title, e.body, e.date, e.category, e.lat, e.lng, e.photo, ...(e.song ? [e.song.id] : []), ...(e.more_photos?.length ? [e.more_photos] : [])]));
 const moodSig = (m) => hashStr(JSON.stringify([m.date, m.level, m.note, m.shared]));
 function partnerPairs() {
   const out = [];
