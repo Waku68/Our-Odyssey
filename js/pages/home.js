@@ -1,13 +1,13 @@
 // HOME：日数（DAYS）と2人の写真、その下の年表。
-import { CONFIG } from '../config.js?v=57';
-import { h, reduceMotion } from '../dom.js?v=57';
-import { tr } from '../i18n.js?v=57';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots } from '../dates.js?v=57';
-import { store, data, me, byCreated } from '../state.js?v=57';
-import { newMark, entryNew } from '../seen.js?v=57';
-import { photoImg, pickPhoto } from '../photos.js?v=57';
-import { act, fadeIn } from '../shell.js?v=57';
-import { openDetail } from '../entries.js?v=57';
+import { CONFIG } from '../config.js?v=60';
+import { h, reduceMotion } from '../dom.js?v=60';
+import { tr } from '../i18n.js?v=60';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=60';
+import { store, data, me, byCreated } from '../state.js?v=60';
+import { newMark, entryNew } from '../seen.js?v=60';
+import { photoImg, pickPhoto } from '../photos.js?v=60';
+import { act, fadeIn } from '../shell.js?v=60';
+import { openDetail } from '../entries.js?v=60';
 
 function home() {
   const t = today();
@@ -89,22 +89,104 @@ function timeline() {
     ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ id: e.id, section: e.section, date: e.date, title: e.title, k: kind[e.section], photo: e.photo, body: e.body }))];
   // 上が古く、下にスクロールするほど新しくなる
   items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  const out = [];
-  let year = null, group = null, n = 0;
+  // 年で区切らず、ひとつの流れにする。年の数字も項目といっしょに左右の列に入れて、すきまを埋める
+  const tl = h('div', { class: 'tl' });
+  let year = null, n = 0;
   for (const it of items) {
     const y = it.date.slice(0, 4);
-    if (y !== year) { year = y; group = h('div', { class: 'tl' }); out.push(h('div', { class: 'year fade' }, y), group); }
-    // まんなかの線をはさんで、中身（写真・文）と日付を左右に置く。1つごとに入れかえる（年が変わってもつづけて数える）
+    if (y !== year) { year = y; tl.append(h('div', { class: `yr fade ${n++ % 2 ? 'l' : 'r'}` }, y)); }
     const side = n++ % 2 ? 'l' : 'r';
-    const words = [h('div', { class: 't' }, it.title), it.body && h('div', { class: 'desc' }, it.body)];
-    group.append(newMark(h(it.id ? 'button' : 'div', { class: `it fade ${side}`, type: it.id ? 'button' : null, onclick: it.id ? () => (it.section === 'anniversary' ? (location.hash = '#/more/anniv') : openDetail(it.id)) : null },
-      h('div', { class: 'when' }, h('div', { class: 'd' }, dots(it.date).slice(5)), h('div', { class: 'muted' }, it.k)),
-      // 写真があればポラロイドにして、下の白いところにタイトルと説明文をのせる
-      it.photo ? h('div', { class: 'what snap' }, photoImg(it.photo, ''), h('div', { class: 'cap' }, words)) : h('div', { class: 'what' }, words)),
+    const words = [h('div', { class: 'when' }, h('span', { class: 'd' }, dots(it.date).slice(5)), h('span', { class: 'k' }, it.k)),
+      h('div', { class: 't' }, it.title), it.body && h('div', { class: 'desc' }, it.body)];
+    tl.append(newMark(h(it.id ? 'button' : 'div', { class: `it fade ${side}`, type: it.id ? 'button' : null, onclick: it.id ? () => (it.section === 'anniversary' ? (location.hash = '#/more/anniv') : openDetail(it.id)) : null },
+      // 写真があればポラロイドにして、下の白いところに月日・タイトル・説明文をのせる
+      it.photo ? h('div', { class: 'snap' }, photoImg(it.photo, ''), h('div', { class: 'cap' }, words)) : h('div', { class: 'plain' }, words)),
       it.id && entryNew(data.entries.find((x) => x.id === it.id))));
   }
+  // 年表のおわり（いま）に、今日・つぎの記念日・次に行きたいところ・昔の一枚を置く（列の短いほうに入るので、すきまも埋まる）
+  const recent = new Set(items.slice(-3).map((x) => x.id));
+  tl.append(...['today', 'next', 'wish', 'memory'].map((k) => endCard(k, recent)).filter(Boolean));
+  requestAnimationFrame(() => stagger(tl));
   return h('section', { class: 'home-tl' },
-    h('div', { class: 'head fade' }, h('h1', {}, 'Timeline')), out);
+    h('div', { class: 'head fade' }, h('h1', {}, 'Timeline')), tl);
+}
+
+// 左右の列をずらして詰める：つぎのものは、いま短いほうの列に入れる。
+// ただし、ひとつ前より少し下から始める（上から読めば古い順になるように）。
+// 高さが変わったら（文字の読みこみ・画面の幅）置きなおす
+const STEP = 56, AFTER_YEAR = 10, GAP = 18;
+function stagger(tl) {
+  const place = () => {
+    if (!tl.isConnected) { ro.disconnect(); return; }
+    let prev = -Infinity, prevSide = 'l', prevYear = false;
+    const bottom = { l: 0, r: 0 };
+    for (const el of tl.children) {
+      const side = bottom.l === bottom.r ? (prevSide === 'l' ? 'r' : 'l') : bottom.l < bottom.r ? 'l' : 'r';
+      el.classList.toggle('l', side === 'l'); el.classList.toggle('r', side === 'r');
+      const top = Math.max(prev + (prevYear ? AFTER_YEAR : STEP), bottom[side] && bottom[side] + GAP, 0);
+      el.style.top = `${top}px`;
+      bottom[side] = top + el.offsetHeight;
+      prev = top; prevSide = side; prevYear = el.classList.contains('yr');
+    }
+    tl.style.height = `${Math.max(bottom.l, bottom.r)}px`;
+  };
+  let raf = 0;
+  const ro = new ResizeObserver(() => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; place(); }); });
+  tl.classList.add('stag');
+  place();
+  for (const el of tl.children) ro.observe(el);
+}
+
+// 年表のおわりに置く1枚
+//  today：今日の日付と日数、「つづく…」
+//  next：つぎの記念日までのカウントダウン
+//  wish：行きたいところを1つ「次はここへ」として（まだ行っていないので、写真は少しうすく）
+//  memory：昔の写真を1枚（去年より前の今ごろがあればそれ）。年表の最後のほうの項目とはかぶらないようにする
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+function endCard(kind, recent = new Set()) {
+  const t = today();
+  const wrap = (cls, onclick, ...kids) => h(onclick ? 'button' : 'div', { class: `it end ${cls} fade`, type: onclick ? 'button' : null, onclick }, ...kids);
+  const tag = (label, sub) => h('div', { class: 'when' }, h('span', { class: 'd' }, label), sub && h('span', { class: 'k' }, sub));
+  if (kind === 'wish') {
+    const w = pick(data.entries.filter((e) => e.section === 'wish'));
+    if (!w) return null;
+    return wrap('end-wish', () => openDetail(w.id),
+      h('div', { class: 'snap' }, w.photo ? photoImg(w.photo, '') : h('div', { class: 'blank' }, '?'),
+        h('div', { class: 'cap' }, tag('NEXT', tr('次はここへ', 'Where to next')), h('div', { class: 't' }, w.title), w.body && h('div', { class: 'desc' }, w.body))));
+  }
+  if (kind === 'next') {
+    const nm = nextMonthly(CONFIG.START_DATE, t);
+    let best = { date: nm.date, label: tr(`${spanLabel(nm.months)}の記念日`, `${spanLabel(nm.months)} anniversary`) };
+    for (const e of data.entries.filter((x) => x.section === 'anniversary' && x.date)) {
+      const ny = nextYearly(e.date, t);
+      if (ny.years > 0 && ny.date < best.date) best = { date: ny.date, label: tr(`「${e.title}」から${ny.years}年`, `${plural(ny.years, 'year')} since "${e.title}"`) };
+    }
+    const left = daysBetween(t, best.date);
+    return wrap('end-next', () => { location.hash = '#/more/anniv'; },
+      tag('NEXT', md(best.date)),
+      h('div', { class: 'num' }, left === 0 ? 'TODAY' : String(left), left > 0 && h('small', {}, left === 1 ? 'DAY' : 'DAYS')),
+      h('div', { class: 't' }, left === 0 ? tr(`今日は${best.label}！`, `${best.label} today!`) : tr(`${best.label}まで`, `until ${best.label}`)));
+  }
+  if (kind === 'today') {
+    const days = daysBetween(CONFIG.START_DATE, t);
+    return wrap('end-today', null,
+      tag('TODAY', dots(t).slice(5)),
+      h('div', { class: 'num' }, String(days), h('small', {}, days === 1 ? 'DAY' : 'DAYS')),
+      h('div', { class: 't' }, tr('つづく…', 'To be continued…')));
+  }
+  if (kind === 'memory') {
+    const all = data.entries.filter((e) => e.photo && e.date && e.date < t && ['place', 'gift'].includes(e.section) && !recent.has(e.id));
+    if (!all.length) return null;
+    // 去年より前の、今日の前後2週間の写真があればそれを（なければどれか1枚）
+    const near = all.filter((e) => { const d = Math.abs(daysBetween(t.slice(0, 4) + e.date.slice(4), t)); return e.date.slice(0, 4) < t.slice(0, 4) && Math.min(d, 365 - d) <= 14; });
+    const e = pick(near.length ? near : all);
+    const ago = Number(t.slice(0, 4)) - Number(e.date.slice(0, 4));
+    return wrap('end-memory', () => openDetail(e.id),
+      h('div', { class: 'snap' }, photoImg(e.photo, ''),
+        h('div', { class: 'cap' }, tag(near.length ? tr(`${ago}年前の今ごろ`, ago === 1 ? 'A year ago' : `${ago} years ago`) : tr('あの日の一枚', 'Looking back'), dots(e.date)),
+          h('div', { class: 't' }, e.title))));
+  }
+  return null;
 }
 
 async function setHero(k, e) {

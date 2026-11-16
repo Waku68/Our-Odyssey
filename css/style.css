@@ -253,30 +253,52 @@ details.talk summary { font-size: 12px; font-weight: 800; min-height: 32px; disp
 
 /* 年表 */
 .year { font-family: var(--en); font-size: 72px; line-height: 1; margin: 28px 0 10px; text-align: center; }
-/* まんなかに線を1本。中身と日付が線をはさんで、1つごとに左右を入れかえる */
-.tl { position: relative; display: flex; flex-direction: column; gap: 18px; padding-bottom: 6px; }
+/* まんなかに線を1本。項目は線の左右に交互に置き、JS（stagger）で列をずらして詰める */
+.tl { --gut: 16px; position: relative; display: flex; flex-direction: column; gap: 18px; padding-bottom: 6px; }
 .tl::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: var(--line); transform: translateX(-50%); }
-.tl .it { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr); align-items: start; width: 100%; text-align: left; background: none; border: none; padding: 0; color: inherit; }
-.tl .it::before { content: ''; position: absolute; left: 50%; top: 6px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: var(--navy); }
-.tl .it.r .when { grid-column: 1; text-align: right; }
-.tl .it.r .what { grid-column: 3; }
-.tl .it.l .what { grid-column: 1; grid-row: 1; }
-.tl .it.l .when { grid-column: 3; grid-row: 1; }
-.tl .when, .tl .what { min-width: 0; }
-.tl .it.l .what:not(.snap) { text-align: right; }
+.tl .it { position: relative; display: block; width: calc(50% - var(--gut)); text-align: left; background: none; border: none; padding: 0; color: inherit; }
+.tl .it.r { margin-left: calc(50% + var(--gut)); }
+.tl.stag { display: block; }
+.tl .yr { font-family: var(--en); font-size: 64px; line-height: 1; width: calc(50% - var(--gut)); }
+.tl .yr.r { margin-left: calc(50% + var(--gut)); }
+.tl .yr.l { text-align: right; }
+.tl.stag .it, .tl.stag .yr { position: absolute; left: 0; margin: 0; }
+.tl.stag .it.r, .tl.stag .yr.r { left: calc(50% + var(--gut)); }
+.tl .it::before { content: ''; position: absolute; top: 12px; width: 9px; height: 9px; border-radius: 50%; background: var(--navy); }
+.tl .it.r::before { left: calc(-1 * var(--gut) - 4.5px); }
+.tl .it.l::before { right: calc(-1 * var(--gut) - 4.5px); }
+.tl .when { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .tl .d { font-family: var(--en); font-size: 15px; letter-spacing: .06em; line-height: 1.4; }
-.tl .when .muted { font-size: 11px; }
+.tl .k { font-size: 10.5px; opacity: .7; }
 .tl .t { font-weight: 800; line-height: 1.4; overflow-wrap: anywhere; }
 .tl .desc { font-size: 12.5px; line-height: 1.6; margin-top: 2px; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
-/* ポラロイド：MORE のコルクボードと同じ紙の色と影。右は右へ・左は左へ少し傾け、下の白いところに文を書く */
+.tl .plain { padding-top: 6px; }
+.tl .it.l .plain { text-align: right; }
+.tl .it.l .plain .when { justify-content: flex-end; }
+/* ポラロイド：MORE のコルクボードと同じ紙の色と影。右は右へ・左は左へ少し傾け、下の白いところに月日と文を書く */
 .tl .snap { padding: 7px 7px 10px; background-color: #FBF9F4; background-image: linear-gradient(160deg, rgba(255, 255, 255, .6), transparent 40%, rgba(0, 0, 0, .05) 85%);
   box-shadow: 1px 2px 3px rgba(35, 18, 4, .25), 0 0 1px rgba(0, 0, 0, .25); color: var(--navy); transform: rotate(var(--tilt, 0deg)); }
 .tl .it.r .snap { --tilt: 2deg; }
 .tl .it.l .snap { --tilt: -2deg; }
 .tl .snap img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #e8ddd6; }
-.tl .snap .cap { padding: 8px 2px 0; min-height: 34px; }
+.tl .snap .cap { padding: 7px 2px 0; }
+.tl .snap .d { font-size: 14px; }
 .tl .snap .t { font-size: 13px; }
 .tl .snap .desc { -webkit-line-clamp: 3; line-clamp: 3; }
+/* 年表のおわりの1枚 */
+.tl .end::before { background: var(--pink); box-shadow: 0 0 0 1.5px var(--navy); }
+.tl .end .snap .d { font-size: 13px; letter-spacing: .1em; }
+.tl .end .blank { aspect-ratio: 1; display: grid; place-items: center; background: transparent; border: 1.5px dashed rgb(var(--navy-rgb) / .35);
+  font-family: var(--en); font-size: 64px; color: rgb(var(--navy-rgb) / .3); }
+.tl .end-next, .tl .end-today { padding-top: 6px; }
+.tl .end-next .t, .tl .end-today .t { font-size: 12.5px; }
+.tl .end-wish .snap { background: rgba(251, 249, 244, .55); box-shadow: none; outline: 1.5px dashed rgb(var(--navy-rgb) / .45); outline-offset: -1px; }
+.tl .end-wish .snap img { filter: grayscale(.55) opacity(.75); }
+.tl .end-wish .when .d { background: var(--navy); color: var(--pink); padding: 1px 6px 0; border-radius: 2px; }
+.tl .it.l.end-next, .tl .it.l.end-today { text-align: right; }
+.tl .it.l.end-next .when, .tl .it.l.end-today .when { justify-content: flex-end; }
+.tl .end .num { font-family: var(--en); font-size: 54px; line-height: 1; margin: 4px 0 2px; }
+.tl .end .num small { font-size: 16px; letter-spacing: .08em; margin-left: 4px; }
 
 /* 記念日 */
 .count { font-family: var(--en); font-size: 64px; line-height: 1; }
