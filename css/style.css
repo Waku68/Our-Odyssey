@@ -107,10 +107,10 @@ img { max-width: 100%; display: block; }
 .tl-bloom { position: fixed; left: 50%; bottom: 0; z-index: 0; width: min(100vw, 480px); height: 0; transform: translateX(-50%); pointer-events: none;
   opacity: 0; transition: opacity .7s ease; }
 .tl-bloom.on { opacity: 1; }
-.tl-bloom img { position: absolute; bottom: 0; width: 62%; height: auto;
+.tl-bloom img { position: absolute; bottom: 0; width: 40%; height: auto;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); }
-.tl-bloom .blue { left: -14%; }
-.tl-bloom .pink { right: -14%; }
+.tl-bloom .blue { left: -5%; }
+.tl-bloom .pink { right: -5%; }
 /* チューリップの上を通る文字は、ふちをピンクでぼかして読みやすく */
 .tl .yr, .tl .plain, .tl .end-next, .tl .end-today { text-shadow: 0 0 2px var(--pink), 0 0 6px var(--pink), 0 0 12px var(--pink); }
 .home-tl .head h1 { font-size: min(17vw, 88px); }

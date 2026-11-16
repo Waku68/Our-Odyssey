@@ -1,17 +1,17 @@
 // MORE：Likes・Gifts・Values・Dislikes・Days をコルクボードで見せる一覧と、それぞれの「VIEW ALL」のページ。
-import { h } from '../dom.js?v=62';
-import { tr } from '../i18n.js?v=62';
-import { md, dots } from '../dates.js?v=62';
-import { data, nameOf } from '../state.js?v=62';
-import { entryNew, newMark, sectionNew } from '../seen.js?v=62';
-import { photoImg } from '../photos.js?v=62';
-import { catLabel, likeCats, isSong } from '../cats.js?v=62';
-import { songBadge } from '../songs.js?v=62';
-import { SECTIONS, fromLabel, catText, likeFilter, setLikeFilter, entryCard, addEntry, openDetail } from '../entries.js?v=62';
-import { draw, pageNav, pageHead } from '../shell.js?v=62';
-import { writeValue } from './values.js?v=62';
-import { annivLines, addAnniv } from './anniv.js?v=62';
-import { movable, hasLayout, resetLayout } from '../cork.js?v=62';
+import { h } from '../dom.js?v=63';
+import { tr } from '../i18n.js?v=63';
+import { md, dots } from '../dates.js?v=63';
+import { data, nameOf } from '../state.js?v=63';
+import { entryNew, newMark, sectionNew } from '../seen.js?v=63';
+import { photoImg } from '../photos.js?v=63';
+import { catLabel, likeCats, isSong } from '../cats.js?v=63';
+import { songBadge } from '../songs.js?v=63';
+import { SECTIONS, fromLabel, catText, likeFilter, setLikeFilter, entryCard, addEntry, openDetail } from '../entries.js?v=63';
+import { draw, pageNav, pageHead } from '../shell.js?v=63';
+import { writeValue } from './values.js?v=63';
+import { annivLines, addAnniv } from './anniv.js?v=63';
+import { movable, hasLayout, resetLayout } from '../cork.js?v=63';
 
 function sectionPage(key) {
   const S = SECTIONS[key];
