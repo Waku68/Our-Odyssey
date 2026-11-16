@@ -1,13 +1,13 @@
 // HOME：日数（DAYS）と2人の写真、その下の年表。
-import { CONFIG } from '../config.js?v=61';
-import { h, reduceMotion } from '../dom.js?v=61';
-import { tr } from '../i18n.js?v=61';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=61';
-import { store, data, me, byCreated } from '../state.js?v=61';
-import { newMark, entryNew } from '../seen.js?v=61';
-import { photoImg, pickPhoto } from '../photos.js?v=61';
-import { act, fadeIn } from '../shell.js?v=61';
-import { openDetail } from '../entries.js?v=61';
+import { CONFIG } from '../config.js?v=62';
+import { h, reduceMotion } from '../dom.js?v=62';
+import { tr } from '../i18n.js?v=62';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=62';
+import { store, data, me, byCreated } from '../state.js?v=62';
+import { newMark, entryNew } from '../seen.js?v=62';
+import { photoImg, pickPhoto } from '../photos.js?v=62';
+import { act, fadeIn } from '../shell.js?v=62';
+import { openDetail } from '../entries.js?v=62';
 
 function home() {
   const t = today();
