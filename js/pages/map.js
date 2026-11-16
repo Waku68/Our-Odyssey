@@ -1,14 +1,14 @@
 // PLACES：過ごした場所と行きたいところの地図と一覧。
-import { h } from '../dom.js?v=60';
-import { tr } from '../i18n.js?v=60';
-import { dots } from '../dates.js?v=60';
-import { store, data } from '../state.js?v=60';
-import { newMark, entryNew } from '../seen.js?v=60';
-import { photoImg, allPhotos } from '../photos.js?v=60';
-import { leaflet, TILE, ATTR, MAP_FEEL, limitMap } from '../places.js?v=60';
-import { inlineForm } from '../forms.js?v=60';
-import { SECTIONS, fromLabel, newEntryRow, openDetail } from '../entries.js?v=60';
-import { draw, pageNav, pageHead } from '../shell.js?v=60';
+import { h } from '../dom.js?v=61';
+import { tr } from '../i18n.js?v=61';
+import { dots } from '../dates.js?v=61';
+import { store, data } from '../state.js?v=61';
+import { newMark, entryNew } from '../seen.js?v=61';
+import { photoImg, allPhotos } from '../photos.js?v=61';
+import { leaflet, TILE, ATTR, MAP_FEEL, limitMap } from '../places.js?v=61';
+import { inlineForm } from '../forms.js?v=61';
+import { SECTIONS, fromLabel, newEntryRow, openDetail } from '../entries.js?v=61';
+import { draw, pageNav, pageHead } from '../shell.js?v=61';
 
 let mapFilter = 'all';
 let mapView = null;

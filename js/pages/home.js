@@ -1,13 +1,13 @@
 // HOME：日数（DAYS）と2人の写真、その下の年表。
-import { CONFIG } from '../config.js?v=60';
-import { h, reduceMotion } from '../dom.js?v=60';
-import { tr } from '../i18n.js?v=60';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=60';
-import { store, data, me, byCreated } from '../state.js?v=60';
-import { newMark, entryNew } from '../seen.js?v=60';
-import { photoImg, pickPhoto } from '../photos.js?v=60';
-import { act, fadeIn } from '../shell.js?v=60';
-import { openDetail } from '../entries.js?v=60';
+import { CONFIG } from '../config.js?v=61';
+import { h, reduceMotion } from '../dom.js?v=61';
+import { tr } from '../i18n.js?v=61';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=61';
+import { store, data, me, byCreated } from '../state.js?v=61';
+import { newMark, entryNew } from '../seen.js?v=61';
+import { photoImg, pickPhoto } from '../photos.js?v=61';
+import { act, fadeIn } from '../shell.js?v=61';
+import { openDetail } from '../entries.js?v=61';
 
 function home() {
   const t = today();
@@ -38,11 +38,24 @@ function home() {
         h('img', { class: 'flower blue', src: 'assets/tulip-blue.webp', alt: '' }),
         h('img', { class: 'flower pink', src: 'assets/tulip-pink.webp', alt: '' })));
   const pin = h('div', { class: 'hero-pin' }, heroEl);
+  const tl = timeline();
+  // 年表の後ろに、表紙と同じチューリップを画面の下の左右に置く（スクロールしても動かない）
+  const bloom = h('div', { class: 'tl-bloom', 'aria-hidden': 'true' },
+    h('img', { class: 'blue', src: 'assets/tulip-blue.webp', alt: '' }), h('img', { class: 'pink', src: 'assets/tulip-pink.webp', alt: '' }));
   const root = h('div', {}, pin,
     store.mode === 'demo' && h('p', { class: 'note' }, tr('お試しモード：書いた内容はこの端末にだけ保存されます。', 'Demo mode: everything is saved on this device only.')),
-    timeline());
-  requestAnimationFrame(() => { fadeIn(root); pinHero(pin, heroEl); });
+    tl, bloom);
+  requestAnimationFrame(() => { fadeIn(root); pinHero(pin, heroEl); showBloom(bloom, tl); });
   return root;
+}
+// 表紙が消えて年表が画面に入ってきたら、チューリップを出す（表紙のチューリップから入れかわる）
+function showBloom(bloom, tl) {
+  if (!('IntersectionObserver' in window)) { bloom.classList.add('on'); return; }
+  const io = new IntersectionObserver(([x]) => {
+    if (!bloom.isConnected) { io.disconnect(); return; }
+    bloom.classList.toggle('on', x.isIntersecting);
+  }, { rootMargin: '0px 0px -45% 0px' });
+  io.observe(tl);
 }
 // 1384 DAYS をその場に止めたまま、スクロールに合わせて消していく。消えきったら年表が上がってくる。
 function pinHero(pin, hero) {

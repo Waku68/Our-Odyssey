@@ -102,7 +102,15 @@ img { max-width: 100%; display: block; }
 /* ふわっと出る */
 .fade { opacity: 0; transform: translateY(26px); transition: opacity .8s ease, transform .8s cubic-bezier(.2, .8, .2, 1); }
 .fade.in { opacity: 1; transform: none; }
-.home-tl { margin-top: 56px; }
+.home-tl { margin-top: 56px; position: relative; z-index: 1; }
+/* 年表の後ろのチューリップ：表紙と同じ置き方で、画面の下の左右からのぞかせる。スクロールしても動かない */
+.tl-bloom { position: fixed; left: 50%; bottom: 0; z-index: 0; width: min(100vw, 480px); height: 0; transform: translateX(-50%); pointer-events: none;
+  opacity: 0; transition: opacity .7s ease; }
+.tl-bloom.on { opacity: 1; }
+.tl-bloom img { position: absolute; bottom: 0; width: 46%; height: auto;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); }
+.tl-bloom .blue { left: -24%; }
+.tl-bloom .pink { right: -24%; }
 .home-tl .head h1 { font-size: min(17vw, 88px); }
 
 /* その他（その場で開く） */
