@@ -252,25 +252,31 @@ details.talk summary { font-size: 12px; font-weight: 800; min-height: 32px; disp
 .pair p { margin: 2px 0 6px; }
 
 /* 年表 */
-.year { font-family: var(--en); font-size: 72px; line-height: 1; margin: 28px 0 6px; }
-.tl { border-left: var(--line); margin-left: 4px; padding-left: 16px; display: flex; flex-direction: column; gap: 14px; }
-.tl .it { position: relative; display: block; width: 100%; text-align: left; background: none; border: none; padding: 0; color: inherit; }
-.tl .it::before { content: ''; position: absolute; left: -22px; top: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--navy); }
-.tl .d { font-family: var(--en); font-size: 15px; letter-spacing: .06em; }
-.tl .t { font-weight: 800; }
-.tl img { width: 120px; height: 90px; object-fit: cover; margin-top: 4px; }
-/* 写真のある項目は、文と写真を横にならべる。写真は右・左と交互 */
-.tl .it.pic-r, .tl .it.pic-l { display: grid; grid-template-columns: minmax(0, 1fr) 46%; gap: 12px; align-items: start; }
-.tl .it.pic-l { grid-template-columns: 46% minmax(0, 1fr); }
-.tl .it.pic-l img { order: -1; }
-/* ポラロイド風：白いふちと下を広めに。MORE のコルクボードと同じ紙の色と影で、右は右へ・左は左へ少し傾ける */
-.tl .it.pic-r img, .tl .it.pic-l img { box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 1 / 1.08; margin-top: 2px; padding: 7px 7px 26px;
-  background-color: #FBF9F4; background-image: linear-gradient(160deg, rgba(255, 255, 255, .6), transparent 40%, rgba(0, 0, 0, .05) 85%);
-  box-shadow: 1px 2px 3px rgba(35, 18, 4, .25), 0 0 1px rgba(0, 0, 0, .25); transform: rotate(var(--tilt, 0deg)); }
-.tl .it.pic-r { --tilt: 2deg; }
-.tl .it.pic-l { --tilt: -2deg; }
-.tl .txt { min-width: 0; }
-.tl .desc { font-size: 13px; line-height: 1.6; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
+.year { font-family: var(--en); font-size: 72px; line-height: 1; margin: 28px 0 10px; text-align: center; }
+/* まんなかに線を1本。中身と日付が線をはさんで、1つごとに左右を入れかえる */
+.tl { position: relative; display: flex; flex-direction: column; gap: 18px; padding-bottom: 6px; }
+.tl::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: var(--line); transform: translateX(-50%); }
+.tl .it { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr); align-items: start; width: 100%; text-align: left; background: none; border: none; padding: 0; color: inherit; }
+.tl .it::before { content: ''; position: absolute; left: 50%; top: 6px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: var(--navy); }
+.tl .it.r .when { grid-column: 1; text-align: right; }
+.tl .it.r .what { grid-column: 3; }
+.tl .it.l .what { grid-column: 1; grid-row: 1; }
+.tl .it.l .when { grid-column: 3; grid-row: 1; }
+.tl .when, .tl .what { min-width: 0; }
+.tl .it.l .what:not(.snap) { text-align: right; }
+.tl .d { font-family: var(--en); font-size: 15px; letter-spacing: .06em; line-height: 1.4; }
+.tl .when .muted { font-size: 11px; }
+.tl .t { font-weight: 800; line-height: 1.4; overflow-wrap: anywhere; }
+.tl .desc { font-size: 12.5px; line-height: 1.6; margin-top: 2px; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
+/* ポラロイド：MORE のコルクボードと同じ紙の色と影。右は右へ・左は左へ少し傾け、下の白いところに文を書く */
+.tl .snap { padding: 7px 7px 10px; background-color: #FBF9F4; background-image: linear-gradient(160deg, rgba(255, 255, 255, .6), transparent 40%, rgba(0, 0, 0, .05) 85%);
+  box-shadow: 1px 2px 3px rgba(35, 18, 4, .25), 0 0 1px rgba(0, 0, 0, .25); color: var(--navy); transform: rotate(var(--tilt, 0deg)); }
+.tl .it.r .snap { --tilt: 2deg; }
+.tl .it.l .snap { --tilt: -2deg; }
+.tl .snap img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #e8ddd6; }
+.tl .snap .cap { padding: 8px 2px 0; min-height: 34px; }
+.tl .snap .t { font-size: 13px; }
+.tl .snap .desc { -webkit-line-clamp: 3; line-clamp: 3; }
 
 /* 記念日 */
 .count { font-family: var(--en); font-size: 64px; line-height: 1; }
@@ -635,8 +641,8 @@ dialog.ask.closing::backdrop { animation: fade .15s ease reverse forwards; }
   background: var(--accent); color: #fff; border-radius: 3px; transform: rotate(8deg); box-shadow: 0 2px 4px rgb(var(--navy-rgb) / .3);
   animation: new-pop .45s cubic-bezier(.3, 1.6, .5, 1) both; }
 .pol .newtag { top: -6px; right: -8px; font-size: 10px; }
-.tl .it .newtag { top: -2px; right: 0; }
-.tl .it.pic-r .newtag { right: -6px; top: -8px; }
+.tl .it .newtag { top: -6px; right: -4px; }
+.tl .it.l .newtag { right: auto; left: -4px; transform: rotate(-8deg); }
 @keyframes new-pop { from { transform: rotate(8deg) scale(.4); opacity: 0; } to { transform: rotate(8deg) scale(1); opacity: 1; } }
 .newchip { display: inline-block; margin-left: 6px; padding: 2px 6px 1px; border-radius: 3px; background: var(--accent); color: #fff;
   font-family: var(--en); font-size: 11px; font-weight: 400; letter-spacing: .06em; line-height: 1.3; vertical-align: 2px; }
