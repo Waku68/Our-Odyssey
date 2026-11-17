@@ -1,13 +1,14 @@
 // HOME：日数（DAYS）と2人の写真、その下の年表。
-import { CONFIG } from '../config.js?v=67';
-import { h, reduceMotion } from '../dom.js?v=67';
-import { tr } from '../i18n.js?v=67';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=67';
-import { store, data, me, byCreated } from '../state.js?v=67';
-import { newMark, entryNew } from '../seen.js?v=67';
-import { photoImg, pickPhoto } from '../photos.js?v=67';
-import { act, fadeIn } from '../shell.js?v=67';
-import { openDetail } from '../entries.js?v=67';
+import { CONFIG } from '../config.js?v=68';
+import { h, reduceMotion } from '../dom.js?v=68';
+import { tr } from '../i18n.js?v=68';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=68';
+import { store, data, me, byCreated } from '../state.js?v=68';
+import { newMark, entryNew } from '../seen.js?v=68';
+import { photoImg, pickPhoto } from '../photos.js?v=68';
+import { act, fadeIn } from '../shell.js?v=68';
+import { openDetail, addEntry, monthDots } from '../entries.js?v=68';
+import { songTap } from '../songs.js?v=68';
 
 function home() {
   const t = today();
@@ -85,9 +86,9 @@ function pinHero(pin, hero) {
   layout(); if (!native) update();
 }
 function timeline() {
-  const kind = { gift: tr('贈りもの', 'Gift'), place: tr('過ごした場所', 'Place'), anniversary: tr('記念日', 'Anniversary') };
+  const kind = { gift: tr('贈りもの', 'Gift'), place: tr('過ごした場所', 'Place'), anniversary: tr('記念日', 'Anniversary'), song: tr('曲', 'Song') };
   const items = [{ date: CONFIG.START_DATE, title: tr('付き合いはじめた日', 'The day we started dating'), k: kind.anniversary },
-    ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ id: e.id, section: e.section, date: e.date, title: e.title, k: kind[e.section], photo: e.photo, body: e.body }))];
+    ...data.entries.filter((e) => e.date && kind[e.section]).map((e) => ({ e, id: e.id, section: e.section, date: e.date, title: e.title, k: kind[e.section], photo: e.photo, body: e.body }))];
   // 上が古く、下にスクロールするほど新しくなる
   items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   // 年で区切らず、ひとつの流れにする。年の数字も項目といっしょに左右の列に入れて、すきまを埋める
@@ -97,6 +98,7 @@ function timeline() {
     const y = it.date.slice(0, 4);
     if (y !== year) { year = y; tl.append(h('div', { class: `yr fade ${n++ % 2 ? 'l' : 'r'}` }, y)); }
     const side = n++ % 2 ? 'l' : 'r';
+    if (it.section === 'song') { tl.append(newMark(songCard(it.e, side), entryNew(it.e))); continue; }
     const words = [h('div', { class: 'when' }, h('span', { class: 'd' }, dots(it.date).slice(5)), h('span', { class: 'k' }, it.k)),
       h('div', { class: 't' }, it.title), it.body && h('div', { class: 'desc' }, it.body)];
     tl.append(newMark(h(it.id ? 'button' : 'div', { class: `it fade ${side}`, type: it.id ? 'button' : null, onclick: it.id ? () => (it.section === 'anniversary' ? (location.hash = '#/more/anniv') : openDetail(it.id)) : null },
@@ -109,8 +111,34 @@ function timeline() {
   tl.append(...['today', 'next', 'wish', 'memory'].map((k) => endCard(k, recent)).filter(Boolean));
   requestAnimationFrame(() => stagger(tl));
   return h('section', { class: 'home-tl' },
-    h('div', { class: 'head fade' }, h('h1', {}, 'Timeline')), tl);
+    h('div', { class: 'head fade' }, h('h1', {}, 'Timeline'), h('button', { class: 'btn small', onclick: () => addEntry('song') }, '+ ADD SONG')), tl);
 }
+
+// 年表の曲：カセットかレコードプレーヤー。本体をタップすると試聴（リール・レコードが回る）、下の文字をタップすると詳細
+function songCard(e, side) {
+  const t = e.song || { name: e.title, artist: '' };
+  const player = e.category === 'player';
+  const deck = h('button', { type: 'button', class: `deck ${player ? 'player' : 'cassette'}`, 'aria-label': tr(`「${t.name}」を聴く`, `Play "${t.name}"`) },
+    player ? recordPlayer(t) : cassette(t));
+  deck.addEventListener('click', songTap(deck, e));
+  const cap = h('button', { type: 'button', class: 'song-cap', onclick: () => openDetail(e.id) },
+    h('div', { class: 'when' }, h('span', { class: 'd' }, monthDots(e.date)), h('span', { class: 'k' }, tr('曲', 'Song'))),
+    e.body && h('div', { class: 'desc' }, e.body));
+  return h('div', { class: `it song fade ${side}` }, deck, cap);
+}
+// カセットテープ：ラベルに曲名とアーティスト、窓の中でリールが回る
+const cassette = (t) => h('div', { class: 'cas' },
+  h('div', { class: 'lbl' }, h('b', {}, t.name), h('small', {}, t.artist || ' '),
+    h('div', { class: 'win' }, h('i', { class: 'reel' }), h('i', { class: 'tape' }), h('i', { class: 'reel' }))),
+  h('div', { class: 'foot' }));
+// レコードプレーヤー（横から見た形）：上にレコードと大きい針、前の面に曲名とアーティスト。鳴らすと針がおりて、レコードが回る
+const recordPlayer = (t) => h('div', { class: 'rp' },
+  h('div', { class: 'top' },
+    h('div', { class: 'plat' }, h('div', { class: 'vinyl' }, h('div', { class: 'vl' }, t.art && h('img', { src: t.art, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' })))),
+    h('i', { class: 'post' }), h('div', { class: 'arm' }, h('i', { class: 'head' }))),
+  h('div', { class: 'face' }, h('b', {}, t.name), h('small', {}, t.artist || ' '),
+    h('i', { class: 'knob a' }), h('i', { class: 'led' }), h('i', { class: 'knob b' })),
+  h('i', { class: 'foot l' }), h('i', { class: 'foot r' }));
 
 // 左右の列をずらして詰める：つぎのものは、いま短いほうの列に入れる。
 // ただし、ひとつ前より少し下から始める（上から読めば古い順になるように）。

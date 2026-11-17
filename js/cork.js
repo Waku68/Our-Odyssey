@@ -1,8 +1,8 @@
 // コルクボードのポラロイド：タップでえらぶ（S / M / L / DONE の帯が出る）→ えらんだカードはそのまま指で動かせる（重ねてもいい）。
 // 長押しで詳細を開く。えらんだカードは2本指でつまんでも大きさが変わる（PC はトラックパッドのピンチ）。
 // 並びと大きさはこの端末だけに残す（相手の画面は変わらない）。動かしていないものは、今までどおりの並び。
-import { h } from './dom.js?v=67';
-import { localKey } from './store.js?v=67';
+import { h } from './dom.js?v=68';
+import { localKey } from './store.js?v=68';
 
 const KEY = localKey('our-odyssey-cork');
 const SIZES = { S: 0.72, M: 1, L: 1.45 };

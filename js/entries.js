@@ -1,15 +1,15 @@
 // ひとつの記録（場所・好きなもの・贈りもの など）の欄の決まり、カード、詳細、足す・なおす・消す。
-import { h } from './dom.js?v=67';
-import { tr } from './i18n.js?v=67';
-import { dots, today } from './dates.js?v=67';
-import { store, data, me, nameOf, byCreated } from './state.js?v=67';
-import { entryNew, newMark, markSeenNow } from './seen.js?v=67';
-import { ask } from './ask.js?v=67';
-import { photoImg, pickPhoto, morePhotos, allPhotos, moreOf } from './photos.js?v=67';
-import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=67';
-import { songPlayer } from './songs.js?v=67';
-import { showDialog, closeDialog, openForm, F } from './forms.js?v=67';
-import { act } from './shell.js?v=67';
+import { h } from './dom.js?v=68';
+import { tr } from './i18n.js?v=68';
+import { dots, today } from './dates.js?v=68';
+import { store, data, me, nameOf, byCreated } from './state.js?v=68';
+import { entryNew, newMark, markSeenNow } from './seen.js?v=68';
+import { ask } from './ask.js?v=68';
+import { photoImg, pickPhoto, morePhotos, allPhotos, moreOf } from './photos.js?v=68';
+import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=68';
+import { songPlayer } from './songs.js?v=68';
+import { showDialog, closeDialog, openForm, F } from './forms.js?v=68';
+import { act } from './shell.js?v=68';
 
 // Likes のしぼりこみ（えらんでいる種類）と、ひらいているひとこと欄
 let likeFilter = '';
@@ -36,7 +36,22 @@ const SECTIONS = {
     fields: () => [{ ...F.photo, required: true, secret: true, manual: true },
       { ...F.title(tr('ひとこと', 'Caption'), tr('例：この笑顔が好き', 'e.g. Love this smile')), required: false },
       F.date(tr('撮った日', 'Date taken')), { ...F.body, label: tr('メモ', 'Note') }] },
+  // 年表に置く曲（Likes には出さない）。見た目（カセット・レコードプレーヤー）を category に、えらんだ曲を song に入れる。
+  // 日付はだいたいでいいので、年表には月までしか出さない
+  song: { en: 'Songs', lead: () => tr('その季節に聴きたくなる曲を、年表に置いておく', 'A song for that time of year, on the timeline'), fields: () => [
+    { name: 'category', type: 'category', label: tr('見た目', 'Look'), required: true, options: SONG_LOOKS, optLabel: songLookLabel },
+    { name: 'song', type: 'song', always: true, required: true, label: tr('どの曲？', 'Which song?') },
+    { ...F.date(tr('だいたいいつ？', 'Roughly when?')), required: true, hint: tr('年表には月まで出ます', 'The timeline shows the month only') },
+    { ...F.body, ph: tr('例：毎年クリスマスに聴きたくなる', 'e.g. We play it every Christmas') }] },
 };
+
+// 年表の曲の見た目
+const SONG_LOOKS = ['cassette', 'player'];
+const songLookLabel = (k) => (k === 'player' ? tr('レコードプレーヤー', 'Record player') : tr('カセット', 'Cassette'));
+// 年表の曲の行（名前はえらんだ曲名）
+const songEntryRow = (v) => ({ section: 'song', title: v.song?.name || v.title || '', body: v.body || '', date: v.date || null, category: v.category || 'cassette', song: v.song || null });
+// 年表の曲の日付は「2025.12」まで（だいたいの日付なので、日は出さない）
+const monthDots = (d) => dots(d).slice(0, 7);
 
 // 贈りものは「贈った」か「もらった」かを category に入れる（前からある、空のものは「贈った」）
 const GIFT_WAYS = ['given', 'received'];
@@ -45,13 +60,13 @@ const giftWayLabel = (w) => (w === 'received' ? tr('もらったもの', 'Receiv
 const giverOf = (e) => (e.category === 'received' ? data.profiles.find((p) => p.id !== e.author)?.id : e.author);
 const fromLabel = (e) => (e.section === 'gift' ? tr(`${nameOf(giverOf(e))}から`, `from ${nameOf(giverOf(e))}`) : nameOf(e.author));
 // 種類の表示（贈りものの「贈った・もらった」は「◯◯から」で分かるので出さない）
-const catText = (e) => (e.section !== 'gift' && e.category ? catLabel(e.category) : '');
+const catText = (e) => (e.section === 'song' ? songLookLabel(e.category) : e.section !== 'gift' && e.category ? catLabel(e.category) : '');
 // なおすときの最初の値（前からある贈りものは「贈った」をえらんだ状態にする）
 const editInitial = (e) => (e.section === 'gift' && !e.category ? { ...e, category: 'given' } : e);
 // なおす・消すのは書いた本人だけ（データベースの決まりと同じ）
 const canEdit = (e) => !!e && e.author === me();
 
-const entryMeta = (e) => [e.date && dots(e.date), catText(e), SECTIONS[e.section]?.own ? tr('自分だけ', 'Only you') : fromLabel(e)].filter(Boolean).join(' ・ ');
+const entryMeta = (e) => [e.date && (e.section === 'song' ? monthDots(e.date) : dots(e.date)), e.section === 'song' && e.song?.artist, catText(e), SECTIONS[e.section]?.own ? tr('自分だけ', 'Only you') : fromLabel(e)].filter(Boolean).join(' ・ ');
 // 自分だけの記録には、ひとこと欄を出さない
 const talkable = (e) => !SECTIONS[e.section]?.own;
 // フォームに書いた内容から、新しい記録を作る
@@ -90,7 +105,7 @@ function entryCard(e, key) {
     e.photo && photoImg(e.photo),
     e.title && h('h2', {}, e.title), h('div', { class: 'meta' }, meta),
     e.body && h('p', {}, e.body),
-    isSong(e) ? songPlayer(e) : null,
+    isSong(e) || e.section === 'song' ? songPlayer(e) : null,
     h('div', { class: 'row' },
       key === 'wish' && h('button', { class: 'btn small', onclick: went }, 'BEEN THERE!'),
       ok && !e.photo && S.fields().some((f) => f.type === 'photo') && h('button', { class: 'btn ghost small', onclick: addPhoto }, 'ADD PHOTO'),
@@ -100,8 +115,9 @@ function entryCard(e, key) {
 }
 function addEntry(key) {
   const S = SECTIONS[key];
-  openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : key === 'gift' ? { category: 'given' } : {},
-    onSubmit: (v) => store.saveEntry(newEntryRow(key, v)) });
+  openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(),
+    initial: key === 'like' && likeFilter ? { category: likeFilter } : key === 'gift' ? { category: 'given' } : key === 'song' ? { category: 'cassette' } : {},
+    onSubmit: (v) => store.saveEntry(key === 'song' ? songEntryRow(v) : newEntryRow(key, v)) });
 }
 
 /* ---------- ひとつの思い出の詳細（モーダル） ---------- */
@@ -109,7 +125,7 @@ function addEntry(key) {
 function entryEdit(e) {
   const S = SECTIONS[e.section];
   openForm({ title: 'Edit', en: S.en, fields: S.fields(), initial: editInitial(e),
-    onSubmit: (v) => store.saveEntry({ id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo, ...moreOf(v, e), ...songOf(v, e) }) });
+    onSubmit: (v) => store.saveEntry(e.section === 'song' ? { id: e.id, ...songEntryRow(v) } : { id: e.id, title: v.title, body: v.body, date: v.date, category: v.category, lat: v.lat, lng: v.lng, photo: v.photo, ...moreOf(v, e), ...songOf(v, e) }) });
 }
 function entryWent(e) {
   openForm({ title: 'Been there!', en: 'Places', lead: tr(`「${e.title}」に行った日を残す`, `When did we go to "${e.title}"?`), initial: { ...e, date: today() },
@@ -151,7 +167,7 @@ function openDetail(id) {
       h('div', { class: 'mbody' },
         morePhotos(e).length ? photoGallery(allPhotos(e)) : e.photo && photoImg(e.photo, 'dphoto'),
         e.body ? h('p', { class: 'dbody' }, e.body) : null,
-        isSong(e) ? songPlayer(e) : null,
+        isSong(e) || e.section === 'song' ? songPlayer(e) : null,
         e.section === 'wish' && h('button', { class: 'btn', onclick: () => entryWent(e) }, 'BEEN THERE! → PLACES'),
         ok && h('div', { class: 'row' },
           h('button', { class: 'btn ghost small', onclick: () => entryEdit(e) }, 'EDIT'),
@@ -163,4 +179,4 @@ function openDetail(id) {
   showDialog(dlg);
 }
 
-export { SECTIONS, fromLabel, catText, canEdit, likeFilter, setLikeFilter, newEntryRow, removeEntry, entryCard, addEntry, openDetail };
+export { SECTIONS, SONG_LOOKS, monthDots, fromLabel, catText, canEdit, likeFilter, setLikeFilter, newEntryRow, removeEntry, entryCard, addEntry, openDetail };

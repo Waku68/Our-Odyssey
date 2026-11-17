@@ -10,7 +10,7 @@ create table if not exists public.profiles (
 
 create table if not exists public.entries (
   id uuid primary key default gen_random_uuid(),
-  section text not null check (section in ('place','like','wish','gift','dislike','value','anniversary','hero','secret')),
+  section text not null check (section in ('place','like','wish','gift','dislike','value','anniversary','hero','secret','song')),
   category text,
   title text not null default '',
   body text not null default '',
