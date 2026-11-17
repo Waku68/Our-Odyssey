@@ -1,5 +1,5 @@
 // 日付の計算と表示。日付は 'YYYY-MM-DD' の文字で持つ。
-import { lang, tr } from './i18n.js?v=69';
+import { lang, tr } from './i18n.js?v=70';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

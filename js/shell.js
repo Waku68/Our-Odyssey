@@ -1,12 +1,12 @@
 // アプリの骨組み：読みこみ、画面の切りかえ（タブ）、相手の更新の取りこみ、オフラインの送信待ち、ログイン、起動。
-import { CONFIG } from './config.js?v=69';
-import { createStore } from './store.js?v=69';
-import { notice } from './ask.js?v=69';
-import { h, reduceMotion } from './dom.js?v=69';
-import { lang, tr } from './i18n.js?v=69';
-import { store, data, setStore, setData } from './state.js?v=69';
-import { selfEdited, commitSeen, sectionNew, moodsNew, dropSeenObserver } from './seen.js?v=69';
-import { leaflet } from './places.js?v=69';
+import { CONFIG } from './config.js?v=70';
+import { createStore } from './store.js?v=70';
+import { notice } from './ask.js?v=70';
+import { h, reduceMotion } from './dom.js?v=70';
+import { lang, tr } from './i18n.js?v=70';
+import { store, data, setStore, setData } from './state.js?v=70';
+import { selfEdited, commitSeen, sectionNew, moodsNew, dropSeenObserver } from './seen.js?v=70';
+import { leaflet } from './places.js?v=70';
 
 const app = document.getElementById('app');
 

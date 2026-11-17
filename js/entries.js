@@ -1,15 +1,15 @@
 // ひとつの記録（場所・好きなもの・贈りもの など）の欄の決まり、カード、詳細、足す・なおす・消す。
-import { h } from './dom.js?v=69';
-import { tr } from './i18n.js?v=69';
-import { dots, today } from './dates.js?v=69';
-import { store, data, me, nameOf, byCreated } from './state.js?v=69';
-import { entryNew, newMark, markSeenNow } from './seen.js?v=69';
-import { ask } from './ask.js?v=69';
-import { photoImg, pickPhoto, morePhotos, allPhotos, moreOf } from './photos.js?v=69';
-import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=69';
-import { songPlayer } from './songs.js?v=69';
-import { showDialog, closeDialog, openForm, F } from './forms.js?v=69';
-import { act } from './shell.js?v=69';
+import { h } from './dom.js?v=70';
+import { tr } from './i18n.js?v=70';
+import { dots, today } from './dates.js?v=70';
+import { store, data, me, nameOf, byCreated } from './state.js?v=70';
+import { entryNew, newMark, markSeenNow } from './seen.js?v=70';
+import { ask } from './ask.js?v=70';
+import { photoImg, pickPhoto, morePhotos, allPhotos, moreOf } from './photos.js?v=70';
+import { catLabel, likeCats, isSong, SONG_CAT } from './cats.js?v=70';
+import { songPlayer } from './songs.js?v=70';
+import { showDialog, closeDialog, openForm, F } from './forms.js?v=70';
+import { act } from './shell.js?v=70';
 
 // Likes のしぼりこみ（えらんでいる種類）と、ひらいているひとこと欄
 let likeFilter = '';
@@ -98,9 +98,10 @@ function entryCard(e, key) {
       ok && h('button', { class: 'link', onclick: () => removeEntry(e) }, 'DELETE')),
     talkable(e) && talk(e)), entryNew(e));
 }
-function addEntry(key) {
+// extra：はじめから入れておく値（年表の「足す枠」は、その頃の日付を入れてひらく）
+function addEntry(key, extra = {}) {
   const S = SECTIONS[key];
-  openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(), initial: key === 'like' && likeFilter ? { category: likeFilter } : key === 'gift' ? { category: 'given' } : {},
+  openForm({ title: 'Add', en: S.en, lead: S.lead(), fields: S.fields(), initial: { ...(key === 'like' && likeFilter ? { category: likeFilter } : key === 'gift' ? { category: 'given' } : {}), ...extra },
     onSubmit: (v) => store.saveEntry(newEntryRow(key, v)) });
 }
 
