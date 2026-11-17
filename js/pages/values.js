@@ -1,11 +1,11 @@
 // VALUES：同じお題に、ふたりそれぞれの答えを並べる。
-import { h } from '../dom.js?v=71';
-import { tr } from '../i18n.js?v=71';
-import { store, data, me, nameOf, partner, byCreated } from '../state.js?v=71';
-import { openForm, F } from '../forms.js?v=71';
-import { removeEntry } from '../entries.js?v=71';
-import { ask } from '../ask.js?v=71';
-import { act, pageNav, pageHead } from '../shell.js?v=71';
+import { h } from '../dom.js?v=72';
+import { tr } from '../i18n.js?v=72';
+import { store, data, me, nameOf, partner, byCreated } from '../state.js?v=72';
+import { openForm, F } from '../forms.js?v=72';
+import { removeEntry } from '../entries.js?v=72';
+import { ask } from '../ask.js?v=72';
+import { act, pageNav, pageHead } from '../shell.js?v=72';
 
 // お題の例（EXAMPLES からえらべる）。えらんだときの言語のまま保存する
 const EXAMPLES = [

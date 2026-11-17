@@ -1,7 +1,7 @@
 // 地図（Leaflet）と、場所さがし・場所の写真さがし。
-import { h } from './dom.js?v=71';
-import { lang, tr } from './i18n.js?v=71';
-import { TH } from './theme.js?v=71';
+import { h } from './dom.js?v=72';
+import { lang, tr } from './i18n.js?v=72';
+import { TH } from './theme.js?v=72';
 
 let leafletP;
 function leaflet() {
@@ -18,8 +18,9 @@ const ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStree
 // 地図を引きすぎないようにする：世界地図の高さが地図の枠の高さより小さくなる手前（世界がほぼ見えるくらい）で止め、
 // 上下は地図の端（北極・南極の手前）より外へ動かせないようにする（外の灰色が見えないように）
 const MIN_ZOOM = 1;
-// 地図の感度：ピンチやホイールで細かく反応させ（整数の段にはまらないように）、指を離したあとも少し長めにすべらせる
-const MAP_FEEL = { zoomSnap: 0.25, zoomDelta: 0.75, wheelPxPerZoomLevel: 40, wheelDebounceTime: 20, inertiaDeceleration: 2000, maxBoundsViscosity: 1 };
+// 地図の感度：ピンチやホイールで細かく反応させ（整数の段にはまらないように）、指を離したあとも少し長めにすべらせる。
+// bounceAtZoomLimits: false で、ピンチ中に一番小さい倍率より先へ縮んで（外の灰色が見えて）からもどる動きをなくす
+const MAP_FEEL = { zoomSnap: 0.25, zoomDelta: 0.75, wheelPxPerZoomLevel: 40, wheelDebounceTime: 20, inertiaDeceleration: 2000, maxBoundsViscosity: 1, bounceAtZoomLimits: false };
 function limitMap(L, map, el) {
   map.setMaxBounds(L.latLngBounds([-85, -540], [85, 540]));
   map.options.maxBoundsViscosity = 1;
