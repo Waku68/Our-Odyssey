@@ -1,15 +1,15 @@
 // ダイアログと入力フォーム（日付の帯、写真の欄、地図の欄など）。
-import { h, reduceMotion } from './dom.js?v=70';
-import { lang, tr } from './i18n.js?v=70';
-import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=70';
-import { store } from './state.js?v=70';
-import { ask, notice } from './ask.js?v=70';
-import { editPhoto } from './photo-editor.js?v=70';
-import { photoImg, pickFile, pickFiles, maxSide, fitImage, morePhotos } from './photos.js?v=70';
-import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=70';
-import { songPhotos, songPicker, songRow } from './songs.js?v=70';
-import { SONG_CAT, catLabel } from './cats.js?v=70';
-import { refresh } from './shell.js?v=70';
+import { h, reduceMotion } from './dom.js?v=71';
+import { lang, tr } from './i18n.js?v=71';
+import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=71';
+import { store } from './state.js?v=71';
+import { ask, notice } from './ask.js?v=71';
+import { editPhoto } from './photo-editor.js?v=71';
+import { photoImg, pickFile, pickFiles, maxSide, fitImage, morePhotos } from './photos.js?v=71';
+import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=71';
+import { songPhotos, songPicker, songRow } from './songs.js?v=71';
+import { SONG_CAT, catLabel } from './cats.js?v=71';
+import { refresh } from './shell.js?v=71';
 
 // ほかの写真の欄に入れられる枚数（表紙の1枚は別）
 const MAX_MORE = 12;

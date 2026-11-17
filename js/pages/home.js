@@ -1,13 +1,13 @@
 // HOME：日数（DAYS）と2人の写真、その下の年表。
-import { CONFIG } from '../config.js?v=70';
-import { h, reduceMotion } from '../dom.js?v=70';
-import { tr } from '../i18n.js?v=70';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=70';
-import { store, data, me, byCreated } from '../state.js?v=70';
-import { newMark, entryNew } from '../seen.js?v=70';
-import { photoImg, pickPhoto } from '../photos.js?v=70';
-import { act, fadeIn } from '../shell.js?v=70';
-import { openDetail, addEntry } from '../entries.js?v=70';
+import { CONFIG } from '../config.js?v=71';
+import { h, reduceMotion } from '../dom.js?v=71';
+import { tr } from '../i18n.js?v=71';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=71';
+import { store, data, me, byCreated } from '../state.js?v=71';
+import { newMark, entryNew } from '../seen.js?v=71';
+import { photoImg, pickPhoto } from '../photos.js?v=71';
+import { act, fadeIn } from '../shell.js?v=71';
+import { openDetail, addEntry } from '../entries.js?v=71';
 
 function home() {
   const t = today();
@@ -146,10 +146,20 @@ function stagger(tl) {
 }
 
 // 列のすきま（上下の項目のあいだ・列の下の余り）に、消印か「足す枠」を置く。
-//  消印：そのすきまに近い「過ごした場所」の名前と日付（同じ場所は1回だけ）
-//  足す枠：近くに押せる場所がないとき。その頃の日付を入れた状態で、場所・贈りものを足せる
-const STAMP_H = 118, SLOT_H = 112, PAD = 10;
+//  消印：そのすきまに近い「過ごした場所」の名前と日付（同じ場所は1回だけ）。
+//    大きいすきまには丸い消印、ふつうのすきま（60px くらい）には横長の消印。項目にはかぶせない
+//  足す枠：大きいすきまで、近くに押せる場所がないとき。その頃の日付を入れた状態で、場所・贈りものを足せる
+// APART：消印どうしを、少なくともこれだけ上下にはなす（多すぎ・少なすぎはここで変える）
+const SLOT_H = 112, PAD = 10, APART = 200, SLIM_TILT = 2;
 function fillGaps(deco, boxes, height) {
+  const gut = parseFloat(getComputedStyle(deco.parentNode).getPropertyValue('--gut')) || 16;
+  const col = deco.clientWidth / 2 - gut;
+  if (col < 60) { deco.replaceChildren(); return; }
+  // 消印の幅は列の幅（ただし丸いのは 170px、横長は 150px まで。CSS の max-width と合わせる）
+  const bigW = Math.min(170, col), slimW = Math.min(150, col);
+  const bigH = (bigW * 100) / 150, slimH = (slimW * 44) / 150;
+  const bigNeed = bigH + 18 + PAD * 2; // 丸い消印：波線が傾いて上下にはみ出すぶんもとる
+  const slimNeed = slimH + slimW * Math.sin((SLIM_TILT * Math.PI) / 180) + 6; // 横長：傾きでふえる高さと、上下 3px ずつ
   const gaps = [];
   for (const side of ['l', 'r']) {
     let from = null;
@@ -163,24 +173,44 @@ function fillGaps(deco, boxes, height) {
   const dated = boxes.filter((x) => x.el.dataset.date);
   const used = new Set();
   const out = [];
+  let last = -Infinity;
   for (const g of gaps) {
-    const room = g.b - g.a - PAD * 2;
-    if (room < SLOT_H) continue;
+    const gap = g.b - g.a, room = gap - PAD * 2;
+    if (gap < slimNeed) continue;
     const mid = (g.a + g.b) / 2;
     // いちばん近い「過ごした場所」（まだ押していないもの、すきまから離れすぎていないもの）
     const near = dated.filter((x) => x.el.dataset.place && !used.has(x.el)).map((x) => ({ x, d: Math.abs(x.top - mid) }))
       .filter((c) => c.d < 520).sort((p, q) => p.d - q.d)[0]?.x;
-    // その頃の日付：すきまの真ん中より上で、いちばん近い項目の日付
-    const when = dated.filter((x) => x.top <= mid).pop()?.el.dataset.date || today();
     let node;
-    if (near && room >= STAMP_H) { used.add(near.el); node = postmark(near.el.dataset.place, near.el.dataset.date); }
-    else node = addSlot(when);
-    node.style.top = `${g.a + PAD + Math.max(0, (room - (node.classList.contains('stamp') ? STAMP_H : SLOT_H)) / 2)}px`;
+    if (near && mid - last >= APART) {
+      used.add(near.el); last = mid;
+      const big = gap >= bigNeed;
+      node = postmark(near.el.dataset.place, near.el.dataset.date, !big);
+      node.style.top = `${mid - (big ? bigH : slimH) / 2}px`;
+    } else if (room >= SLOT_H) {
+      // その頃の日付：すきまの真ん中より上で、いちばん近い項目の日付
+      const when = dated.filter((x) => x.top <= mid).pop()?.el.dataset.date || today();
+      node = addSlot(when);
+      node.style.top = `${g.a + PAD + (room - SLOT_H) / 2}px`;
+    } else continue;
     node.classList.add(g.side);
     out.push(node);
   }
+  // 置きなおし（文字の読みこみなど）で作りなおしても、もう押してあるものはポンともう一度出さない
+  const shown = new Set([...deco.children].filter((n) => n.classList.contains('in')).map((n) => n.dataset.k));
+  for (const n of deco.children) pressObs?.unobserve(n);
+  for (const n of out) if (shown.has(n.dataset.k)) n.classList.add('in');
   deco.replaceChildren(...out);
-  pressIn(out);
+  out.forEach((n) => n.classList.contains('slim') && fitName(n.querySelector('.pm-s'), 92, 11));
+  pressIn(out.filter((n) => !n.classList.contains('in')));
+}
+// 横長の消印の名前：長くて入らなければ字を小さくし、それでも入らなければ詰める
+function fitName(t, max, size) {
+  const len = t.getComputedTextLength();
+  if (len <= max) return;
+  const fs = Math.max(7.5, (size * max) / len);
+  t.style.fontSize = `${fs}px`;
+  if ((len * fs) / size > max) { t.setAttribute('textLength', max); t.setAttribute('lengthAdjust', 'spacingAndGlyphs'); }
 }
 // 見えたら、ポンと押したように出す
 let pressObs = null;
@@ -189,15 +219,32 @@ function pressIn(nodes) {
   pressObs ??= new IntersectionObserver((list) => list.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('in'); pressObs.unobserve(x.target); } }), { rootMargin: '0px 0px -10% 0px' });
   nodes.forEach((n) => pressObs.observe(n));
 }
-// 消印：上の弧に場所の名前、まんなかに日付、下の弧に OUR ODYSSEY。右に波線。傾きは場所の名前で決める（置きなおしても変わらない）
+// 消印。傾きは場所の名前で決める（置きなおしても変わらない）
+//  丸い消印：上の弧に場所の名前、まんなかに日付、下の弧に OUR ODYSSEY。右に波線
+//  横長の消印（slim）：左に日付の丸（上に年、帯に月日、下にハート）、右に2本の波線と、そのあいだに場所の名前
 let stampN = 0;
-function postmark(name, date) {
+function postmark(name, date, slim) {
   const id = `pm${++stampN}`;
-  const label = [...name].length > 9 ? `${[...name].slice(0, 8).join('')}…` : name;
-  const tilt = ([...name].reduce((a, c) => a + c.codePointAt(0), 0) % 25) - 12;
-  const svg = `<svg viewBox="0 0 150 100" aria-hidden="true"><defs>
-<path id="${id}t" d="M22 50 A28 28 0 0 1 78 50"/><path id="${id}b" d="M18 50 A32 32 0 0 0 82 50"/>
-<filter id="${id}f"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="${tilt + 20}"/><feDisplacementMap in="SourceGraphic" scale="1.6"/></filter></defs>
+  const sum = [...name].reduce((a, c) => a + c.codePointAt(0), 0);
+  const tilt = slim ? (sum % (SLIM_TILT * 2 + 1)) - SLIM_TILT : (sum % 25) - 12;
+  const ink = `<filter id="${id}f"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="${(sum % 25) + 8}"/><feDisplacementMap in="SourceGraphic" scale="1.6"/></filter>`;
+  const wave = (x, y, dx, dy, n) => `M${x} ${y}c${dx / 3}-${dy} ${(dx * 2) / 3} ${dy} ${dx} 0${` s${(dx * 2) / 3} ${dy} ${dx} 0`.repeat(n - 1)}`;
+  const node = h('div', { class: `stamp${slim ? ' slim' : ''}`, 'aria-hidden': 'true', 'data-k': `${name}|${date}`, style: `--tilt: ${tilt}deg` });
+  if (slim) {
+    node.innerHTML = `<svg viewBox="0 0 150 44" aria-hidden="true"><defs>${ink}</defs>
+<g filter="url(#${id}f)" fill="none" stroke="currentColor">
+<circle cx="22" cy="22" r="20" stroke-width="2.2"/><circle cx="22" cy="22" r="15.5" stroke-width="1"/>
+<path d="M7.3 17h29.4M7.7 28h28.6" stroke-width="1"/>
+<path d="${wave(48, 7, 16.5, 3.5, 6)}${wave(48, 37, 16.5, 3.5, 6)}" stroke-width="1.8"/>
+<g fill="currentColor" stroke="none"><text class="pm-y" x="22" y="14.6" text-anchor="middle">${date.slice(0, 4)}</text>
+<text class="pm-md" x="22" y="25.7" text-anchor="middle">${dots(date).slice(5)}</text>
+<path d="M22 36c-2.3-1.5-3.4-2.7-3.4-3.9a1.7 1.7 0 0 1 3.4-.4a1.7 1.7 0 0 1 3.4 .4c0 1.2-1.1 2.4-3.4 3.9z"/>
+<text class="pm-s" x="97.5" y="26" text-anchor="middle"></text></g></g></svg>`;
+    node.querySelector('.pm-s').textContent = [...name].length > 16 ? `${[...name].slice(0, 15).join('')}…` : name;
+    return node;
+  }
+  node.innerHTML = `<svg viewBox="0 0 150 100" aria-hidden="true"><defs>
+<path id="${id}t" d="M22 50 A28 28 0 0 1 78 50"/><path id="${id}b" d="M18 50 A32 32 0 0 0 82 50"/>${ink}</defs>
 <g filter="url(#${id}f)" fill="none" stroke="currentColor">
 <circle cx="50" cy="50" r="44" stroke-width="2.6"/><circle cx="50" cy="50" r="34" stroke-width="1.2"/>
 <path d="M17 43h66M17 58h66" stroke-width="1.2"/>
@@ -205,14 +252,12 @@ function postmark(name, date) {
 <g fill="currentColor" stroke="none"><text class="pm-n"><textPath href="#${id}t" startOffset="50%" text-anchor="middle"></textPath></text>
 <text class="pm-d" x="50" y="55" text-anchor="middle">${dots(date)}</text>
 <text class="pm-o"><textPath href="#${id}b" startOffset="50%" text-anchor="middle">OUR ODYSSEY</textPath></text></g></g></svg>`;
-  const node = h('div', { class: 'stamp', 'aria-hidden': 'true', style: `--tilt: ${tilt}deg` });
-  node.innerHTML = svg;
-  node.querySelector('.pm-n textPath').textContent = label;
+  node.querySelector('.pm-n textPath').textContent = [...name].length > 9 ? `${[...name].slice(0, 8).join('')}…` : name;
   return node;
 }
 // 足す枠：「この頃の思い出」。その頃の日付を入れた状態でフォームがひらく
 function addSlot(date) {
-  return h('div', { class: 'slot-add' },
+  return h('div', { class: 'slot-add', 'data-k': `+${date}` },
     h('div', { class: 'sa-when' }, `${dots(date).slice(0, 7)} ${tr('ごろ', '')}`.trim()),
     h('div', { class: 'sa-t' }, tr('この頃の思い出を足す', 'Add a memory from around then')),
     h('div', { class: 'sa-btns' },

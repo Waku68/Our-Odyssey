@@ -309,6 +309,10 @@ details.talk summary { font-size: 12px; font-weight: 800; min-height: 32px; disp
 .tl-deco .stamp .pm-n { font-family: var(--jp); font-weight: 800; font-size: 9px; letter-spacing: .06em; }
 .tl-deco .stamp .pm-d { font-family: var(--en); font-size: 11.5px; letter-spacing: .05em; }
 .tl-deco .stamp .pm-o { font-family: var(--en); font-size: 7px; letter-spacing: .22em; }
+.tl-deco .stamp.slim svg { max-width: 150px; }
+.tl-deco .stamp .pm-y { font-family: var(--en); font-size: 6.5px; letter-spacing: .1em; }
+.tl-deco .stamp .pm-md { font-family: var(--en); font-size: 9px; letter-spacing: .03em; }
+.tl-deco .stamp .pm-s { font-family: var(--jp); font-weight: 800; font-size: 11px; letter-spacing: .04em; }
 .tl-deco .slot-add { pointer-events: auto; padding: 10px 8px; border: 1.5px dashed rgb(var(--navy-rgb) / .4); border-radius: 6px; text-align: center; opacity: 0; transition: opacity .4s ease; }
 .tl-deco .slot-add.in { opacity: 1; }
 .tl-deco .sa-when { font-family: var(--en); font-size: 13px; letter-spacing: .06em; opacity: .65; }
