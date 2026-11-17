@@ -1,14 +1,14 @@
 // SETTINGS：名前、言語、色のテーマ、パスワード、通知、バックアップ、ログアウト。
-import { CONFIG } from '../config.js?v=65';
-import { h } from '../dom.js?v=65';
-import { lang, tr, setLang } from '../i18n.js?v=65';
-import { today } from '../dates.js?v=65';
-import { store, data, me, nameOf, partner } from '../state.js?v=65';
-import { ask, notice } from '../ask.js?v=65';
-import { localKey } from '../store.js?v=65';
-import { morePhotos } from '../photos.js?v=65';
-import * as theme from '../theme.js?v=65';
-import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=65';
+import { CONFIG } from '../config.js?v=66';
+import { h } from '../dom.js?v=66';
+import { lang, tr, setLang } from '../i18n.js?v=66';
+import { today } from '../dates.js?v=66';
+import { store, data, me, nameOf, partner } from '../state.js?v=66';
+import { ask, notice } from '../ask.js?v=66';
+import { localKey } from '../store.js?v=66';
+import { morePhotos } from '../photos.js?v=66';
+import * as theme from '../theme.js?v=66';
+import { act, refresh, draw, pageNav, pageHead, tellSwLang, start } from '../shell.js?v=66';
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function enablePush() {

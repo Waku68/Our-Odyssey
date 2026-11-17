@@ -102,17 +102,7 @@ img { max-width: 100%; display: block; }
 /* ふわっと出る */
 .fade { opacity: 0; transform: translateY(26px); transition: opacity .8s ease, transform .8s cubic-bezier(.2, .8, .2, 1); }
 .fade.in { opacity: 1; transform: none; }
-.home-tl { margin-top: 56px; position: relative; z-index: 1; }
-/* 年表の後ろのチューリップ：画面の下の左右からのぞかせる。スクロールしても動かない。
-   濃さは home.js がスクロールに合わせて決める（最後まで来るとだんだん出てくる） */
-.tl-bloom { position: fixed; left: 50%; bottom: 0; z-index: 0; width: min(100vw, 480px); height: 0; transform: translateX(-50%); pointer-events: none;
-  opacity: 0; }
-.tl-bloom img { position: absolute; bottom: 0; width: 20%; height: auto;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 97%); }
-.tl-bloom .blue { left: -2%; }
-.tl-bloom .pink { right: -2%; }
-/* チューリップの上を通る文字は、ふちをピンクでぼかして読みやすく */
-.tl .yr, .tl .plain, .tl .end-next, .tl .end-today { text-shadow: 0 0 2px var(--pink), 0 0 6px var(--pink), 0 0 12px var(--pink); }
+.home-tl { margin-top: 56px; }
 .home-tl .head h1 { font-size: min(17vw, 88px); }
 
 /* その他（その場で開く） */
@@ -302,7 +292,7 @@ details.talk summary { font-size: 12px; font-weight: 800; min-height: 32px; disp
   font-family: var(--en); font-size: 64px; color: rgb(var(--navy-rgb) / .3); }
 .tl .end-next, .tl .end-today { padding-top: 6px; }
 .tl .end-next .t, .tl .end-today .t { font-size: 12.5px; }
-.tl .end-wish .snap { background: rgba(251, 249, 244, .92); box-shadow: none; outline: 1.5px dashed rgb(var(--navy-rgb) / .45); outline-offset: -1px; }
+.tl .end-wish .snap { background: rgba(251, 249, 244, .55); box-shadow: none; outline: 1.5px dashed rgb(var(--navy-rgb) / .45); outline-offset: -1px; }
 .tl .end-wish .snap img { filter: grayscale(.55) opacity(.75); }
 .tl .end-wish .when .d { background: var(--navy); color: var(--pink); padding: 1px 6px 0; border-radius: 2px; }
 .tl .it.l.end-next, .tl .it.l.end-today { text-align: right; }
