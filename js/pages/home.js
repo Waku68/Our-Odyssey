@@ -1,13 +1,13 @@
 // HOME：日数（DAYS）と2人の写真、その下の年表。
-import { CONFIG } from '../config.js?v=64';
-import { h, reduceMotion } from '../dom.js?v=64';
-import { tr } from '../i18n.js?v=64';
-import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=64';
-import { store, data, me, byCreated } from '../state.js?v=64';
-import { newMark, entryNew } from '../seen.js?v=64';
-import { photoImg, pickPhoto } from '../photos.js?v=64';
-import { act, fadeIn } from '../shell.js?v=64';
-import { openDetail } from '../entries.js?v=64';
+import { CONFIG } from '../config.js?v=65';
+import { h, reduceMotion } from '../dom.js?v=65';
+import { tr } from '../i18n.js?v=65';
+import { today, daysBetween, nextMonthly, nextYearly, spanLabel, plural, dots, md } from '../dates.js?v=65';
+import { store, data, me, byCreated } from '../state.js?v=65';
+import { newMark, entryNew } from '../seen.js?v=65';
+import { photoImg, pickPhoto } from '../photos.js?v=65';
+import { act, fadeIn } from '../shell.js?v=65';
+import { openDetail } from '../entries.js?v=65';
 
 function home() {
   const t = today();
@@ -140,12 +140,14 @@ const STEP = 56, AFTER_YEAR = 10, GAP = 18;
 function stagger(tl) {
   const place = () => {
     if (!tl.isConnected) { ro.disconnect(); return; }
-    let prev = -Infinity, prevSide = 'l', prevYear = false;
+    let prev = -Infinity, prevSide = 'l', prevYear = false, ended = false;
     const bottom = { l: 0, r: 0 };
     for (const el of tl.children) {
       const side = bottom.l === bottom.r ? (prevSide === 'l' ? 'r' : 'l') : bottom.l < bottom.r ? 'l' : 'r';
       el.classList.toggle('l', side === 'l'); el.classList.toggle('r', side === 'r');
-      const top = Math.max(prev + (prevYear ? AFTER_YEAR : STEP), bottom[side] && bottom[side] + GAP, 0);
+      let top = Math.max(prev + (prevYear ? AFTER_YEAR : STEP), bottom[side] && bottom[side] + GAP, 0);
+      // 年表のおわり（TODAY から下）は、左右どちらの列の記録よりも下から始める（今日より下に昔の日付が見えないように）
+      if (!ended && el.classList.contains('end')) { ended = true; top = Math.max(top, bottom.l + GAP, bottom.r + GAP); }
       el.style.top = `${top}px`;
       bottom[side] = top + el.offsetHeight;
       prev = top; prevSide = side; prevYear = el.classList.contains('yr');
