@@ -1,15 +1,15 @@
 // ダイアログと入力フォーム（日付の帯、写真の欄、地図の欄など）。
-import { h, reduceMotion } from './dom.js?v=68';
-import { lang, tr } from './i18n.js?v=68';
-import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=68';
-import { store } from './state.js?v=68';
-import { ask, notice } from './ask.js?v=68';
-import { editPhoto } from './photo-editor.js?v=68';
-import { photoImg, pickFile, pickFiles, maxSide, fitImage, morePhotos } from './photos.js?v=68';
-import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=68';
-import { songPhotos, songPicker, songRow } from './songs.js?v=68';
-import { SONG_CAT, catLabel } from './cats.js?v=68';
-import { refresh } from './shell.js?v=68';
+import { h, reduceMotion } from './dom.js?v=69';
+import { lang, tr } from './i18n.js?v=69';
+import { MONTHS, WEEK, pad, ymd, parse, today, utc, md, lastDay } from './dates.js?v=69';
+import { store } from './state.js?v=69';
+import { ask, notice } from './ask.js?v=69';
+import { editPhoto } from './photo-editor.js?v=69';
+import { photoImg, pickFile, pickFiles, maxSide, fitImage, morePhotos } from './photos.js?v=69';
+import { geoField, placePhoto, namePhotos, smallThumb } from './places.js?v=69';
+import { songPhotos, songPicker, songRow } from './songs.js?v=69';
+import { SONG_CAT, catLabel } from './cats.js?v=69';
+import { refresh } from './shell.js?v=69';
 
 // ほかの写真の欄に入れられる枚数（表紙の1枚は別）
 const MAX_MORE = 12;
@@ -277,9 +277,9 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
         onSong(t);
       } });
       const box = field(f, picker);
-      // 曲をさがすのは、種類が「曲」のときだけ（always の欄は、いつも出しておく：年表の曲）
-      onSongQuery = (text) => { if (f.always || v.category === SONG_CAT) picker.setQuery(text.trim()); };
-      const showBox = () => { box.hidden = !f.always && v.category !== SONG_CAT; };
+      // 曲をさがすのは、種類が「曲」のときだけ
+      onSongQuery = (text) => { if (v.category === SONG_CAT) picker.setQuery(text.trim()); };
+      const showBox = () => { box.hidden = v.category !== SONG_CAT; };
       onCat = () => { showBox(); onSong(box.hidden ? null : v.song); if (!box.hidden) picker.setQuery(String(v.title ?? '').trim()); };
       showBox();
       return box;
@@ -305,7 +305,7 @@ function formParts({ fields, initial = {}, onSubmit, after, submitLabel = 'SAVE'
     for (const f of fields) {
       const missing = f.required && (f.type === 'photo' ? !newPhoto && !v.photo : f.name && !String(v[f.name] ?? '').trim());
       if (missing) {
-        const pick = ['date', 'category', 'photo', 'song'].includes(f.type);
+        const pick = ['date', 'category', 'photo'].includes(f.type);
         err.textContent = tr(`「${f.label}」を${pick ? 'えらんで' : '書いて'}ください。`, `Please ${pick ? 'choose' : 'fill in'} "${f.label}".`);
         return;
       }

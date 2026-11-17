@@ -1,14 +1,14 @@
 // 入口。色のテーマを当て、ページを登録して、起動する。
 // ※ js/ の中の import と index.html の ?v= は、ぜんぶ同じ数字にそろえる（README の「つくり」を参照）。
-import * as theme from './theme.js?v=68';
-import { setPages, start } from './shell.js?v=68';
-import { home } from './pages/home.js?v=68';
-import { mapPage } from './pages/map.js?v=68';
-import { moodPage } from './pages/mood.js?v=68';
-import { morePage, sectionPage } from './pages/more.js?v=68';
-import { valuesPage } from './pages/values.js?v=68';
-import { annivPage } from './pages/anniv.js?v=68';
-import { settingsPage } from './pages/settings.js?v=68';
+import * as theme from './theme.js?v=69';
+import { setPages, start } from './shell.js?v=69';
+import { home } from './pages/home.js?v=69';
+import { mapPage } from './pages/map.js?v=69';
+import { moodPage } from './pages/mood.js?v=69';
+import { morePage, sectionPage } from './pages/more.js?v=69';
+import { valuesPage } from './pages/values.js?v=69';
+import { annivPage } from './pages/anniv.js?v=69';
+import { settingsPage } from './pages/settings.js?v=69';
 
 theme.apply();
 setPages({

@@ -1,9 +1,9 @@
 /* ---------- 曲：タップで聴く ----------
    Likes の「曲」は、曲名で Apple Music（iTunes）をさがして、30秒の試聴を流す。全曲を聴くときは各アプリで開く */
-import { h, svgIcon } from './dom.js?v=68';
-import { tr } from './i18n.js?v=68';
-import { notice } from './ask.js?v=68';
-import { store } from './state.js?v=68';
+import { h, svgIcon } from './dom.js?v=69';
+import { tr } from './i18n.js?v=69';
+import { notice } from './ask.js?v=69';
+import { store } from './state.js?v=69';
 
 // iTunes の検索は JSONP で呼ぶ（ブラウザの CORS に左右されない）
 function jsonp(url) {
@@ -141,28 +141,6 @@ function onAudio(node, f) {
 const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
 const PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z" fill="currentColor"/></svg>';
 
-// タップでその場で鳴らす・止める。曲がもう分かっていれば、待たずにタップの中で鳴らす（iPhone はそうしないと音が出ない）
-async function toggleSong(key, e, busy = null) {
-  if (isPlaying(key)) { audio.el.pause(); return; }
-  const el = audioEl();
-  const ready = songDone.get(songKey(e));
-  if (!ready) { audio.key = null; el.src = silent(); el.play().catch(() => {}); }
-  busy?.classList.add('busy');
-  try {
-    const tracks = ready || await songFor(e);
-    if (!tracks.length) { notice(tr('試聴できる曲が見つかりませんでした', 'No preview found'), { text: tr('曲名を「曲名 アーティスト名」にすると見つかりやすくなります。', 'Try "title artist" as the name.') }); return; }
-    playTrack(key, pickedTrack(e, tracks));
-  } catch { notice(tr('曲をさがせませんでした', "Couldn't look up the song")); }
-  finally { busy?.classList.remove('busy'); }
-}
-// 年表の曲（カセット・レコードプレーヤー）：el をタップすると試聴。鳴っているあいだは el に .playing がつく（リールやレコードが回る）
-function songTap(el, e) {
-  const key = `song:${e.id}`;
-  const paint = () => el.classList.toggle('playing', isPlaying(key));
-  onAudio(el, paint); paint();
-  songFor(e).catch(() => {});
-  return () => toggleSong(key, e, el);
-}
 // コルクボードのポラロイドに付ける小さな再生ボタン（タップでその場で試聴）
 function songBadge(e) {
   const key = `like:${e.id}`;
@@ -170,7 +148,20 @@ function songBadge(e) {
   const paint = () => { const on = isPlaying(key); b.classList.toggle('on', on); svgIcon(b, on ? PAUSE : PLAY); };
   onAudio(b, paint); paint();
   songFor(e).catch(() => {});   // 先にさがしておくと、タップしてすぐ鳴る
-  const go = (ev) => { ev.stopPropagation(); ev.preventDefault(); toggleSong(key, e, b); };
+  const go = async (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    if (isPlaying(key)) { audio.el.pause(); return; }
+    const el = audioEl();
+    const ready = songDone.get(songKey(e));
+    if (!ready) { audio.key = null; el.src = silent(); el.play().catch(() => {}); }
+    b.classList.add('busy');
+    try {
+      const tracks = ready || await songFor(e);
+      if (!tracks.length) { notice(tr('試聴できる曲が見つかりませんでした', 'No preview found'), { text: tr('曲名を「曲名 アーティスト名」にすると見つかりやすくなります。', 'Try "title artist" as the name.') }); return; }
+      playTrack(key, pickedTrack(e, tracks));
+    } catch { notice(tr('曲をさがせませんでした', "Couldn't look up the song")); }
+    finally { b.classList.remove('busy'); }
+  };
   b.addEventListener('click', go);
   b.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') go(ev); });
   return b;
@@ -287,4 +278,4 @@ async function songPhotos(q) {
   try { return (await searchSongs(q)).filter((t) => t.art).slice(0, 4).map((t) => ({ url: t.art, title: `${t.name} / ${t.artist}`, from: t.from })); } catch { return []; }
 }
 
-export { songBadge, songTap, songPlayer, songPhotos, songPicker, songRow };
+export { songBadge, songPlayer, songPhotos, songPicker, songRow };
